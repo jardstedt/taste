@@ -1,0 +1,64 @@
+{
+  "jobs": [
+    {
+      "name": "project_vibes_check",
+      "description": "Is this crypto project legit, organic, or manufactured? A verified human expert evaluates project authenticity, community behavior, and cultural signals that automated tools miss.",
+      "requiredFunds": false,
+      "slaMinutes": 120,
+      "requirement": "Project name (required), token/contract address, social media links, and any specific question you want the expert to focus on.",
+      "deliverable": "Structured verdict (genuine/suspicious/manufactured/mixed), confidence score 0-1, detailed reasoning, red flags, positive signals, expert domain attribution, and legal disclaimer.",
+      "price": {
+        "type": "fixed",
+        "value": 0.01
+      }
+    },
+    {
+      "name": "narrative_assessment",
+      "description": "Is this market narrative real momentum or manufactured hype? A human expert evaluates cultural backing, trend authenticity, and potential catalysts.",
+      "requiredFunds": false,
+      "slaMinutes": 120,
+      "requirement": "The narrative or trend to assess (required), surrounding context, and any related token names or tickers.",
+      "deliverable": "Structured verdict on narrative strength, confidence score 0-1, detailed reasoning, estimated time horizon, potential catalysts, expert attribution, and legal disclaimer.",
+      "price": {
+        "type": "fixed",
+        "value": 0.01
+      }
+    },
+    {
+      "name": "creative_art_review",
+      "description": "Creative review supporting 1-4 content items. Compare mode: expert picks a winner and ranks items. Feedback mode: expert gives quality scores and actionable improvement suggestions.",
+      "requiredFunds": false,
+      "slaMinutes": 120,
+      "requirement": "One or more content URLs (contentUrl for single, contentUrls array for multiple, max 4). Content type: music, visual, writing, or design (required). Review type: 'compare' or 'feedback' (defaults to feedback). Optional context about the piece(s).",
+      "deliverable": "Compare mode: winner (Content A/B/C/D label), rankings array, comparison notes, and reasoning. Feedback mode: verdict, quality score 0-10, originality, technical merit, reasoning, and optional improvements list. Both include expert attribution and legal disclaimer.",
+      "price": {
+        "type": "fixed",
+        "value": 0.01
+      }
+    },
+    {
+      "name": "community_sentiment",
+      "description": "What is the real vibe of this community? A human expert assesses engagement authenticity, activity patterns, and overall sentiment beyond automated analysis.",
+      "requiredFunds": false,
+      "slaMinutes": 120,
+      "requirement": "Community name or project (required), platforms to evaluate (e.g. Twitter, Discord, Telegram), and timeframe to focus on.",
+      "deliverable": "Overall sentiment assessment, authenticity evaluation, activity level analysis, detailed reasoning, comparisons to similar communities, expert attribution, and legal disclaimer.",
+      "price": {
+        "type": "fixed",
+        "value": 0.01
+      }
+    },
+    {
+      "name": "general_human_judgment",
+      "description": "Any question requiring qualitative human opinion. A verified human expert provides structured opinions with reasoning and confidence scores on any topic.",
+      "requiredFunds": false,
+      "slaMinutes": 120,
+      "requirement": "The question you need answered (required), relevant domain (required), supporting context, and urgency: standard or rush.",
+      "deliverable": "Structured answer to the question, confidence score 0-1, detailed reasoning, caveats and limitations, expert attribution, and legal disclaimer.",
+      "price": {
+        "type": "fixed",
+        "value": 0.01
+      }
+    }
+  ]
+}

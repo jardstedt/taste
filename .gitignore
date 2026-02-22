@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dev-dist/
+*.tsbuildinfo
+
+# Database
+data/
+backups/
+*.db
+*.db-wal
+*.db-shm
+
+# Environment / secrets
+.env
+.env.local
+.env.production
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Test scripts with credentials
+test-buyer.ts
+test-jobs.sh

@@ -1,0 +1,11 @@
+{
+  "deny": [
+    "Read(.env*)",
+    "Read(data/**)",
+    "Read(**/*.db)",
+    "Read(**/*.db-wal)",
+    "Read(**/*.db-shm)",
+    "Edit(.env*)",
+    "Edit(data/**)"
+  ]
+}
