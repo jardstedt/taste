@@ -286,6 +286,8 @@ export function acceptSession(sessionId: string, expertId: string): Session | nu
   const session = getSessionById(sessionId);
   if (!session) return null;
   if (session.status !== 'pending' && session.status !== 'matching') return null;
+  // If session is already assigned to a specific expert, only that expert can accept
+  if (session.expertId && session.expertId !== expertId) return null;
 
   const db = getDb();
   const tier = getSessionTier(session.tierId);

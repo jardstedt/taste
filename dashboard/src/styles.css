@@ -1432,30 +1432,7 @@ select.input {
   color: var(--color-grey-3);
 }
 
-/* ── v1.1 Responsive ── */
-@media (max-width: 768px) {
-  .chat-container {
-    height: calc(100vh - 100px);
-    border-radius: 0;
-  }
-
-  .chat-bubble {
-    max-width: 90%;
-  }
-
-  .chat-header {
-    flex-wrap: wrap;
-    gap: var(--space-sm);
-  }
-
-  .chat-header-meta {
-    flex-wrap: wrap;
-  }
-
-  .session-request-details {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
+/* ── v1.1 Responsive (merged into main mobile block below) ── */
 
 /* ══════════════════════════════════════════════════════════
    Dashboard-scoped theme overrides (purple design)
@@ -1512,7 +1489,7 @@ select.input {
 /* ── Dashboard stat cards ── */
 
 .dashboard .stats-grid {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 16px;
 }
 
@@ -1522,6 +1499,7 @@ select.input {
   padding: 20px;
   text-align: left;
   box-shadow: none;
+  overflow: hidden;
 }
 
 .dashboard .stat-value {
@@ -1702,25 +1680,7 @@ select.input {
   font-weight: 500;
 }
 
-/* ── Dashboard responsive ── */
-@media (max-width: 768px) {
-  .dashboard .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .grid-2col {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard .header {
-    padding: 12px 16px;
-  }
-
-  .dashboard .header-nav {
-    padding: 0 16px;
-    overflow-x: auto;
-  }
-}
+/* ── Dashboard responsive (merged into main mobile block below) ── */
 
 /* ── Notification Prompt Banner ── */
 
@@ -1767,10 +1727,26 @@ select.input {
   display: none;
 }
 
-/* ── Mobile Phone Breakpoint ── */
+/* ── Mobile Breakpoint (phones + small tablets) ── */
 
-@media (max-width: 480px) {
-  /* Bottom nav */
+@media (max-width: 768px) {
+  /* ── Global overflow prevention ── */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  .dashboard {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .page {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* ── Bottom nav ── */
   .bottom-nav {
     display: flex;
     position: fixed;
@@ -1809,44 +1785,66 @@ select.input {
     height: 22px;
   }
 
-  /* Hide desktop top tabs on mobile */
+  /* ── Hide desktop top tabs on mobile ── */
   .dashboard .header-nav {
-    display: none;
+    display: none !important;
   }
 
-  /* Compact header on mobile */
+  /* ── Compact header ── */
   .dashboard .header {
     padding: 10px 16px;
   }
 
-  /* Hide subtitle on mobile */
   .header-subtitle {
     display: none;
   }
 
-  /* Page padding + bottom nav clearance */
+  /* ── Page layout ── */
   .dashboard .page {
     padding: 16px;
     padding-bottom: 72px;
   }
 
-  /* Stats grid: 2 columns on mobile */
+  /* ── Stats grid: 2 columns ── */
   .dashboard .stats-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
 
-  /* Grid 2-col becomes single column */
+  .dashboard .stat-card {
+    padding: var(--space-md);
+    overflow: hidden;
+  }
+
+  .dashboard .stat-value {
+    font-size: 22px;
+    word-break: break-word;
+  }
+
+  .stat-sub {
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Grid 2-col becomes single column ── */
   .grid-2col {
     grid-template-columns: 1fr;
   }
 
-  /* Profile edit grid becomes single column */
+  /* ── Profile edit grid ── */
   .profile-edit-grid {
     grid-template-columns: 1fr !important;
   }
 
-  /* Chat: fullscreen overlay on mobile */
+  /* ── Cards ── */
+  .dashboard .card {
+    padding: var(--space-lg);
+    overflow: hidden;
+  }
+
+  /* ── Chat: fullscreen overlay ── */
   .chat-container {
     position: fixed;
     top: 0;
@@ -1858,7 +1856,20 @@ select.input {
     z-index: 1015;
   }
 
-  /* Touch-friendly button targets */
+  .chat-bubble {
+    max-width: 90%;
+  }
+
+  .chat-header {
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .session-request-details {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* ── Touch-friendly buttons ── */
   .btn {
     min-height: 44px;
   }
@@ -1867,13 +1878,13 @@ select.input {
     min-height: 36px;
   }
 
-  /* Login card on mobile */
+  /* ── Login card ── */
   .login-card {
     width: calc(100vw - 32px);
     padding: 24px;
   }
 
-  /* Notification prompt stacks on mobile */
+  /* ── Notification prompt ── */
   .notification-prompt {
     flex-wrap: wrap;
     padding: var(--space-md) 16px;
@@ -1884,46 +1895,57 @@ select.input {
     justify-content: flex-end;
   }
 
-  /* Session card compact */
+  /* ── Session card ── */
   .session-card {
     padding: 10px 14px;
+    overflow: hidden;
   }
 
-  /* Card compact */
-  .dashboard .card {
-    padding: var(--space-lg);
-  }
-
-  .dashboard .stat-card {
-    padding: var(--space-md);
-  }
-
-  /* Footer hidden on mobile (replaced by bottom nav) */
+  /* ── Footer hidden (replaced by bottom nav) ── */
   .dashboard .footer {
     display: none;
   }
-}
 
-/* ── Tablet Breakpoint ── */
-
-@media (max-width: 768px) and (min-width: 481px) {
-  .dashboard .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+  /* ── Tables: allow horizontal scroll inside table only ── */
+  .table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .btn {
-    min-height: 44px;
+  .table th,
+  .table td {
+    padding: 10px 12px;
+    font-size: 12px;
   }
 
-  .btn-sm {
-    min-height: 36px;
+  /* ── Wallet address ── */
+  .wallet-address-display {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: calc(100vw - 80px);
   }
 
-  .dashboard .page {
-    padding: 20px;
+  /* ── Reputation circles ── */
+  .reputation-scroll {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
   }
 
-  .profile-edit-grid {
-    grid-template-columns: 1fr !important;
+  .reputation-scroll > * {
+    flex-shrink: 0;
+  }
+
+  /* ── Earnings ── */
+  .earnings-withdrawal {
+    padding: 16px;
+  }
+
+  .earnings-balance {
+    font-size: 32px;
   }
 }

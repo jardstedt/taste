@@ -58,8 +58,8 @@ function expertToPublic(expert: Expert, reputationScores: Record<string, number>
     agreementAcceptedAt: expert.agreementAcceptedAt,
     completedJobs: expert.completedJobs,
     avgResponseTimeMins: expert.avgResponseTimeMins,
-    earningsUsdc: expert.earningsUsdc,
-    walletAddress: expert.walletAddress,
+    earningsUsdc: 0,
+    walletAddress: null,
     walletChain: expert.walletChain,
     reputationScores,
   };

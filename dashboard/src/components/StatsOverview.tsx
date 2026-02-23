@@ -100,11 +100,12 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
           <div className="card" style={{ padding: 20 }}>
             <div style={{ color: '#6B21A8', fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Reputation by Domain</div>
             {reputationEntries.length > 0 ? (
-              <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+              <div className="reputation-scroll" style={{ display: 'flex', justifyContent: 'space-around', gap: 8 }}>
                 {reputationEntries.map(([domain, score], i) => (
                   <CircularScore
                     key={domain}
                     score={score}
+                    size={64}
                     color={reputationColors[i % reputationColors.length]}
                     label={domain.charAt(0).toUpperCase() + domain.slice(1)}
                   />

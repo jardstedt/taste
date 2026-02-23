@@ -58,7 +58,7 @@ export const setWalletSchema = z.object({
 });
 
 export const requestWithdrawalSchema = z.object({
-  amountUsdc: z.number().min(1, 'Minimum withdrawal is $1'),
+  amountUsdc: z.number().min(1, 'Minimum withdrawal is $1').max(1000, 'Maximum withdrawal is $1,000 per request'),
 });
 
 export const completeWithdrawalSchema = z.object({

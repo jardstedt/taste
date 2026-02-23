@@ -40,6 +40,14 @@ export function initDb(): Database.Database {
   return _db;
 }
 
+const KNOWN_TABLES = ['experts', 'withdrawals', 'sessions', 'messages', 'addons', 'jobs', 'judgments', 'reputation_events', 'audit_log'];
+
+function hasColumn(db: Database.Database, table: string, column: string): boolean {
+  if (!KNOWN_TABLES.includes(table)) throw new Error(`Unknown table: ${table}`);
+  const cols = db.pragma(`table_info(${table})`) as Array<{ name: string }>;
+  return cols.some(c => c.name === column);
+}
+
 function runMigrations(db: Database.Database): void {
   const v11 = resolve(__dirname, 'migration-v1.1.sql');
   if (existsSync(v11)) {
@@ -53,6 +61,13 @@ function runMigrations(db: Database.Database): void {
     console.log('[DB] v1.2 migration applied');
   }
 
+  // v1.3: wallet + withdrawals (ALTER TABLE needs column existence check)
+  if (!hasColumn(db, 'experts', 'wallet_address')) {
+    db.exec('ALTER TABLE experts ADD COLUMN wallet_address TEXT');
+  }
+  if (!hasColumn(db, 'experts', 'wallet_chain')) {
+    db.exec("ALTER TABLE experts ADD COLUMN wallet_chain TEXT DEFAULT 'base'");
+  }
   const v13 = resolve(__dirname, 'migration-v1.3.sql');
   if (existsSync(v13)) {
     db.exec(readFileSync(v13, 'utf-8'));

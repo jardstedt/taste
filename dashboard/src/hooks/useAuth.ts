@@ -30,10 +30,14 @@ export function useAuth() {
     (async () => {
       const authed = await checkAuth();
       if (!authed && DEV_AUTO_LOGIN) {
-        // Auto-login with dev credentials
-        const res = await api.login('admin@taste.local', 'devpassword123');
-        if (res.success) {
-          await checkAuth();
+        // Auto-login with dev credentials from env vars (not bundled in production)
+        const devEmail = import.meta.env.VITE_DEV_EMAIL;
+        const devPassword = import.meta.env.VITE_DEV_PASSWORD;
+        if (devEmail && devPassword) {
+          const res = await api.login(devEmail, devPassword);
+          if (res.success) {
+            await checkAuth();
+          }
         }
       }
     })();

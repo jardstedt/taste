@@ -129,7 +129,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
       ) : (
         <div className="card mb-xl" style={{ padding: 20 }}>
           <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Wallet</div>
-          <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#1A1A2E', wordBreak: 'break-all' }}>
+          <div className="wallet-address-display" style={{ fontFamily: 'monospace', fontSize: 13, color: '#1A1A2E', wordBreak: 'break-all' }}>
             {user.walletAddress}
           </div>
           <div style={{ color: '#9CA3AF', fontSize: 11, marginTop: 4 }}>

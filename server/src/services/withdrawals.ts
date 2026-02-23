@@ -42,18 +42,22 @@ export function requestWithdrawal(expertId: string, amountUsdc: number): Withdra
   if (!expert) return { error: 'Expert not found' };
   if (!expert.walletAddress) return { error: 'No wallet address set. Please set your wallet address first.' };
   if (expert.earningsUsdc < amountUsdc) return { error: `Insufficient balance. Available: $${expert.earningsUsdc.toFixed(2)}` };
+  if (amountUsdc > 1000) return { error: 'Maximum withdrawal is $1,000 per request' };
 
   const id = generateId();
 
-  // Deduct from earnings (escrow model)
-  db.prepare(
-    `UPDATE experts SET earnings_usdc = earnings_usdc - ?, updated_at = datetime('now') WHERE id = ?`,
-  ).run(amountUsdc, expertId);
+  // Atomic: deduct earnings + create withdrawal in one transaction
+  const run = db.transaction(() => {
+    db.prepare(
+      `UPDATE experts SET earnings_usdc = earnings_usdc - ?, updated_at = datetime('now') WHERE id = ?`,
+    ).run(amountUsdc, expertId);
 
-  db.prepare(
-    `INSERT INTO withdrawals (id, expert_id, amount_usdc, status, wallet_address, wallet_chain)
-     VALUES (?, ?, ?, 'pending', ?, ?)`,
-  ).run(id, expertId, amountUsdc, expert.walletAddress, expert.walletChain);
+    db.prepare(
+      `INSERT INTO withdrawals (id, expert_id, amount_usdc, status, wallet_address, wallet_chain)
+       VALUES (?, ?, ?, 'pending', ?, ?)`,
+    ).run(id, expertId, amountUsdc, expert.walletAddress, expert.walletChain);
+  });
+  run();
 
   auditLog('withdrawal', id, 'requested', { expertId, amountUsdc, walletAddress: expert.walletAddress });
 
@@ -79,8 +83,8 @@ export function completeWithdrawal(id: string, txHash: string, adminId: string):
   const db = getDb();
   const withdrawal = getWithdrawalById(id);
   if (!withdrawal) return { error: 'Withdrawal not found' };
-  if (withdrawal.status !== 'approved' && withdrawal.status !== 'pending') {
-    return { error: `Cannot complete withdrawal with status: ${withdrawal.status}` };
+  if (withdrawal.status !== 'approved') {
+    return { error: `Cannot complete withdrawal with status: ${withdrawal.status}. Must be approved first.` };
   }
 
   db.prepare(
@@ -100,14 +104,17 @@ export function rejectWithdrawal(id: string, adminId: string, reason: string): W
     return { error: `Cannot reject withdrawal with status: ${withdrawal.status}` };
   }
 
-  // Refund earnings
-  db.prepare(
-    `UPDATE experts SET earnings_usdc = earnings_usdc + ?, updated_at = datetime('now') WHERE id = ?`,
-  ).run(withdrawal.amountUsdc, withdrawal.expertId);
+  // Atomic: refund earnings + update withdrawal status
+  const run = db.transaction(() => {
+    db.prepare(
+      `UPDATE experts SET earnings_usdc = earnings_usdc + ?, updated_at = datetime('now') WHERE id = ?`,
+    ).run(withdrawal.amountUsdc, withdrawal.expertId);
 
-  db.prepare(
-    `UPDATE withdrawals SET status = 'rejected', admin_notes = ?, processed_at = datetime('now') WHERE id = ?`,
-  ).run(reason, id);
+    db.prepare(
+      `UPDATE withdrawals SET status = 'rejected', admin_notes = ?, processed_at = datetime('now') WHERE id = ?`,
+    ).run(reason, id);
+  });
+  run();
 
   auditLog('withdrawal', id, 'rejected', { adminId, reason, refundedAmount: withdrawal.amountUsdc });
 

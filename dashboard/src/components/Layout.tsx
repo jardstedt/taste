@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { AuthUser } from '../types/index.js';
 import { AvailabilityToggle } from './AvailabilityToggle.js';
 import { NotificationPrompt } from './NotificationPrompt.js';
@@ -49,6 +49,12 @@ function BottomNavIcon({ label }: { label: string }) {
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
         </svg>
       );
+    case 'Admin':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -56,6 +62,7 @@ function BottomNavIcon({ label }: { label: string }) {
 
 export function Layout({ children, user, onLogout, onRefresh }: LayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { shouldPrompt, subscribe } = useNotifications();
 
   const navItems = [
@@ -69,9 +76,10 @@ export function Layout({ children, user, onLogout, onRefresh }: LayoutProps) {
   const bottomNavItems = [
     { path: '/dashboard', label: 'Overview' },
     { path: '/dashboard/active', label: 'Active' },
-    { path: '/dashboard/history', label: 'History' },
     { path: '/dashboard/earnings', label: 'Earnings' },
-    { path: '/dashboard/profile', label: 'Profile' },
+    ...(user.role === 'admin'
+      ? [{ path: '/dashboard/admin', label: 'Admin' }]
+      : [{ path: '/dashboard/history', label: 'History' }]),
   ];
 
   return (
@@ -85,7 +93,13 @@ export function Layout({ children, user, onLogout, onRefresh }: LayoutProps) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {onRefresh && <AvailabilityToggle user={user} onUpdate={onRefresh} />}
-          <div className="header-avatar">{getInitials(user.name)}</div>
+          <button
+            className="header-avatar"
+            onClick={() => navigate('/dashboard/profile')}
+            style={{ cursor: 'pointer', border: 'none' }}
+            title="Profile"
+            aria-label="Go to profile"
+          >{getInitials(user.name)}</button>
           <button onClick={onLogout} className="btn btn-ghost btn-sm">
             Logout
           </button>
@@ -93,7 +107,7 @@ export function Layout({ children, user, onLogout, onRefresh }: LayoutProps) {
       </header>
 
       {/* Row 2: Tab navigation (desktop only, hidden on mobile via CSS) */}
-      <nav className="header-nav" style={{ display: 'flex' }}>
+      <nav className="header-nav">
         {navItems.map(item => (
           <Link
             key={item.path}

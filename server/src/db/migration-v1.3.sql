@@ -1,8 +1,5 @@
 -- v1.3: Expert wallets and withdrawal system
-
--- Add wallet fields to experts
-ALTER TABLE experts ADD COLUMN wallet_address TEXT;
-ALTER TABLE experts ADD COLUMN wallet_chain TEXT DEFAULT 'base';
+-- Note: ALTER TABLE for wallet_address/wallet_chain is handled in database.ts
 
 -- Withdrawal requests
 CREATE TABLE IF NOT EXISTS withdrawals (
