@@ -101,10 +101,22 @@ ufw default allow outgoing
 ufw allow 22/tcp   # SSH
 ufw allow 80/tcp   # HTTP (redirect + certbot)
 ufw allow 443/tcp  # HTTPS
-# NOTE: If other services run on this VPS, allow their ports before enabling UFW
-# e.g. ufw allow 9002/tcp
+
+# Check for other services that need ports open
+warn "UFW is about to be enabled. Only ports 22, 80, 443 are allowed."
+warn "Check 'ss -tlnp' in another terminal if other services need ports open."
+read -rp "Additional ports to allow (comma-separated, e.g. 9002,8080) or Enter to skip: " EXTRA_PORTS
+if [ -n "$EXTRA_PORTS" ]; then
+    IFS=',' read -ra PORTS <<< "$EXTRA_PORTS"
+    for PORT in "${PORTS[@]}"; do
+        PORT=$(echo "$PORT" | tr -d ' ')
+        ufw allow "$PORT/tcp"
+        info "Allowed port $PORT/tcp"
+    done
+fi
+
 echo "y" | ufw enable
-info "Firewall active: SSH, HTTP, HTTPS only"
+info "Firewall enabled"
 
 # ============================================================
 # 5. Clone repo & install
