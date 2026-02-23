@@ -2,9 +2,12 @@ import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-// Load .env from project root (parent of server/)
+// Load env file from project root (parent of server/)
+// In production, prefer .env.production; fall back to .env
 const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: resolve(__dirname, '../../.env') });
+const projectRoot = resolve(__dirname, '../..');
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
+dotenv.config({ path: resolve(projectRoot, envFile) });
 
 import express from 'express';
 import { createServer } from 'http';
@@ -42,6 +45,11 @@ async function main() {
 
   // Create Express app
   const app = express();
+
+  // Trust first proxy (Nginx) so Express sees real client IPs for rate limiting
+  if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
 
   // Request logging (before other middleware)
   app.use(createRequestLogger());
