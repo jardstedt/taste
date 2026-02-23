@@ -35,3 +35,6 @@ npm-debug.log*
 # Test scripts with credentials
 test-buyer.ts
 test-jobs.sh
+
+# Internal notes
+feedback/
