@@ -101,6 +101,8 @@ ufw default allow outgoing
 ufw allow 22/tcp   # SSH
 ufw allow 80/tcp   # HTTP (redirect + certbot)
 ufw allow 443/tcp  # HTTPS
+# NOTE: If other services run on this VPS, allow their ports before enabling UFW
+# e.g. ufw allow 9002/tcp
 echo "y" | ufw enable
 info "Firewall active: SSH, HTTP, HTTPS only"
 
