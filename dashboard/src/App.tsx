@@ -145,9 +145,9 @@ function JobDetail({ onSubmitted }: { onSubmitted: () => void }) {
 }
 
 function AdminPanel() {
-  const [experts, setExperts] = useState<Array<{ id: string; name: string; role: string; domains: string[]; availability: string; completedJobs: number; reputationScores: Record<string, number> }>>([]);
+  const [experts, setExperts] = useState<Array<{ id: string; name: string; role: string; domains: string[]; availability: string; completedJobs: number; deactivatedAt: string | null; reputationScores: Record<string, number> }>>([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', domains: '' });
+  const [form, setForm] = useState({ name: '', email: '', domains: '', password: '' });
   const [creating, setCreating] = useState(false);
 
   // Withdrawals
@@ -180,12 +180,12 @@ function AdminPanel() {
     e.preventDefault();
     setCreating(true);
     const domains = form.domains.split(',').map(d => d.trim()).filter(Boolean);
-    await api.createExpert({ name: form.name, email: form.email, domains });
+    await api.createExpert({ name: form.name, email: form.email, domains, password: form.password });
     const res = await api.getExperts();
     if (res.success && res.data) {
       setExperts(res.data as typeof experts);
     }
-    setForm({ name: '', email: '', domains: '' });
+    setForm({ name: '', email: '', domains: '', password: '' });
     setShowCreate(false);
     setCreating(false);
   };
@@ -327,6 +327,10 @@ function AdminPanel() {
             <label className="form-label">Domains (comma-separated)</label>
             <input type="text" value={form.domains} onChange={e => setForm(prev => ({ ...prev, domains: e.target.value }))} placeholder="crypto, music, art" required className="input input-full" />
           </div>
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <input type="password" value={form.password} onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))} required minLength={8} className="input input-full" placeholder="Min 8 characters" />
+          </div>
           <button type="submit" disabled={creating} className="btn btn-primary">
             {creating ? 'Creating...' : 'Create Expert'}
           </button>
@@ -341,11 +345,12 @@ function AdminPanel() {
             <th>Domains</th>
             <th>Status</th>
             <th>Jobs</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {experts.map(expert => (
-            <tr key={expert.id}>
+            <tr key={expert.id} style={expert.deactivatedAt ? { opacity: 0.5 } : undefined}>
               <td className="text-bold">{expert.name}</td>
               <td style={{ textTransform: 'capitalize' }}>{expert.role}</td>
               <td>
@@ -356,12 +361,32 @@ function AdminPanel() {
                 </div>
               </td>
               <td>
-                <div className="flex items-center gap-sm">
-                  <span className={`status-dot status-dot-${expert.availability}`} />
-                  <span style={{ textTransform: 'capitalize' }}>{expert.availability}</span>
-                </div>
+                {expert.deactivatedAt ? (
+                  <span className="text-sm" style={{ color: 'var(--color-error, #DC2626)' }}>Deactivated</span>
+                ) : (
+                  <div className="flex items-center gap-sm">
+                    <span className={`status-dot status-dot-${expert.availability}`} />
+                    <span style={{ textTransform: 'capitalize' }}>{expert.availability}</span>
+                  </div>
+                )}
               </td>
               <td>{expert.completedJobs}</td>
+              <td>
+                {expert.role !== 'admin' && !expert.deactivatedAt && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Deactivate ${expert.name}? They will no longer be able to log in.`)) return;
+                      await api.deleteExpert(expert.id);
+                      const res = await api.getExperts();
+                      if (res.success && res.data) setExperts(res.data as typeof experts);
+                    }}
+                    className="btn btn-ghost btn-sm"
+                    style={{ color: 'var(--color-error, #DC2626)', fontSize: 12, padding: '3px 10px' }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

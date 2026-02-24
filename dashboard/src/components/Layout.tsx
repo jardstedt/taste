@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { AuthUser } from '../types/index.js';
 import { AvailabilityToggle } from './AvailabilityToggle.js';
@@ -64,6 +64,18 @@ export function Layout({ children, user, onLogout, onRefresh }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { shouldPrompt, subscribe } = useNotifications();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
 
   const navItems = [
     { path: '/dashboard', label: 'Overview' },
@@ -93,16 +105,31 @@ export function Layout({ children, user, onLogout, onRefresh }: LayoutProps) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {onRefresh && <AvailabilityToggle user={user} onUpdate={onRefresh} />}
-          <button
-            className="header-avatar"
-            onClick={() => navigate('/dashboard/profile')}
-            style={{ cursor: 'pointer', border: 'none' }}
-            title="Profile"
-            aria-label="Go to profile"
-          >{getInitials(user.name)}</button>
-          <button onClick={onLogout} className="btn btn-ghost btn-sm">
-            Logout
-          </button>
+          <div ref={menuRef} style={{ position: 'relative' }}>
+            <button
+              className="header-avatar"
+              onClick={() => setMenuOpen(v => !v)}
+              style={{ cursor: 'pointer', border: 'none' }}
+              title="Profile menu"
+              aria-label="Open profile menu"
+            >{getInitials(user.name)}</button>
+            {menuOpen && (
+              <div className="header-menu">
+                <button
+                  className="header-menu-item"
+                  onClick={() => { setMenuOpen(false); navigate('/dashboard/profile'); }}
+                >
+                  Profile
+                </button>
+                <button
+                  className="header-menu-item header-menu-item-danger"
+                  onClick={() => { setMenuOpen(false); onLogout(); }}
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 

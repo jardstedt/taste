@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'fs';
 import { mkdirSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes, createHmac } from 'crypto';
 import { getEnv } from '../config/env.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -73,6 +73,20 @@ function runMigrations(db: Database.Database): void {
     db.exec(readFileSync(v13, 'utf-8'));
     console.log('[DB] v1.3 migration applied');
   }
+
+  // v1.4: soft-delete for experts
+  if (!hasColumn(db, 'experts', 'deactivated_at')) {
+    db.exec('ALTER TABLE experts ADD COLUMN deactivated_at TEXT');
+  }
+
+  // v1.5: security hardening
+  if (!hasColumn(db, 'sessions', 'payout_confirmed_at')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN payout_confirmed_at TEXT');
+  }
+  if (!hasColumn(db, 'experts', 'email_hash')) {
+    db.exec('ALTER TABLE experts ADD COLUMN email_hash TEXT');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_experts_email_hash ON experts(email_hash)');
+  }
 }
 
 export function closeDb(): void {
@@ -91,11 +105,12 @@ export function encryptEmail(email: string): string {
   if (!key) return email; // No encryption without key (dev mode)
 
   const keyBuf = Buffer.from(key, 'hex');
-  const iv = randomBytes(16);
-  const cipher = createCipheriv('aes-256-cbc', keyBuf, iv);
+  const iv = randomBytes(12); // 12-byte IV for GCM
+  const cipher = createCipheriv('aes-256-gcm', keyBuf, iv);
   let encrypted = cipher.update(email, 'utf8', 'hex');
   encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
+  const tag = cipher.getAuthTag().toString('hex');
+  return `gcm:${iv.toString('hex')}:${encrypted}:${tag}`;
 }
 
 export function decryptEmail(encrypted: string): string {
@@ -104,14 +119,36 @@ export function decryptEmail(encrypted: string): string {
   if (!key) return encrypted; // No encryption without key (dev mode)
 
   const keyBuf = Buffer.from(key, 'hex');
-  const [ivHex, encHex] = encrypted.split(':');
-  if (!ivHex || !encHex) return encrypted;
+  const parts = encrypted.split(':');
 
-  const iv = Buffer.from(ivHex, 'hex');
-  const decipher = createDecipheriv('aes-256-cbc', keyBuf, iv);
-  let decrypted = decipher.update(encHex, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
+  // AES-256-GCM format: gcm:iv:encrypted:tag
+  if (parts[0] === 'gcm' && parts.length === 4) {
+    const iv = Buffer.from(parts[1], 'hex');
+    const decipher = createDecipheriv('aes-256-gcm', keyBuf, iv);
+    decipher.setAuthTag(Buffer.from(parts[3], 'hex'));
+    let decrypted = decipher.update(parts[2], 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  }
+
+  // Legacy AES-256-CBC format: iv:encrypted
+  if (parts.length === 2) {
+    const iv = Buffer.from(parts[0], 'hex');
+    const decipher = createDecipheriv('aes-256-cbc', keyBuf, iv);
+    let decrypted = decipher.update(parts[1], 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  }
+
+  return encrypted;
+}
+
+/** Deterministic email hash for indexed lookup (HMAC-SHA256) */
+export function hashEmail(email: string): string {
+  const env = getEnv();
+  const key = env.EMAIL_ENCRYPTION_KEY;
+  if (!key) return email.toLowerCase(); // Dev mode: hash is the plaintext email
+  return createHmac('sha256', Buffer.from(key, 'hex')).update(email.toLowerCase()).digest('hex');
 }
 
 // ── Audit Logging ──

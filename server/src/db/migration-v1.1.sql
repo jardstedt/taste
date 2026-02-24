@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   job_id TEXT REFERENCES jobs(id),  -- Optional link to v1.0 job
   acp_job_id TEXT,
-  tier_id TEXT NOT NULL DEFAULT 'quick' CHECK (tier_id IN ('quick', 'full', 'deep')),
+  tier_id TEXT NOT NULL DEFAULT 'quick' CHECK (tier_id IN ('test', 'quick', 'full', 'deep')),
   offering_type TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'matching', 'accepted', 'active', 'wrapping_up', 'completed', 'cancelled', 'timeout')),
   expert_id TEXT REFERENCES experts(id),

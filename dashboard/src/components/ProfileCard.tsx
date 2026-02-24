@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { AuthUser, ExpertCredentials } from '../types/index.js';
 import * as api from '../api/client.js';
 
@@ -8,7 +8,6 @@ interface ProfileCardProps {
 }
 
 export function ProfileCard({ user, onRefresh }: ProfileCardProps) {
-  const [reputation, setReputation] = useState<{ scores: Record<string, number>; history: Array<{ id: string; domain: string; eventType: string; scoreChange: number; createdAt: string }> } | null>(null);
   const [availability, setAvailability] = useState(user.availability);
   const [updating, setUpdating] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -25,13 +24,6 @@ export function ProfileCard({ user, onRefresh }: ProfileCardProps) {
     location: user.credentials?.location ?? '',
   });
 
-  useEffect(() => {
-    api.getMyReputation().then(res => {
-      if (res.success && res.data) {
-        setReputation(res.data as typeof reputation);
-      }
-    });
-  }, []);
 
   const toggleAvailability = async () => {
     const next = availability === 'online' ? 'offline' : 'online';
@@ -93,33 +85,32 @@ export function ProfileCard({ user, onRefresh }: ProfileCardProps) {
         {/* View mode */}
         {!editing && (
           <>
-            <div className="profile-hero">
-              <div className="profile-hero-main">
-                <div className="expert-avatar expert-avatar-lg">
-                  {user.credentials?.profileImageUrl ? (
-                    <img src={user.credentials.profileImageUrl} alt={user.name} className="expert-avatar-img" />
-                  ) : (
-                    <div className="expert-avatar-placeholder expert-avatar-placeholder-lg">
-                      {avatarInitial}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h3 style={{ margin: '0 0 4px' }}>{user.name}</h3>
-                  {user.credentials?.tagline && (
-                    <p className="text-sm text-grey" style={{ margin: '0 0 8px' }}>{user.credentials.tagline}</p>
-                  )}
-                  <div className="flex gap-sm" style={{ flexWrap: 'wrap' }}>
-                    {user.domains.map(d => (
-                      <span key={d} className="chip">{d}</span>
-                    ))}
+            {/* Centered: avatar, name, tagline, tags, location */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+              <div className="expert-avatar expert-avatar-lg">
+                {user.credentials?.profileImageUrl ? (
+                  <img src={user.credentials.profileImageUrl} alt={user.name} className="expert-avatar-img" />
+                ) : (
+                  <div className="expert-avatar-placeholder expert-avatar-placeholder-lg">
+                    {avatarInitial}
                   </div>
-                  {user.credentials?.location && (
-                    <p className="text-xs text-grey mt-sm">{user.credentials.location}</p>
-                  )}
-                </div>
+                )}
               </div>
-              <div className="flex items-center gap-sm">
+              <h3 style={{ margin: '12px 0 4px' }}>{user.name}</h3>
+              {user.credentials?.tagline && (
+                <p className="text-sm text-grey" style={{ margin: '0 0 8px' }}>{user.credentials.tagline}</p>
+              )}
+              <div className="flex gap-sm" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>
+                {user.domains.map(d => (
+                  <span key={d} className="chip">{d}</span>
+                ))}
+              </div>
+              {user.credentials?.location && (
+                <p className="text-xs text-grey mt-sm" style={{ margin: '6px 0 0' }}>{user.credentials.location}</p>
+              )}
+
+              {/* Centered: availability toggle */}
+              <div className="flex items-center gap-sm" style={{ marginTop: 16 }}>
                 <span className={`status-dot status-dot-${availability}`} />
                 <span className="text-sm" style={{ textTransform: 'capitalize' }}>{availability}</span>
                 <button
@@ -132,27 +123,34 @@ export function ProfileCard({ user, onRefresh }: ProfileCardProps) {
               </div>
             </div>
 
-            {/* Social links */}
-            <div className="profile-social mt-md">
-              {user.credentials?.twitterHandle && (
+            {/* Left-aligned: social links, bio, visibility */}
+            {user.credentials?.twitterHandle && (
+              <div style={{ marginTop: 24 }}>
+                <div className="form-label">X / Twitter</div>
                 <a href={`https://x.com/${user.credentials.twitterHandle}`} target="_blank" rel="noopener noreferrer" className="profile-social-link">
                   @{user.credentials.twitterHandle}
                 </a>
-              )}
-              {user.credentials?.linkedinUrl && (
+              </div>
+            )}
+            {user.credentials?.linkedinUrl && (
+              <div style={{ marginTop: user.credentials?.twitterHandle ? 12 : 24 }}>
+                <div className="form-label">LinkedIn</div>
                 <a href={user.credentials.linkedinUrl} target="_blank" rel="noopener noreferrer" className="profile-social-link">
-                  LinkedIn
+                  {user.credentials.linkedinUrl}
                 </a>
-              )}
-              {user.credentials?.portfolioUrl && (
+              </div>
+            )}
+            {user.credentials?.portfolioUrl && (
+              <div style={{ marginTop: 12 }}>
+                <div className="form-label">Portfolio</div>
                 <a href={user.credentials.portfolioUrl} target="_blank" rel="noopener noreferrer" className="profile-social-link">
-                  Portfolio
+                  {user.credentials.portfolioUrl}
                 </a>
-              )}
-            </div>
+              </div>
+            )}
 
             {user.credentials?.bio && (
-              <div className="mt-lg">
+              <div style={{ marginTop: 20 }}>
                 <div className="form-label">Bio</div>
                 <p className="text-sm" style={{ color: 'var(--color-grey-2)', lineHeight: 1.7, whiteSpace: 'pre-wrap', margin: '4px 0 0' }}>
                   {user.credentials.bio}
@@ -276,75 +274,6 @@ export function ProfileCard({ user, onRefresh }: ProfileCardProps) {
         )}
       </div>
 
-      {/* Earnings */}
-      <div className="card">
-        <h3 className="mb-lg">Earnings & Stats</h3>
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-value stat-value-success">
-              ${user.earningsUsdc.toFixed(2)}
-            </div>
-            <div className="stat-label">Total Earnings (USDC)</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value stat-value-primary">
-              {user.completedJobs}
-            </div>
-            <div className="stat-label">Jobs Completed</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value stat-value-accent">
-              {user.agreementAcceptedAt ? 'Active' : 'Pending'}
-            </div>
-            <div className="stat-label">Agreement Status</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Reputation Scores */}
-      {reputation && (
-        <div className="card">
-          <h3 className="mb-lg">Reputation Scores</h3>
-          {Object.keys(reputation.scores).length === 0 ? (
-            <p className="text-sm text-grey">No reputation scores yet.</p>
-          ) : (
-            <div className="reputation-grid">
-              {Object.entries(reputation.scores).map(([domain, score]) => (
-                <div
-                  key={domain}
-                  className={`reputation-card ${score >= 70 ? 'reputation-card-high' : score >= 40 ? 'reputation-card-mid' : 'reputation-card-low'}`}
-                >
-                  <div className="reputation-score">{score}</div>
-                  <div className="reputation-domain">{domain}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {reputation.history.length > 0 && (
-            <>
-              <h4 className="mt-xl mb-sm">Recent Events</h4>
-              {reputation.history.slice(0, 10).map(event => (
-                <div
-                  key={event.id}
-                  className="flex justify-between items-center text-sm"
-                  style={{ padding: '6px 0', borderBottom: '1px solid var(--color-grey-6)' }}
-                >
-                  <span style={{ textTransform: 'capitalize' }}>
-                    {event.eventType.replace('_', ' ')} ({event.domain})
-                  </span>
-                  <span
-                    className="text-bold"
-                    style={{ color: event.scoreChange > 0 ? 'var(--color-success)' : 'var(--color-error)' }}
-                  >
-                    {event.scoreChange > 0 ? '+' : ''}{event.scoreChange}
-                  </span>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }

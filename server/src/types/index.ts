@@ -2,13 +2,9 @@
 
 export type Domain = 'crypto' | 'music' | 'art' | 'design' | 'narrative' | 'community' | 'general';
 
-export type OfferingType = 'vibes_check' | 'narrative' | 'creative_review' | 'community_sentiment' | 'general';
-
 export type ExpertRole = 'admin' | 'expert';
 
 export type Availability = 'online' | 'offline' | 'busy';
-
-export type JobStatus = 'pending' | 'assigned' | 'in_progress' | 'delivered' | 'rejected' | 'timeout';
 
 // ── Expert ──
 
@@ -40,6 +36,7 @@ export interface Expert {
   earningsUsdc: number;
   walletAddress: string | null;
   walletChain: WalletChain;
+  deactivatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -58,40 +55,8 @@ export interface ExpertPublic {
   earningsUsdc: number;
   walletAddress: string | null;
   walletChain: WalletChain;
+  deactivatedAt: string | null;
   reputationScores: Record<string, number>;
-}
-
-// ── Job ──
-
-export interface Job {
-  id: string;
-  acpJobId: string | null;
-  offeringType: OfferingType;
-  status: JobStatus;
-  expertId: string | null;
-  requirements: Record<string, unknown>;
-  buyerAgent: string | null;
-  priceUsdc: number;
-  slaMinutes: number;
-  assignedAt: string | null;
-  deadlineAt: string | null;
-  deliveredAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// ── Judgment ──
-
-export interface Judgment {
-  id: string;
-  jobId: string;
-  expertId: string;
-  offeringType: OfferingType;
-  content: Record<string, unknown>;
-  disclaimer: string;
-  expertName: string;
-  expertPublicProfile: string | null;
-  submittedAt: string;
 }
 
 // ── Reputation ──
@@ -127,101 +92,9 @@ export interface AuditEntry {
   createdAt: string;
 }
 
-// ── ACP Offering Requirements/Deliverables ──
-
-export interface VibesCheckRequirements {
-  projectName: string;
-  tokenAddress?: string;
-  socialLinks?: string[];
-  specificQuestion?: string;
-}
-
-export interface VibesCheckDeliverable {
-  verdict: 'genuine' | 'suspicious' | 'manufactured' | 'mixed';
-  confidence: number;
-  reasoning: string;
-  redFlags: string[];
-  positiveSignals: string[];
-  expertDomain: string;
-}
-
-export interface NarrativeRequirements {
-  narrative: string;
-  context?: string;
-  relatedTokens?: string[];
-}
-
-export interface NarrativeDeliverable {
-  verdict: string;
-  confidence: number;
-  reasoning: string;
-  timeHorizon: string;
-  catalysts: string[];
-}
-
-export interface CreativeReviewRequirements {
-  contentUrl?: string;
-  contentUrls?: string[];
-  contentType: 'music' | 'visual' | 'writing' | 'design';
-  reviewType?: 'compare' | 'feedback';
-  context?: string;
-}
-
-export interface CreativeReviewDeliverable {
-  verdict: string;
-  qualityScore: number;
-  originality: string;
-  technicalMerit: string;
-  reasoning: string;
-}
-
-export interface CreativeReviewCompareDeliverable {
-  winner: string;
-  rankings: string[];
-  comparisonNotes: string;
-  reasoning: string;
-}
-
-export interface CreativeReviewFeedbackDeliverable {
-  verdict: string;
-  qualityScore: number;
-  originality: string;
-  technicalMerit: string;
-  reasoning: string;
-  improvements?: string[];
-}
-
-export interface CommunitySentimentRequirements {
-  community: string;
-  platforms?: string[];
-  timeframe?: string;
-}
-
-export interface CommunitySentimentDeliverable {
-  sentiment: string;
-  authenticity: string;
-  activityLevel: string;
-  reasoning: string;
-  comparisons: string[];
-}
-
-export interface GeneralJudgmentRequirements {
-  question: string;
-  domain: string;
-  context?: string;
-  urgency?: 'standard' | 'rush';
-}
-
-export interface GeneralJudgmentDeliverable {
-  answer: string;
-  confidence: number;
-  reasoning: string;
-  caveats: string[];
-}
-
 // ── v1.1 Session Types ──
 
-export type SessionTier = 'quick' | 'full' | 'deep';
+export type SessionTier = 'test' | 'quick' | 'full' | 'deep';
 
 export type SessionOfferingType =
   | 'trust_evaluation'
@@ -266,6 +139,7 @@ export interface Session {
   startedAt: string | null;
   completedAt: string | null;
   deadlineAt: string | null;
+  payoutConfirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

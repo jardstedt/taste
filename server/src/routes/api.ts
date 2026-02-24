@@ -6,7 +6,6 @@ import {
   updateExpertSchema,
   acceptAgreementSchema,
   setPasswordSchema,
-  submitJudgmentSchema,
   setWalletSchema,
   requestWithdrawalSchema,
   completeWithdrawalSchema,
@@ -19,6 +18,8 @@ import {
   createExpert,
   updateExpert,
   setExpertPassword,
+  verifyPassword,
+  deactivateExpert,
   acceptAgreement,
   setWalletAddress,
 } from '../services/experts.js';
@@ -30,19 +31,10 @@ import {
   getWithdrawals,
   getPendingWithdrawals,
 } from '../services/withdrawals.js';
-import {
-  getPendingJobs,
-  getJobsForExpert,
-  getAllJobs,
-  getJobById,
-  submitJudgment,
-  getJudgmentForJob,
-  createJob,
-  assignJob,
-} from '../services/judgments.js';
 import { getExpertReputationScores, getExpertReputationHistory } from '../services/reputation.js';
-import { deliverToAcp, getOfferingDefinitions } from '../services/acp.js';
-import type { Domain, ExpertCredentials, OfferingType, WalletChain } from '../types/index.js';
+import { getOfferingDefinitions } from '../services/acp.js';
+import type { Domain, ExpertCredentials, WalletChain } from '../types/index.js';
+import { withdrawalLimiter, passwordLimiter } from '../middleware/rateLimit.js';
 import sessionRoutes from './sessions.js';
 import notificationRoutes from './notifications.js';
 
@@ -78,14 +70,16 @@ router.get('/experts/:id', (req, res) => {
 
 // POST /api/experts — create expert (admin only)
 router.post('/experts', requireRole('admin'), validate(createExpertSchema), (req, res) => {
-  const { name, email, domains, credentials } = req.body as {
+  const { name, email, domains, password, credentials } = req.body as {
     name: string;
     email: string;
     domains: Domain[];
+    password: string;
     credentials?: ExpertCredentials;
   };
 
   const expert = createExpert(name, email, domains, 'expert', credentials);
+  setExpertPassword(expert.id, password);
   res.status(201).json({ success: true, data: getExpertPublic(expert.id) });
 });
 
@@ -107,7 +101,7 @@ router.patch('/experts/:id', validate(updateExpertSchema), (req, res) => {
 });
 
 // POST /api/experts/:id/password — set password
-router.post('/experts/:id/password', validate(setPasswordSchema), (req, res) => {
+router.post('/experts/:id/password', passwordLimiter, validate(setPasswordSchema), (req, res) => {
   if (req.auth!.role !== 'admin' && req.auth!.expertId !== param(req.params.id)) {
     res.status(403).json({ success: false, error: 'Cannot set another expert\'s password' });
     return;
@@ -119,7 +113,40 @@ router.post('/experts/:id/password', validate(setPasswordSchema), (req, res) => 
     return;
   }
 
-  setExpertPassword(param(req.params.id), (req.body as { password: string }).password);
+  const { password, currentPassword } = req.body as { password: string; currentPassword?: string };
+
+  // Non-admin users must verify their current password
+  if (req.auth!.role !== 'admin') {
+    if (!currentPassword) {
+      res.status(400).json({ success: false, error: 'Current password is required' });
+      return;
+    }
+    if (!verifyPassword(expert, currentPassword)) {
+      res.status(403).json({ success: false, error: 'Current password is incorrect' });
+      return;
+    }
+  }
+
+  setExpertPassword(param(req.params.id), password);
+  res.json({ success: true });
+});
+
+// DELETE /api/experts/:id — deactivate expert (admin only)
+router.delete('/experts/:id', requireRole('admin'), (req, res) => {
+  const targetId = param(req.params.id);
+
+  // Prevent admin from deactivating themselves
+  if (req.auth!.expertId === targetId) {
+    res.status(400).json({ success: false, error: 'Cannot deactivate your own account' });
+    return;
+  }
+
+  const success = deactivateExpert(targetId);
+  if (!success) {
+    res.status(404).json({ success: false, error: 'Expert not found' });
+    return;
+  }
+
   res.json({ success: true });
 });
 
@@ -132,90 +159,6 @@ router.post('/experts/:id/accept-agreement', validate(acceptAgreementSchema), (r
 
   acceptAgreement(param(req.params.id));
   res.json({ success: true });
-});
-
-// ── Jobs ──
-
-// GET /api/jobs — list jobs
-router.get('/jobs', (req, res) => {
-  if (req.auth!.role === 'admin') {
-    const jobs = getAllJobs();
-    res.json({ success: true, data: jobs });
-  } else {
-    const jobs = getJobsForExpert(req.auth!.expertId);
-    res.json({ success: true, data: jobs });
-  }
-});
-
-// GET /api/jobs/pending — pending jobs for current expert
-router.get('/jobs/pending', (req, res) => {
-  if (req.auth!.role === 'admin') {
-    const jobs = getPendingJobs();
-    res.json({ success: true, data: jobs });
-  } else {
-    const jobs = getJobsForExpert(req.auth!.expertId, 'assigned');
-    res.json({ success: true, data: jobs });
-  }
-});
-
-// GET /api/jobs/:id — get job detail
-router.get('/jobs/:id', (req, res) => {
-  const job = getJobById(param(req.params.id));
-  if (!job) {
-    res.status(404).json({ success: false, error: 'Job not found' });
-    return;
-  }
-
-  // Non-admins can only see their own jobs
-  if (req.auth!.role !== 'admin' && job.expertId !== req.auth!.expertId) {
-    res.status(403).json({ success: false, error: 'Access denied' });
-    return;
-  }
-
-  const judgment = getJudgmentForJob(job.id);
-  res.json({ success: true, data: { job, judgment } });
-});
-
-// POST /api/jobs/:id/assign — assign job to expert (admin only)
-router.post('/jobs/:id/assign', requireRole('admin'), (req, res) => {
-  const job = getJobById(param(req.params.id));
-  if (!job) {
-    res.status(404).json({ success: false, error: 'Job not found' });
-    return;
-  }
-  const expertId = (req.body as { expertId?: string }).expertId ?? req.auth!.expertId;
-  assignJob(job.id, expertId);
-  res.json({ success: true, data: getJobById(job.id) });
-});
-
-// POST /api/jobs — create job manually (admin, for testing)
-router.post('/jobs', requireRole('admin'), (req, res) => {
-  const { offeringType, requirements } = req.body as {
-    offeringType: OfferingType;
-    requirements: Record<string, unknown>;
-  };
-
-  const job = createJob(offeringType, requirements, undefined, 'manual-test');
-  res.status(201).json({ success: true, data: job });
-});
-
-// ── Judgments ──
-
-// POST /api/judgments — submit a judgment
-router.post('/judgments', validate(submitJudgmentSchema), async (req, res) => {
-  const { jobId, content } = req.body as { jobId: string; content: Record<string, unknown> };
-
-  const result = submitJudgment(jobId, req.auth!.expertId, content);
-
-  if ('error' in result) {
-    res.status(400).json({ success: false, error: result.error });
-    return;
-  }
-
-  // Try to deliver to ACP
-  await deliverToAcp(jobId);
-
-  res.status(201).json({ success: true, data: result });
 });
 
 // ── Reputation ──
@@ -263,7 +206,7 @@ router.post('/experts/:id/wallet', validate(setWalletSchema), (req, res) => {
 // ── Withdrawals (v1.3) ──
 
 // POST /api/withdrawals/request — request withdrawal
-router.post('/withdrawals/request', validate(requestWithdrawalSchema), (req, res) => {
+router.post('/withdrawals/request', withdrawalLimiter, validate(requestWithdrawalSchema), (req, res) => {
   const { amountUsdc } = req.body as { amountUsdc: number };
   const result = requestWithdrawal(req.auth!.expertId, amountUsdc);
 

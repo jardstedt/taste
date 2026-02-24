@@ -103,16 +103,18 @@ function handleConnection(socket: Socket) {
     if (!session || session.expertId !== auth.expertId) return;
     if (session.status !== 'active' && session.status !== 'accepted' && session.status !== 'wrapping_up') return;
 
+    // Block messages if grace period is exhausted
+    if (session.turnCount >= session.maxTurns + 5) return;
+
     const message = addMessage(data.sessionId, 'expert', auth.expertId, data.content);
-    const turnInfo = incrementTurnCount(data.sessionId);
+    const turnInfo = incrementTurnCount(data.sessionId, 'expert');
     emitToSession(data.sessionId, 'message:new', message);
 
-    // Refetch session in case status changed (auto-start, wrapping up)
+    // Always emit updated session so dashboard gets fresh turn count + status
     const updated = getSessionById(data.sessionId);
-    if (updated && updated.status !== session.status) {
-      emitToSession(data.sessionId, 'session:updated', updated);
-    }
-    if (turnInfo.wrappingUp) {
+    emitToSession(data.sessionId, 'session:updated', updated);
+
+    if (turnInfo.limitReached) {
       emitToSession(data.sessionId, 'session:turn_limit', turnInfo);
     }
   });

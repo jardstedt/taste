@@ -17,6 +17,11 @@ router.post('/login', authLimiter, validate(loginSchema), (req, res) => {
     return;
   }
 
+  if (expert.deactivatedAt) {
+    res.status(403).json({ success: false, error: 'Account has been deactivated' });
+    return;
+  }
+
   if (!verifyPassword(expert, password)) {
     res.status(401).json({ success: false, error: 'Invalid credentials' });
     return;
@@ -53,6 +58,12 @@ router.get('/me', verifyToken, (req, res) => {
   const expert = getExpertById(req.auth!.expertId);
   if (!expert) {
     res.status(404).json({ success: false, error: 'Expert not found' });
+    return;
+  }
+
+  if (expert.deactivatedAt) {
+    res.clearCookie('token');
+    res.status(403).json({ success: false, error: 'Account has been deactivated' });
     return;
   }
 

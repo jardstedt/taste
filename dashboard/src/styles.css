@@ -1070,28 +1070,11 @@ select.input {
 
 /* ── Expert Profile Page ── */
 
-.profile-hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-xl);
-  padding: var(--space-xl);
-  background: var(--color-white);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm);
-}
-
-.profile-hero-main {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-xl);
-}
-
 .profile-social {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: var(--space-sm);
-  flex-shrink: 0;
 }
 
 .profile-social-link {
@@ -1101,13 +1084,10 @@ select.input {
   font-size: var(--font-size-sm);
   color: var(--color-grey-2);
   text-decoration: none;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: color var(--transition-fast);
 }
 
 .profile-social-link:hover {
-  background: var(--color-grey-7);
   color: var(--color-primary);
 }
 
@@ -1131,20 +1111,6 @@ select.input {
     grid-template-columns: 1fr;
   }
 
-  .profile-hero {
-    flex-direction: column;
-  }
-
-  .profile-hero-main {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .profile-social {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
 }
 
 /* ── v1.1 Chat & Session Styles ── */
@@ -1546,6 +1512,39 @@ select.input {
   font-size: 13px;
   font-weight: 700;
   color: #fff;
+}
+
+.header-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 140px;
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
+  z-index: 100;
+  padding: 4px 0;
+}
+
+.header-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 14px;
+  color: var(--color-grey-1);
+  cursor: pointer;
+}
+
+.header-menu-item:hover {
+  background: var(--color-grey-7, #F3F4F6);
+}
+
+.header-menu-item-danger {
+  color: var(--color-error, #DC2626);
 }
 
 .header-subtitle {

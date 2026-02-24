@@ -41,6 +41,7 @@ export interface ExpertPublic {
   earningsUsdc: number;
   walletAddress: string | null;
   walletChain: WalletChain;
+  deactivatedAt: string | null;
   reputationScores: Record<string, number>;
 }
 
@@ -139,7 +140,7 @@ export const PROHIBITED_PHRASES = [
 
 // ── v1.1 Session Types ──
 
-export type SessionTier = 'quick' | 'full' | 'deep';
+export type SessionTier = 'test' | 'quick' | 'full' | 'deep';
 
 export type SessionStatus = 'pending' | 'matching' | 'accepted' | 'active' | 'wrapping_up' | 'completed' | 'cancelled' | 'timeout';
 
@@ -201,6 +202,7 @@ export interface Addon {
 }
 
 export const SESSION_TIER_LABELS: Record<SessionTier, string> = {
+  test: 'Test',
   quick: 'Quick Consult',
   full: 'Full Session',
   deep: 'Deep Dive',

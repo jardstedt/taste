@@ -41,16 +41,16 @@ export function getExperts() {
   return request('/experts');
 }
 
-export function getExpert(id: string) {
-  return request(`/experts/${id}`);
-}
-
-export function createExpert(data: { name: string; email: string; domains: string[]; credentials?: Record<string, unknown> }) {
+export function createExpert(data: { name: string; email: string; domains: string[]; password: string; credentials?: Record<string, unknown> }) {
   return request('/experts', { method: 'POST', body: JSON.stringify(data) });
 }
 
 export function updateExpert(id: string, data: Record<string, unknown>) {
   return request(`/experts/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+export function deleteExpert(id: string) {
+  return request(`/experts/${id}`, { method: 'DELETE' });
 }
 
 export function setPassword(id: string, password: string) {
@@ -137,12 +137,6 @@ export function getExpertReputation(expertId: string) {
   return request(`/reputation/${expertId}`);
 }
 
-// ── Offerings ──
-
-export function getOfferings() {
-  return request('/offerings');
-}
-
 // ── Sessions (v1.1) ──
 
 export function getSessions() {
@@ -178,6 +172,13 @@ export function sendSessionMessage(id: string, content: string, senderType?: str
 
 export function completeSession(id: string) {
   return request(`/sessions/${id}/complete`, { method: 'POST' });
+}
+
+export function declineSession(id: string, reason?: string) {
+  return request(`/sessions/${id}/decline`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
 }
 
 export function createSessionAdmin(data: Record<string, unknown>) {

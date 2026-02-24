@@ -16,6 +16,7 @@ import {
   getAllSessions,
   acceptSession,
   completeSession,
+  declineSession,
   addMessage,
   getMessages,
   createAddon,
@@ -26,6 +27,7 @@ import {
 } from '../services/sessions.js';
 import { emitToSession, notifyExpert } from '../services/socket.js';
 import { sendPushToExpert } from '../services/push.js';
+import { sessionCreateLimiter, messageLimiter } from '../middleware/rateLimit.js';
 import type { AddonType } from '../types/index.js';
 
 function param(val: string | string[] | undefined): string {
@@ -97,10 +99,16 @@ router.post('/:id/accept', (req, res) => {
 });
 
 // POST /sessions/:id/messages — send message (agent REST + expert fallback)
-router.post('/:id/messages', validate(sendMessageSchema), (req, res) => {
+router.post('/:id/messages', messageLimiter, validate(sendMessageSchema), (req, res) => {
   const session = getSessionById(param(req.params.id));
   if (!session) {
     res.status(404).json({ success: false, error: 'Session not found' });
+    return;
+  }
+
+  // Block messages if grace period is exhausted
+  if (session.turnCount >= session.maxTurns + 5) {
+    res.status(400).json({ success: false, error: 'Grace period exhausted. Please complete or decline the session.' });
     return;
   }
 
@@ -117,7 +125,7 @@ router.post('/:id/messages', validate(sendMessageSchema), (req, res) => {
   }
 
   const message = addMessage(session.id, type, senderId, content);
-  const turnInfo = incrementTurnCount(session.id);
+  const turnInfo = incrementTurnCount(session.id, type);
 
   emitToSession(session.id, 'message:new', message);
 
@@ -132,16 +140,12 @@ router.post('/:id/messages', validate(sendMessageSchema), (req, res) => {
     });
   }
 
-  if (turnInfo.wrappingUp) {
-    const updated = getSessionById(session.id);
-    emitToSession(session.id, 'session:updated', updated);
-    emitToSession(session.id, 'session:turn_limit', turnInfo);
-  }
-
-  // Refetch in case status changed (e.g. auto-started from accepted)
+  // Always emit updated session so dashboard gets fresh turn count + status
   const updated = getSessionById(session.id);
-  if (updated && updated.status !== session.status) {
-    emitToSession(session.id, 'session:updated', updated);
+  emitToSession(session.id, 'session:updated', updated);
+
+  if (turnInfo.limitReached) {
+    emitToSession(session.id, 'session:turn_limit', turnInfo);
   }
 
   res.status(201).json({ success: true, data: message });
@@ -182,6 +186,29 @@ router.post('/:id/complete', (req, res) => {
   emitToSession(session.id, 'session:updated', completed);
   emitToSession(session.id, 'session:completed', completed);
   res.json({ success: true, data: completed });
+});
+
+// POST /sessions/:id/decline — expert can't fulfill, triggers refund
+router.post('/:id/decline', (req, res) => {
+  const session = getSessionById(param(req.params.id));
+  if (!session) {
+    res.status(404).json({ success: false, error: 'Session not found' });
+    return;
+  }
+  if (req.auth!.role !== 'admin' && session.expertId !== req.auth!.expertId) {
+    res.status(403).json({ success: false, error: 'Access denied' });
+    return;
+  }
+
+  const reason = (req.body as { reason?: string })?.reason;
+  const declined = declineSession(session.id, reason);
+  if (!declined) {
+    res.status(400).json({ success: false, error: 'Cannot decline this session' });
+    return;
+  }
+
+  emitToSession(session.id, 'session:updated', declined);
+  res.json({ success: true, data: declined });
 });
 
 // POST /sessions/:id/addons — create addon request
@@ -231,8 +258,15 @@ router.post('/:id/addons/:addonId/respond', validate(respondAddonSchema), (req, 
 });
 
 // POST /sessions — create session manually (admin/testing)
-router.post('/', requireRole('admin'), validate(createSessionSchema), (req, res) => {
-  const session = createSession(req.body);
+router.post('/', sessionCreateLimiter, requireRole('admin'), validate(createSessionSchema), (req, res) => {
+  let session;
+  try {
+    session = createSession(req.body);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to create session';
+    res.status(400).json({ success: false, error: message });
+    return;
+  }
 
   // Auto-match expert
   const matched = matchSession(session.id);

@@ -1,4 +1,4 @@
-import type { Domain, OfferingType, SessionTier } from '../types/index.js';
+import type { Domain, SessionTier } from '../types/index.js';
 
 export interface DomainDefinition {
   id: Domain;
@@ -16,67 +16,7 @@ export const DOMAINS: DomainDefinition[] = [
   { id: 'general', label: 'General', description: 'Catch-all for questions not fitting other domains' },
 ];
 
-export interface OfferingDefinition {
-  type: OfferingType;
-  name: string;
-  description: string;
-  priceUsdc: number;
-  defaultSlaMins: number;
-  relevantDomains: Domain[];
-}
-
-export const OFFERINGS: OfferingDefinition[] = [
-  {
-    type: 'vibes_check',
-    name: 'Project Vibes Check',
-    description: 'Is this crypto project legit, organic, or manufactured?',
-    priceUsdc: 1.0,
-    defaultSlaMins: 120,
-    relevantDomains: ['crypto', 'community'],
-  },
-  {
-    type: 'narrative',
-    name: 'Narrative Assessment',
-    description: 'Is this market narrative real momentum or manufactured hype?',
-    priceUsdc: 0.75,
-    defaultSlaMins: 120,
-    relevantDomains: ['narrative', 'crypto', 'community'],
-  },
-  {
-    type: 'creative_review',
-    name: 'Creative/Art Review',
-    description: 'Creative review with compare (pick a winner from 1-4 items) or feedback (actionable improvement suggestions) modes.',
-    priceUsdc: 1.5,
-    defaultSlaMins: 120,
-    relevantDomains: ['music', 'art', 'design'],
-  },
-  {
-    type: 'community_sentiment',
-    name: 'Community Sentiment',
-    description: "What's the real vibe of this community?",
-    priceUsdc: 0.75,
-    defaultSlaMins: 120,
-    relevantDomains: ['community', 'crypto', 'narrative'],
-  },
-  {
-    type: 'general',
-    name: 'General Human Judgment',
-    description: 'Any question requiring qualitative human opinion',
-    priceUsdc: 0.5,
-    defaultSlaMins: 120,
-    relevantDomains: ['general', 'crypto', 'music', 'art', 'design', 'narrative', 'community'],
-  },
-];
-
-export function getOffering(type: OfferingType): OfferingDefinition | undefined {
-  return OFFERINGS.find(o => o.type === type);
-}
-
-export function getDomainsForOffering(type: OfferingType): Domain[] {
-  return getOffering(type)?.relevantDomains ?? ['general'];
-}
-
-// ── v1.1 Session Offerings ──
+// ── Session Offerings ──
 
 export interface SessionOfferingDefinition {
   type: string;
@@ -84,6 +24,7 @@ export interface SessionOfferingDefinition {
   description: string;
   defaultTier: SessionTier;
   relevantDomains: Domain[];
+  enabled: boolean;
 }
 
 export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
@@ -93,6 +34,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     description: 'Evaluate the trustworthiness and legitimacy of a project, token, or entity through live expert conversation',
     defaultTier: 'full',
     relevantDomains: ['crypto', 'community'],
+    enabled: true,
   },
   {
     type: 'cultural_context',
@@ -100,6 +42,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     description: 'Get real-time cultural and contextual insight on trends, narratives, or creative works',
     defaultTier: 'quick',
     relevantDomains: ['narrative', 'community', 'art', 'music'],
+    enabled: false, // v1 cut: medium rejection risk, moderate discoverability
   },
   {
     type: 'output_quality_gate',
@@ -107,6 +50,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     description: 'Have an expert review and validate AI-generated outputs in real-time',
     defaultTier: 'quick',
     relevantDomains: ['design', 'art', 'narrative', 'general'],
+    enabled: true,
   },
   {
     type: 'option_ranking',
@@ -114,6 +58,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     description: 'Expert ranks and compares multiple options with live reasoning',
     defaultTier: 'full',
     relevantDomains: ['general', 'crypto', 'design', 'art', 'music'],
+    enabled: true,
   },
   {
     type: 'blind_spot_check',
@@ -121,6 +66,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     description: 'Expert identifies what an AI might be missing or getting wrong',
     defaultTier: 'quick',
     relevantDomains: ['general', 'crypto', 'narrative', 'community'],
+    enabled: false, // v1 cut: medium rejection risk, moderate discoverability
   },
   {
     type: 'human_reaction_prediction',
@@ -128,6 +74,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     description: 'Expert predicts how humans will react to content, products, or strategies',
     defaultTier: 'full',
     relevantDomains: ['community', 'narrative', 'design', 'art', 'music'],
+    enabled: false, // v1 cut: high rejection risk, predictions unverifiable
   },
   {
     type: 'expert_brainstorming',
@@ -135,6 +82,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     description: 'Deep collaborative session where expert and AI brainstorm together',
     defaultTier: 'deep',
     relevantDomains: ['general', 'crypto', 'narrative', 'community', 'design', 'art', 'music'],
+    enabled: false, // v1 cut: medium rejection risk, open-ended, hard to quantify value
   },
   {
     type: 'content_quality_gate',
@@ -142,6 +90,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     description: 'Pre-publish review of AI-generated content (video, image, audio) for cultural sensitivity, derivative elements, brand safety, and emotional resonance before distribution',
     defaultTier: 'full',
     relevantDomains: ['art', 'music', 'design', 'narrative', 'community'],
+    enabled: true,
   },
   {
     type: 'audience_reaction_poll',
@@ -149,6 +98,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     description: 'Quick crowd poll where multiple humans rate, rank, or score AI-generated content. Fast turnaround, low cost — ideal for A/B testing visuals, thumbnails, or short-form video before publishing',
     defaultTier: 'quick',
     relevantDomains: ['art', 'music', 'design', 'community', 'general'],
+    enabled: true,
   },
   {
     type: 'creative_direction_check',
@@ -156,6 +106,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     description: 'Early-stage review of a creative brief, concept, or storyboard before expensive generation runs. Catch cultural red flags, derivative risks, or tonal mismatches before committing compute',
     defaultTier: 'quick',
     relevantDomains: ['art', 'music', 'design', 'narrative'],
+    enabled: true,
   },
 ];
 
@@ -168,6 +119,13 @@ export interface SessionTierDefinition {
 }
 
 export const SESSION_TIERS: SessionTierDefinition[] = [
+  {
+    id: 'test',
+    name: 'Test',
+    priceRange: [0.01, 0.01],
+    durationMinutes: [5, 5],
+    maxTurns: 2,
+  },
   {
     id: 'quick',
     name: 'Quick Consult',
@@ -197,4 +155,13 @@ export function getSessionTier(tierId: SessionTier): SessionTierDefinition | und
 
 export function getSessionOffering(type: string): SessionOfferingDefinition | undefined {
   return SESSION_OFFERINGS.find(o => o.type === type);
+}
+
+export function isOfferingEnabled(type: string): boolean {
+  const offering = SESSION_OFFERINGS.find(o => o.type === type);
+  return offering?.enabled ?? false;
+}
+
+export function getEnabledSessionOfferings(): SessionOfferingDefinition[] {
+  return SESSION_OFFERINGS.filter(o => o.enabled);
 }

@@ -64,3 +64,8 @@ export function getEnv(): Env {
   if (!_env) throw new Error('Environment not loaded. Call loadEnv() first.');
   return _env;
 }
+
+/** Reset cached env — for tests only */
+export function resetEnv(): void {
+  _env = null;
+}

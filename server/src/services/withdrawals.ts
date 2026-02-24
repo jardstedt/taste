@@ -40,24 +40,47 @@ export function requestWithdrawal(expertId: string, amountUsdc: number): Withdra
   const db = getDb();
   const expert = getExpertById(expertId);
   if (!expert) return { error: 'Expert not found' };
+  if (expert.deactivatedAt) return { error: 'Account has been deactivated' };
   if (!expert.walletAddress) return { error: 'No wallet address set. Please set your wallet address first.' };
-  if (expert.earningsUsdc < amountUsdc) return { error: `Insufficient balance. Available: $${expert.earningsUsdc.toFixed(2)}` };
   if (amountUsdc > 1000) return { error: 'Maximum withdrawal is $1,000 per request' };
+
+  // Daily withdrawal limit: $5,000 per day
+  const dailyTotal = (db.prepare(
+    "SELECT COALESCE(SUM(amount_usdc), 0) as total FROM withdrawals WHERE expert_id = ? AND status != 'rejected' AND requested_at > datetime('now', '-1 day')",
+  ).get(expertId) as { total: number }).total;
+  if (dailyTotal + amountUsdc > 5000) {
+    return { error: `Daily withdrawal limit ($5,000) would be exceeded. Already requested: $${dailyTotal.toFixed(2)} today.` };
+  }
 
   const id = generateId();
 
-  // Atomic: deduct earnings + create withdrawal in one transaction
+  // Atomic: balance check + deduct + create withdrawal in one transaction
   const run = db.transaction(() => {
-    db.prepare(
-      `UPDATE experts SET earnings_usdc = earnings_usdc - ?, updated_at = datetime('now') WHERE id = ?`,
-    ).run(amountUsdc, expertId);
+    // Conditional deduct — fails if balance insufficient (prevents race condition)
+    const result = db.prepare(
+      `UPDATE experts SET earnings_usdc = earnings_usdc - ?, updated_at = datetime('now') WHERE id = ? AND earnings_usdc >= ?`,
+    ).run(amountUsdc, expertId, amountUsdc);
+
+    if (result.changes === 0) {
+      throw new Error('INSUFFICIENT_BALANCE');
+    }
 
     db.prepare(
       `INSERT INTO withdrawals (id, expert_id, amount_usdc, status, wallet_address, wallet_chain)
        VALUES (?, ?, ?, 'pending', ?, ?)`,
     ).run(id, expertId, amountUsdc, expert.walletAddress, expert.walletChain);
   });
-  run();
+
+  try {
+    run();
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message === 'INSUFFICIENT_BALANCE') {
+      // Re-read to get current balance for error message
+      const current = getExpertById(expertId);
+      return { error: `Insufficient balance. Available: $${(current?.earningsUsdc ?? 0).toFixed(2)}` };
+    }
+    throw err;
+  }
 
   auditLog('withdrawal', id, 'requested', { expertId, amountUsdc, walletAddress: expert.walletAddress });
 

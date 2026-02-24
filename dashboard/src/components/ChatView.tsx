@@ -57,6 +57,10 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
     await api.completeSession(sessionId);
   };
 
+  const handleDecline = async () => {
+    await api.declineSession(sessionId, 'Expert unable to fulfill request');
+  };
+
   // Timer
   const deadline = session.deadlineAt ? new Date(session.deadlineAt).getTime() : null;
   const now = Date.now();
@@ -64,6 +68,8 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
   const remainingMins = Math.ceil(remainingMs / 60_000);
 
   const isActive = session.status === 'active' || session.status === 'accepted' || session.status === 'wrapping_up';
+  const graceTurns = 5;
+  const isLocked = session.turnCount >= session.maxTurns + graceTurns;
   const pendingAddons = addons.filter(a => a.status === 'pending');
 
   return (
@@ -108,40 +114,55 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
         )}
       </div>
 
-      {/* Requirements panel */}
+      {/* Toolbar: requirements toggle + turn count + end session */}
       {(() => {
         const checklistItems = OFFERING_CHECKLIST[session.offeringType] || OFFERING_CHECKLIST['trust_evaluation'] || [];
         const checkedCount = Object.values(checkedItems).filter(Boolean).length;
         const totalItems = checklistItems.length;
         return (
           <div style={{ borderBottom: '1px solid #E5E7EB', background: '#FAFAFA', flexShrink: 0 }}>
-            <button
-              onClick={() => setShowRequirements(!showRequirements)}
-              style={{
-                width: '100%', border: 'none', background: 'transparent', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '8px 16px', fontFamily: 'inherit', fontSize: 12, color: '#6B7280',
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '6px 16px', gap: 8,
+            }}>
+              <button
+                onClick={() => setShowRequirements(!showRequirements)}
+                style={{
+                  border: 'none', background: 'transparent', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  fontFamily: 'inherit', fontSize: 12, color: '#6B7280', padding: 0,
+                }}
+              >
                 <span style={{ fontWeight: 600, color: '#6B21A8' }}>
                   Requirements {checkedCount}/{totalItems}
                 </span>
-                {session.description && (
-                  <span style={{ color: '#9CA3AF', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {!showRequirements && `— ${session.description.slice(0, 60)}...`}
+                <span style={{ fontSize: 10, color: '#9CA3AF' }}>{showRequirements ? '\u25B2' : '\u25BC'}</span>
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {isActive && (
+                  <span className="text-xs text-grey">
+                    Turn {session.turnCount}/{session.maxTurns}
+                    {session.turnCount >= session.maxTurns && ` +${session.turnCount - session.maxTurns}/${graceTurns}`}
                   </span>
                 )}
-              </span>
-              <span style={{ fontSize: 10, color: '#9CA3AF' }}>{showRequirements ? '\u25B2' : '\u25BC'}</span>
-            </button>
-            {showRequirements && (
-              <div style={{ padding: '0 16px 12px' }}>
-                {session.description && (
-                  <div style={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5, marginBottom: 10, padding: '8px 10px', background: '#fff', borderRadius: 6, border: '1px solid #E5E7EB' }}>
-                    {sanitizeContent(session.description)}
-                  </div>
+                {isActive && (
+                  <button onClick={handleDecline} className="btn btn-ghost btn-sm" style={{ fontSize: 12, padding: '3px 10px', height: 'auto', color: 'var(--color-error, #DC2626)' }}>
+                    Can't Fulfill
+                  </button>
                 )}
+                {isActive && session.turnCount >= session.maxTurns ? (
+                  <button onClick={handleComplete} className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: '3px 10px', height: 'auto' }}>
+                    Complete
+                  </button>
+                ) : isActive && (
+                  <button onClick={handleComplete} className="btn btn-ghost btn-sm" style={{ fontSize: 12, padding: '3px 10px', height: 'auto' }}>
+                    End Session
+                  </button>
+                )}
+              </div>
+            </div>
+            {showRequirements && (
+              <div style={{ padding: '0 16px 10px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {checklistItems.map((item, i) => (
                     <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: checkedItems[i] ? '#9CA3AF' : '#1A1A2E', cursor: 'pointer' }}>
@@ -179,7 +200,7 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
       ))}
 
       {/* Input */}
-      {isActive && (
+      {isActive && !isLocked && (
         <form onSubmit={handleSend} className="chat-input-area">
           <input
             type="text"
@@ -194,23 +215,9 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
           </button>
         </form>
       )}
-
-      {/* Footer info */}
-      {isActive && (
-        <div className="chat-footer">
-          <span className="text-xs text-grey">
-            Turn {session.turnCount}/{session.maxTurns}
-          </span>
-          {session.status === 'wrapping_up' && (
-            <button onClick={handleComplete} className="btn btn-primary btn-sm">
-              Complete Session
-            </button>
-          )}
-          {session.status === 'active' && (
-            <button onClick={handleComplete} className="btn btn-ghost btn-sm">
-              End Session
-            </button>
-          )}
+      {isActive && isLocked && (
+        <div className="chat-ended" style={{ color: 'var(--color-error, #DC2626)' }}>
+          Grace period exhausted — please complete or decline the session above.
         </div>
       )}
 
@@ -222,6 +229,11 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
       {session.status === 'cancelled' && (
         <div className="chat-ended">
           Session cancelled
+        </div>
+      )}
+      {session.status === 'timeout' && (
+        <div className="chat-ended">
+          Session timed out
         </div>
       )}
     </div>

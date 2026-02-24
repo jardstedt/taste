@@ -25,7 +25,7 @@ import authRoutes from './routes/auth.js';
 import apiRoutes from './routes/api.js';
 import { initPush } from './services/push.js';
 import { getExpertPublic, getAllExpertsPublic, getAllExperts } from './services/experts.js';
-import { getAllJobs } from './services/judgments.js';
+import { getAllSessions } from './services/sessions.js';
 
 async function main() {
   // Load and validate environment
@@ -73,16 +73,16 @@ async function main() {
   // Public stats
   app.get('/api/public/stats', (_req, res) => {
     const experts = getAllExperts();
-    const jobs = getAllJobs(10000);
+    const sessions = getAllSessions(10000);
     const activeExperts = experts.filter(e => e.consentToPublicProfile && e.agreementAcceptedAt);
-    const deliveredJobs = jobs.filter(j => j.status === 'delivered');
+    const completedSessions = sessions.filter(s => s.status === 'completed');
     const domains = [...new Set(activeExperts.flatMap(e => e.domains))];
 
     res.json({
       success: true,
       data: {
         totalExperts: activeExperts.length,
-        totalJudgments: deliveredJobs.length,
+        totalSessions: completedSessions.length,
         domains,
         avgResponseMins: activeExperts.length > 0
           ? Math.round(activeExperts.reduce((sum, e) => sum + e.avgResponseTimeMins, 0) / activeExperts.length)
@@ -99,17 +99,6 @@ async function main() {
 
   // Public expert profile
   app.get('/api/public/experts/:id', (req, res) => {
-    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id ?? '';
-    const expert = getExpertPublic(id);
-    if (!expert || !expert.consentToPublicProfile) {
-      res.status(404).json({ success: false, error: 'Profile not found' });
-      return;
-    }
-    res.json({ success: true, data: expert });
-  });
-
-  // Keep old route for backward compat
-  app.get('/api/experts/:id/public', (req, res) => {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id ?? '';
     const expert = getExpertPublic(id);
     if (!expert || !expert.consentToPublicProfile) {

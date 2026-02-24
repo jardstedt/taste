@@ -18,10 +18,16 @@ const credentialsSchema = z.object({
   tagline: z.string().max(200).optional(),
 }).optional();
 
+const passwordSchema = z.string().min(8).max(128)
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number');
+
 export const createExpertSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
   domains: z.array(z.enum(['crypto', 'music', 'art', 'design', 'narrative', 'community', 'general'])).min(1),
+  password: passwordSchema,
   credentials: credentialsSchema,
 });
 
@@ -38,16 +44,8 @@ export const acceptAgreementSchema = z.object({
 });
 
 export const setPasswordSchema = z.object({
-  password: z.string().min(8).max(128),
-});
-
-export const submitJudgmentSchema = z.object({
-  jobId: z.string().min(1),
-  content: z.record(z.unknown()),
-});
-
-export const updateJobStatusSchema = z.object({
-  status: z.enum(['assigned', 'in_progress', 'delivered', 'rejected', 'timeout']),
+  password: passwordSchema,
+  currentPassword: z.string().min(1).optional(),
 });
 
 // ── Wallet & Withdrawal Schemas (v1.3) ──

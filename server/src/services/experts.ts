@@ -1,5 +1,6 @@
-import { getDb, generateId, encryptEmail, decryptEmail, auditLog } from '../db/database.js';
+import { getDb, generateId, encryptEmail, decryptEmail, hashEmail, auditLog } from '../db/database.js';
 import type { Expert, ExpertPublic, Domain, Availability, ExpertCredentials, ExpertRole, WalletChain } from '../types/index.js';
+import { getExpertReputationScores } from './reputation.js';
 import bcrypt from 'bcrypt';
 
 // ── Row ↔ Object Mapping ──
@@ -20,6 +21,7 @@ interface ExpertRow {
   earnings_usdc: number;
   wallet_address: string | null;
   wallet_chain: string;
+  deactivated_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +43,7 @@ function rowToExpert(row: ExpertRow): Expert {
     earningsUsdc: row.earnings_usdc,
     walletAddress: row.wallet_address,
     walletChain: (row.wallet_chain || 'base') as WalletChain,
+    deactivatedAt: row.deactivated_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -61,6 +64,7 @@ function expertToPublic(expert: Expert, reputationScores: Record<string, number>
     earningsUsdc: 0,
     walletAddress: null,
     walletChain: expert.walletChain,
+    deactivatedAt: expert.deactivatedAt,
     reputationScores,
   };
 }
@@ -77,11 +81,12 @@ export function createExpert(
   const db = getDb();
   const id = generateId();
   const emailEnc = encryptEmail(email);
+  const emailHash = hashEmail(email);
 
   db.prepare(
-    `INSERT INTO experts (id, name, email_encrypted, role, domains, credentials)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(id, name, emailEnc, role, JSON.stringify(domains), JSON.stringify(credentials ?? {}));
+    `INSERT INTO experts (id, name, email_encrypted, email_hash, role, domains, credentials)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, name, emailEnc, emailHash, role, JSON.stringify(domains), JSON.stringify(credentials ?? {}));
 
   // Initialize reputation scores for each domain
   for (const domain of domains) {
@@ -103,10 +108,19 @@ export function getExpertById(id: string): Expert | null {
 
 export function getExpertByEmail(email: string): Expert | null {
   const db = getDb();
-  // When no encryption key is set, email is stored as plaintext
-  const rows = db.prepare('SELECT * FROM experts').all() as ExpertRow[];
+  const hash = hashEmail(email);
+
+  // Fast path: lookup by indexed hash (O(1))
+  const byHash = db.prepare('SELECT * FROM experts WHERE email_hash = ?').get(hash) as ExpertRow | undefined;
+  if (byHash) return rowToExpert(byHash);
+
+  // Fallback for legacy rows without email_hash: decrypt and backfill
+  const rows = db.prepare('SELECT * FROM experts WHERE email_hash IS NULL').all() as ExpertRow[];
   for (const row of rows) {
     const decrypted = decryptEmail(row.email_encrypted);
+    // Backfill the hash for future lookups
+    const rowHash = hashEmail(decrypted);
+    db.prepare('UPDATE experts SET email_hash = ? WHERE id = ?').run(rowHash, row.id);
     if (decrypted === email) {
       return rowToExpert(row);
     }
@@ -123,14 +137,14 @@ export function getAllExperts(): Expert[] {
 export function getExpertPublic(expertId: string): ExpertPublic | null {
   const expert = getExpertById(expertId);
   if (!expert) return null;
-  const scores = getReputationScores(expertId);
+  const scores = getExpertReputationScores(expertId);
   return expertToPublic(expert, scores);
 }
 
 export function getAllExpertsPublic(): ExpertPublic[] {
   const experts = getAllExperts();
   return experts.map(e => {
-    const scores = getReputationScores(e.id);
+    const scores = getExpertReputationScores(e.id);
     return expertToPublic(e, scores);
   });
 }
@@ -208,6 +222,21 @@ export function verifyPassword(expert: Expert, password: string): boolean {
   return bcrypt.compareSync(password, expert.passwordHash);
 }
 
+// ── Deactivation ──
+
+export function deactivateExpert(id: string): boolean {
+  const db = getDb();
+  const expert = getExpertById(id);
+  if (!expert) return false;
+
+  db.prepare(
+    "UPDATE experts SET deactivated_at = datetime('now'), availability = 'offline', updated_at = datetime('now') WHERE id = ?",
+  ).run(id);
+
+  auditLog('expert', id, 'deactivated');
+  return true;
+}
+
 // ── Wallet ──
 
 export function setWalletAddress(id: string, walletAddress: string, walletChain: WalletChain): Expert | null {
@@ -242,7 +271,7 @@ export function selectBestExpert(domain: Domain): Expert | null {
 
   // Sort by reputation score for that domain (highest first)
   const scored = candidates.map(expert => {
-    const scores = getReputationScores(expert.id);
+    const scores = getExpertReputationScores(expert.id);
     return { expert, score: scores[domain] ?? 50 };
   });
 
@@ -266,18 +295,6 @@ export function incrementCompletedJobs(expertId: string, responseTimeMins: numbe
      SET completed_jobs = ?, avg_response_time_mins = ?, earnings_usdc = ?, updated_at = datetime('now')
      WHERE id = ?`,
   ).run(newCount, newAvg, newEarnings, expertId);
-}
-
-// ── Reputation Helpers ──
-
-function getReputationScores(expertId: string): Record<string, number> {
-  const db = getDb();
-  const rows = db.prepare('SELECT domain, score FROM reputation_scores WHERE expert_id = ?').all(expertId) as Array<{ domain: string; score: number }>;
-  const scores: Record<string, number> = {};
-  for (const row of rows) {
-    scores[row.domain] = row.score;
-  }
-  return scores;
 }
 
 // ── Admin Seeding ──

@@ -3,7 +3,7 @@ import type {
   Session, ChatMessage, Addon, SessionStatus, SessionTier,
   MessageSenderType, MessageType, AddonType, AddonStatus, Domain,
 } from '../types/index.js';
-import { getSessionTier, getSessionOffering, getDomainsForOffering } from '../config/domains.js';
+import { getSessionTier, getSessionOffering, isOfferingEnabled } from '../config/domains.js';
 import { getExpertById, findExpertsForDomain, incrementCompletedJobs } from './experts.js';
 import { getExpertReputationScores, recordEvent } from './reputation.js';
 
@@ -30,6 +30,7 @@ interface SessionRow {
   started_at: string | null;
   completed_at: string | null;
   deadline_at: string | null;
+  payout_confirmed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -56,6 +57,7 @@ function rowToSession(row: SessionRow): Session {
     startedAt: row.started_at,
     completedAt: row.completed_at,
     deadlineAt: row.deadline_at,
+    payoutConfirmedAt: row.payout_confirmed_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -126,6 +128,10 @@ export function createSession(opts: {
   acpJobId?: string;
   jobId?: string;
 }): Session {
+  if (!isOfferingEnabled(opts.offeringType)) {
+    throw new Error(`Offering "${opts.offeringType}" is currently disabled`);
+  }
+
   const db = getDb();
   const id = generateId();
   const offering = getSessionOffering(opts.offeringType);
@@ -217,7 +223,7 @@ export function matchSession(sessionId: string): Session | null {
   if (!session) return null;
 
   const offering = getSessionOffering(session.offeringType);
-  const domains = offering?.relevantDomains ?? getDomainsForOffering(session.offeringType as any);
+  const domains = offering?.relevantDomains ?? ['general'];
 
   // Gather all candidate experts across relevant domains
   const candidateMap = new Map<string, { expert: ReturnType<typeof getExpertById>; domainScore: number }>();
@@ -245,6 +251,7 @@ export function matchSession(sessionId: string): Session | null {
 
   for (const [expertId, { expert, domainScore }] of candidateMap) {
     if (!expert) continue;
+    if (expert.deactivatedAt) continue;
 
     // Domain match: normalized 0-1
     const domainNorm = domainScore / domains.length;
@@ -324,54 +331,135 @@ export function startSession(sessionId: string): Session | null {
 export function completeSession(sessionId: string): Session | null {
   const session = getSessionById(sessionId);
   if (!session) return null;
-  if (session.status !== 'active' && session.status !== 'wrapping_up') return null;
 
   const db = getDb();
-  // Calculate expert payout: 80% from ACP, then 75% of that to expert
   const expertPayout = session.priceUsdc * 0.8 * 0.75;
 
-  db.prepare(
-    "UPDATE sessions SET status = 'completed', expert_payout_usdc = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
+  // Atomic conditional update — prevents race between complete and timeout
+  const result = db.prepare(
+    "UPDATE sessions SET status = 'completed', expert_payout_usdc = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status IN ('active', 'wrapping_up')",
   ).run(expertPayout, sessionId);
 
-  // Update expert earnings
-  if (session.expertId) {
-    const startedAt = session.startedAt ? new Date(session.startedAt).getTime() : Date.now();
-    const responseTimeMins = (Date.now() - startedAt) / 60_000;
-    incrementCompletedJobs(session.expertId, responseTimeMins, expertPayout);
+  if (result.changes === 0) return null; // Already transitioned by another path
 
-    // Reputation event
+  addMessage(sessionId, 'system', null, 'Session completed. Thank you for your expertise.', 'system_notice');
+  auditLog('session', sessionId, 'completed', { expertPayout });
+
+  // For local sessions (no ACP), confirm payout immediately.
+  // ACP sessions get payout confirmed after on-chain COMPLETED phase.
+  if (!session.acpJobId) {
+    confirmSessionPayout(sessionId);
+  }
+
+  return getSessionById(sessionId);
+}
+
+/**
+ * Confirm expert payout after ACP delivery is verified.
+ * Atomically guarded — safe to call multiple times (idempotent).
+ */
+export function confirmSessionPayout(sessionId: string): boolean {
+  const db = getDb();
+
+  // Atomic: only confirm once (prevents double-credit from polling + WebSocket)
+  const result = db.prepare(
+    "UPDATE sessions SET payout_confirmed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status = 'completed' AND payout_confirmed_at IS NULL",
+  ).run(sessionId);
+
+  if (result.changes === 0) return false;
+
+  const session = getSessionById(sessionId)!;
+  if (!session.expertId || session.expertPayoutUsdc <= 0) return false;
+
+  const startedAt = session.startedAt ? new Date(session.startedAt).getTime() : Date.now();
+  const responseTimeMins = (Date.now() - startedAt) / 60_000;
+  incrementCompletedJobs(session.expertId, responseTimeMins, session.expertPayoutUsdc);
+
+  // Reputation event
+  const offering = getSessionOffering(session.offeringType);
+  const expert = getExpertById(session.expertId);
+  if (offering && expert) {
+    for (const domain of offering.relevantDomains) {
+      if (expert.domains.includes(domain)) {
+        recordEvent(session.expertId, domain, 'job_completed', undefined, 'Session completed');
+        break;
+      }
+    }
+  }
+
+  auditLog('session', sessionId, 'payout_confirmed', { expertPayout: session.expertPayoutUsdc, expertId: session.expertId });
+  return true;
+}
+
+export function cancelSession(sessionId: string, reason?: string): Session | null {
+  const session = getSessionById(sessionId);
+  if (!session) return null;
+
+  const db = getDb();
+  // Atomic: only cancel from non-terminal states
+  const result = db.prepare(
+    "UPDATE sessions SET status = 'cancelled', completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status NOT IN ('completed', 'cancelled', 'timeout')",
+  ).run(sessionId);
+
+  if (result.changes === 0) return null;
+
+  addMessage(sessionId, 'system', null, `Session cancelled${reason ? ': ' + reason : ''}.`, 'system_notice');
+  auditLog('session', sessionId, 'cancelled', { reason });
+
+  return getSessionById(sessionId);
+}
+
+export function timeoutSession(sessionId: string): Session | null {
+  const session = getSessionById(sessionId);
+  if (!session) return null;
+
+  const db = getDb();
+
+  // Atomic conditional update — prevents race between timeout and complete
+  const result = db.prepare(
+    "UPDATE sessions SET status = 'timeout', expert_payout_usdc = 0, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status IN ('active', 'wrapping_up')",
+  ).run(sessionId);
+
+  if (result.changes === 0) return null; // Already transitioned by another path
+
+  // Negative reputation event for expert
+  if (session.expertId) {
     const offering = getSessionOffering(session.offeringType);
     const expert = getExpertById(session.expertId);
     if (offering && expert) {
       for (const domain of offering.relevantDomains) {
         if (expert.domains.includes(domain)) {
-          recordEvent(session.expertId, domain, 'job_completed', undefined, 'Session completed');
+          recordEvent(session.expertId, domain, 'timeout', undefined, 'Session timed out due to expert inactivity');
           break;
         }
       }
     }
   }
 
-  addMessage(sessionId, 'system', null, 'Session completed. Thank you for your expertise.', 'system_notice');
-
-  auditLog('session', sessionId, 'completed', { expertPayout });
+  addMessage(sessionId, 'system', null, 'Session timed out due to expert inactivity.', 'system_notice');
+  auditLog('session', sessionId, 'timeout', { expertId: session.expertId });
 
   return getSessionById(sessionId);
 }
 
-export function cancelSession(sessionId: string, reason?: string): Session | null {
+export function declineSession(sessionId: string, reason?: string): Session | null {
   const session = getSessionById(sessionId);
   if (!session) return null;
-  if (session.status === 'completed' || session.status === 'cancelled') return null;
 
   const db = getDb();
-  db.prepare(
-    "UPDATE sessions SET status = 'cancelled', completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
+
+  // Atomic: only decline from active states
+  const result = db.prepare(
+    "UPDATE sessions SET status = 'cancelled', expert_payout_usdc = 0, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status IN ('active', 'wrapping_up', 'accepted')",
   ).run(sessionId);
 
-  addMessage(sessionId, 'system', null, `Session cancelled${reason ? ': ' + reason : ''}.`, 'system_notice');
-  auditLog('session', sessionId, 'cancelled', { reason });
+  if (result.changes === 0) return null;
+
+  addMessage(sessionId, 'system', null,
+    `Expert declined to fulfill this request${reason ? ': ' + reason : ''}. Agent will be refunded.`,
+    'system_notice');
+
+  auditLog('session', sessionId, 'declined', { expertId: session.expertId, reason });
 
   return getSessionById(sessionId);
 }
@@ -405,6 +493,13 @@ export function addMessage(
   const session = getSessionById(sessionId);
   if (session && session.status === 'accepted' && senderType !== 'system') {
     startSession(sessionId);
+  }
+
+  // Clear idle warning when expert sends a message
+  if (senderType === 'expert' && session?.idleWarnedAt) {
+    db.prepare(
+      "UPDATE sessions SET idle_warned_at = NULL, updated_at = datetime('now') WHERE id = ?",
+    ).run(sessionId);
   }
 
   return getMessageById(id)!;
@@ -481,6 +576,18 @@ export function respondToAddon(addonId: string, accepted: boolean, expertId: str
     db.prepare(
       "UPDATE sessions SET price_usdc = price_usdc + ?, updated_at = datetime('now') WHERE id = ?",
     ).run(addon.priceUsdc, addon.sessionId);
+
+    // Extend deadline by 15 minutes for extended_time addon
+    if (addon.addonType === 'extended_time') {
+      const session = getSessionById(addon.sessionId);
+      if (session) {
+        const currentDeadline = session.deadlineAt ? new Date(session.deadlineAt).getTime() : Date.now();
+        const newDeadline = new Date(currentDeadline + 15 * 60 * 1000).toISOString();
+        db.prepare(
+          "UPDATE sessions SET deadline_at = ?, updated_at = datetime('now') WHERE id = ?",
+        ).run(newDeadline, addon.sessionId);
+      }
+    }
   }
 
   addMessage(
@@ -511,55 +618,88 @@ function getAddonById(id: string): Addon | null {
 
 // ── Guardrails ──
 
-export function incrementTurnCount(sessionId: string): { turnCount: number; maxTurns: number; wrappingUp: boolean } {
+const GRACE_TURNS = 5;
+
+export function incrementTurnCount(sessionId: string, senderType: MessageSenderType): { turnCount: number; maxTurns: number; limitReached: boolean; locked: boolean } {
   const db = getDb();
-  db.prepare(
-    "UPDATE sessions SET turn_count = turn_count + 1, idle_warned_at = NULL, updated_at = datetime('now') WHERE id = ?",
-  ).run(sessionId);
 
-  const session = getSessionById(sessionId)!;
+  // Only increment when the sender alternates (agent→expert or expert→agent)
+  // This prevents gaming by spamming messages from one side
+  const prevMsg = db.prepare(
+    "SELECT sender_type FROM messages WHERE session_id = ? AND sender_type IN ('agent', 'expert') ORDER BY created_at DESC LIMIT 1 OFFSET 1",
+  ).get(sessionId) as { sender_type: string } | undefined;
 
-  if (session.turnCount >= session.maxTurns && session.status === 'active') {
+  const shouldIncrement = !prevMsg || prevMsg.sender_type !== senderType;
+
+  if (shouldIncrement) {
     db.prepare(
-      "UPDATE sessions SET status = 'wrapping_up', updated_at = datetime('now') WHERE id = ?",
+      "UPDATE sessions SET turn_count = turn_count + 1, idle_warned_at = NULL, updated_at = datetime('now') WHERE id = ?",
     ).run(sessionId);
-    addMessage(sessionId, 'system', null, 'Turn limit reached. Please wrap up the conversation.', 'system_notice');
-    return { turnCount: session.turnCount, maxTurns: session.maxTurns, wrappingUp: true };
+  } else {
+    // Still clear idle warning on any message
+    db.prepare(
+      "UPDATE sessions SET idle_warned_at = NULL, updated_at = datetime('now') WHERE id = ?",
+    ).run(sessionId);
   }
 
-  return { turnCount: session.turnCount, maxTurns: session.maxTurns, wrappingUp: false };
+  const session = getSessionById(sessionId)!;
+  const limitReached = session.turnCount >= session.maxTurns;
+  const locked = session.turnCount >= session.maxTurns + GRACE_TURNS;
+
+  // System messages at key thresholds
+  if (shouldIncrement && session.turnCount === session.maxTurns) {
+    addMessage(sessionId, 'system', null,
+      `Turn limit reached. You have ${GRACE_TURNS} more turns to wrap up, or request an extension.`,
+      'system_notice');
+  } else if (shouldIncrement && locked) {
+    addMessage(sessionId, 'system', null,
+      'Grace period exhausted. Please complete the session or request an extension.',
+      'system_notice');
+  }
+
+  return { turnCount: session.turnCount, maxTurns: session.maxTurns, limitReached, locked };
 }
 
-export function checkIdleSession(sessionId: string): 'ok' | 'warned' | 'closed' {
+export function checkIdleSession(sessionId: string): 'ok' | 'warned' | 'timed_out' {
   const session = getSessionById(sessionId);
-  if (!session || session.status !== 'active') return 'ok';
+  if (!session || (session.status !== 'active' && session.status !== 'wrapping_up')) return 'ok';
 
   const lastMsg = getLatestMessage(sessionId);
   if (!lastMsg) return 'ok';
+
+  // Only trigger when it's the expert's turn (last message is from agent)
+  if (lastMsg.senderType !== 'agent') return 'ok';
 
   const lastMsgTime = new Date(lastMsg.createdAt).getTime();
   const now = Date.now();
   const idleMs = now - lastMsgTime;
 
-  const WARN_THRESHOLD = 3 * 60 * 1000; // 3 minutes
-  const CLOSE_THRESHOLD = 5 * 60 * 1000; // 5 minutes after warning
+  const WARN_THRESHOLD = 5 * 60 * 1000;   // 5 minutes — warn expert
+  const TIMEOUT_THRESHOLD = 5 * 60 * 1000; // 5 minutes after warning — timeout
 
   if (session.idleWarnedAt) {
     const warnedAt = new Date(session.idleWarnedAt).getTime();
-    if (now - warnedAt > CLOSE_THRESHOLD) {
-      completeSession(sessionId);
-      return 'closed';
+    if (now - warnedAt > TIMEOUT_THRESHOLD) {
+      timeoutSession(sessionId);
+      return 'timed_out';
     }
   } else if (idleMs > WARN_THRESHOLD) {
     const db = getDb();
     db.prepare(
       "UPDATE sessions SET idle_warned_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
     ).run(sessionId);
-    addMessage(sessionId, 'system', null, 'This session has been idle. It will auto-close in 5 minutes if no messages are sent.', 'system_notice');
+    addMessage(sessionId, 'system', null, 'Expert has not responded in 5 minutes. Session will time out in 5 minutes if no reply is received.', 'system_notice');
     return 'warned';
   }
 
   return 'ok';
+}
+
+export function checkAllIdleSessions(): void {
+  const sessions = getActiveSessions();
+  for (const session of sessions) {
+    checkIdleSession(session.id);
+  }
 }
 
 export function checkSessionTimeouts(): number {
@@ -567,15 +707,17 @@ export function checkSessionTimeouts(): number {
   const now = new Date().toISOString();
 
   const expiredSessions = db.prepare(
-    "SELECT * FROM sessions WHERE status IN ('active', 'wrapping_up', 'accepted') AND deadline_at < ?",
+    "SELECT * FROM sessions WHERE status IN ('pending', 'matching', 'accepted', 'active', 'wrapping_up') AND deadline_at < ?",
   ).all(now) as SessionRow[];
 
   for (const row of expiredSessions) {
     const session = rowToSession(row);
-    if (session.status === 'accepted') {
-      cancelSession(session.id, 'Session expired before starting');
+    if (session.status === 'pending' || session.status === 'matching') {
+      cancelSession(session.id, 'No expert available — session expired');
+    } else if (session.status === 'accepted') {
+      cancelSession(session.id, 'Expert did not start the session in time');
     } else {
-      completeSession(session.id);
+      timeoutSession(session.id);
     }
   }
 
@@ -584,6 +726,20 @@ export function checkSessionTimeouts(): number {
 
 // ── Deliverable Formatting ──
 
+// Checklist items per offering — must match dashboard OFFERING_CHECKLIST
+const OFFERING_REQUIREMENTS: Record<string, string[]> = {
+  trust_evaluation: ['Assess project legitimacy', 'Check community authenticity', 'Review team/partnership claims', 'Provide trust verdict'],
+  cultural_context: ['Provide cultural context', 'Assess trend authenticity', 'Share relevant domain insights'],
+  output_quality_gate: ['Review AI output quality', 'Check for errors or issues', 'Suggest improvements'],
+  option_ranking: ['Compare all options', 'Rank with reasoning', 'Provide recommendation'],
+  blind_spot_check: ['Identify gaps in AI analysis', 'Flag risks or blind spots', 'Provide expert perspective'],
+  human_reaction_prediction: ['Predict audience reaction', 'Identify emotional triggers', 'Assess cultural fit'],
+  expert_brainstorming: ['Explore creative angles', 'Challenge assumptions', 'Synthesize insights'],
+  content_quality_gate: ['Review for cultural sensitivity', 'Check for derivative elements', 'Assess brand safety', 'Evaluate emotional resonance'],
+  audience_reaction_poll: ['Rate content quality', 'Score against criteria', 'Provide comparison notes'],
+  creative_direction_check: ['Review concept viability', 'Flag cultural red flags', 'Assess tonal alignment'],
+};
+
 export function formatSessionDeliverable(sessionId: string): Record<string, unknown> {
   const session = getSessionById(sessionId);
   if (!session) return {};
@@ -591,6 +747,7 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
   const messages = getMessages(sessionId);
   const addons = getAddons(sessionId);
   const expert = session.expertId ? getExpertById(session.expertId) : null;
+  const offering = getSessionOffering(session.offeringType);
 
   const transcript = messages
     .filter(m => m.messageType === 'text')
@@ -600,13 +757,41 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
       timestamp: m.createdAt,
     }));
 
+  // Extract expert-only messages for evaluation summary
+  const expertMessages = messages
+    .filter(m => m.senderType === 'expert' && m.messageType === 'text')
+    .map(m => m.content);
+
+  const requirements = OFFERING_REQUIREMENTS[session.offeringType] ?? [];
+
   return {
     sessionId: session.id,
     offeringType: session.offeringType,
+    offeringName: offering?.name ?? session.offeringType,
     tier: session.tierId,
     status: session.status,
+
+    // What was requested
+    request: {
+      description: session.description,
+      requirements,
+      offeringDescription: offering?.description ?? null,
+    },
+
+    // What was delivered
+    result: {
+      expertResponseCount: expertMessages.length,
+      expertWordCount: expertMessages.join(' ').split(/\s+/).length,
+      summary: expertMessages.length > 0
+        ? expertMessages[expertMessages.length - 1].slice(0, 500)
+        : null,
+    },
+
+    // Full conversation
     transcript,
     turnCount: session.turnCount,
+    maxTurns: session.maxTurns,
+
     addons: addons.map(a => ({
       type: a.addonType,
       status: a.status,
@@ -621,5 +806,8 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
       ? Math.round((new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) / 60_000)
       : null,
     disclaimer: 'This is a qualitative human opinion provided for informational purposes only. It does not constitute financial, investment, legal, or professional advice.',
+
+    // Evaluation hint for ACP evaluators
+    evaluationCriteria: `Verify the expert addressed the following requirements for a "${offering?.name ?? session.offeringType}" session: ${requirements.join('; ')}. The expert's responses should be substantive and relevant to the request description.`,
   };
 }
