@@ -166,7 +166,7 @@ router.post('/:id/messages', messageLimiter, validate(sendMessageSchema), (req, 
       body: preview,
       tag: `chat-${session.id}`,
       data: { url: `/dashboard/session/${session.id}`, sessionId: session.id, type: 'message' },
-    });
+    }).catch(err => console.error('[Push] Failed:', err));
   }
 
   // Relay expert message to buyer agent via ACP memo (non-blocking)
@@ -292,7 +292,7 @@ router.post('/:id/addons', validate(createAddonSchema), (req, res) => {
       body: `${addonType} — $${priceUsdc} USDC`,
       tag: `addon-${session.id}`,
       data: { url: `/dashboard/session/${session.id}`, sessionId: session.id, type: 'addon_request' },
-    });
+    }).catch(err => console.error('[Push] Failed:', err));
   }
 
   res.status(201).json({ success: true, data: addon });
@@ -456,7 +456,7 @@ router.post('/', sessionCreateLimiter, requireRole('admin'), validate(createSess
       body: `${matched.offeringType} — $${matched.priceUsdc} USDC`,
       tag: `session-${matched.id}`,
       data: { url: `/dashboard/session/${matched.id}`, sessionId: matched.id, type: 'session_request' },
-    });
+    }).catch(err => console.error('[Push] Failed:', err));
   }
 
   res.status(201).json({ success: true, data: matched ?? session });

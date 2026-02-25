@@ -15,6 +15,7 @@ import {
   confirmSessionPayout, addMessage,
 } from './sessions.js';
 import { notifyExpert, emitToSession } from './socket.js';
+import { sendPushToExpert } from './push.js';
 
 let _acpClient: InstanceType<typeof AcpClient> | null = null;
 let _pollInterval: ReturnType<typeof setInterval> | null = null;
@@ -237,6 +238,12 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
           const matched = matchSession(session.id);
           if (matched?.expertId) {
             try { notifyExpert(matched.expertId, 'session:new', matched); } catch {}
+            sendPushToExpert(matched.expertId, {
+              title: 'New Session Request',
+              body: `${matched.offeringType} — $${matched.priceUsdc} USDC`,
+              tag: `session-${matched.id}`,
+              data: { url: `/dashboard/session/${matched.id}`, sessionId: matched.id, type: 'session_request' },
+            }).catch(err => console.error('[ACP] Push failed for new session:', err));
           }
         }
       } catch (err) {
@@ -474,6 +481,18 @@ async function bridgeInboundMemos(): Promise<boolean> {
         const content = memo.content.slice(0, 2000);
         const message = addMessage(sessionId, 'agent', null, content);
         emitToSession(sessionId, 'message:new', message);
+
+        // Push notification so expert sees it even with tab closed
+        if (session.expertId) {
+          const preview = content.length > 100 ? content.slice(0, 100) + '...' : content;
+          sendPushToExpert(session.expertId, {
+            title: 'New Message',
+            body: preview,
+            tag: `chat-${sessionId}`,
+            data: { url: `/dashboard/session/${sessionId}`, sessionId, type: 'message' },
+          }).catch(err => console.error('[ACP] Push failed for memo bridge:', err));
+        }
+
         console.log(`[ACP] Memo bridge: injected memo ${memo.id} from buyer into session ${sessionId}`);
       }
 
