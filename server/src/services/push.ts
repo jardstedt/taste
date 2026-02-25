@@ -48,13 +48,9 @@ export function saveSubscription(
   ).run(generateId(), expertId, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth);
 }
 
-export function removeSubscription(endpoint: string, expertId?: string): void {
+export function removeSubscription(endpoint: string, expertId: string): void {
   const db = getDb();
-  if (expertId) {
-    db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ? AND expert_id = ?').run(endpoint, expertId);
-  } else {
-    db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(endpoint);
-  }
+  db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ? AND expert_id = ?').run(endpoint, expertId);
 }
 
 export async function sendPushToExpert(expertId: string, payload: PushPayload): Promise<void> {

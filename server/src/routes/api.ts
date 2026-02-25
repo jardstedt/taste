@@ -70,18 +70,22 @@ router.get('/experts/:id', (req, res) => {
 // This is accessed via the judgment deliverable link
 
 // POST /api/experts — create expert (admin only)
-router.post('/experts', requireRole('admin'), validate(createExpertSchema), async (req, res) => {
-  const { name, email, domains, password, credentials } = req.body as {
-    name: string;
-    email: string;
-    domains: Domain[];
-    password: string;
-    credentials?: ExpertCredentials;
-  };
+router.post('/experts', requireRole('admin'), validate(createExpertSchema), async (req, res, next) => {
+  try {
+    const { name, email, domains, password, credentials } = req.body as {
+      name: string;
+      email: string;
+      domains: Domain[];
+      password: string;
+      credentials?: ExpertCredentials;
+    };
 
-  const expert = createExpert(name, email, domains, 'expert', credentials);
-  await setExpertPassword(expert.id, password);
-  res.status(201).json({ success: true, data: getExpertPublic(expert.id) });
+    const expert = createExpert(name, email, domains, 'expert', credentials);
+    await setExpertPassword(expert.id, password);
+    res.status(201).json({ success: true, data: getExpertPublic(expert.id) });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // PATCH /api/experts/:id — update expert profile
@@ -102,34 +106,38 @@ router.patch('/experts/:id', validate(updateExpertSchema), (req, res) => {
 });
 
 // POST /api/experts/:id/password — set password
-router.post('/experts/:id/password', passwordLimiter, validate(setPasswordSchema), async (req, res) => {
-  if (req.auth!.role !== 'admin' && req.auth!.expertId !== param(req.params.id)) {
-    res.status(403).json({ success: false, error: 'Cannot set another expert\'s password' });
-    return;
-  }
-
-  const expert = getExpertById(param(req.params.id));
-  if (!expert) {
-    res.status(404).json({ success: false, error: 'Expert not found' });
-    return;
-  }
-
-  const { password, currentPassword } = req.body as { password: string; currentPassword?: string };
-
-  // Non-admin users must verify their current password
-  if (req.auth!.role !== 'admin') {
-    if (!currentPassword) {
-      res.status(400).json({ success: false, error: 'Current password is required' });
+router.post('/experts/:id/password', passwordLimiter, validate(setPasswordSchema), async (req, res, next) => {
+  try {
+    if (req.auth!.role !== 'admin' && req.auth!.expertId !== param(req.params.id)) {
+      res.status(403).json({ success: false, error: 'Cannot set another expert\'s password' });
       return;
     }
-    if (!(await verifyPassword(expert, currentPassword))) {
-      res.status(403).json({ success: false, error: 'Current password is incorrect' });
+
+    const expert = getExpertById(param(req.params.id));
+    if (!expert) {
+      res.status(404).json({ success: false, error: 'Expert not found' });
       return;
     }
-  }
 
-  await setExpertPassword(param(req.params.id), password);
-  res.json({ success: true });
+    const { password, currentPassword } = req.body as { password: string; currentPassword?: string };
+
+    // Non-admin users must verify their current password
+    if (req.auth!.role !== 'admin') {
+      if (!currentPassword) {
+        res.status(400).json({ success: false, error: 'Current password is required' });
+        return;
+      }
+      if (!(await verifyPassword(expert, currentPassword))) {
+        res.status(403).json({ success: false, error: 'Current password is incorrect' });
+        return;
+      }
+    }
+
+    await setExpertPassword(param(req.params.id), password);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // DELETE /api/experts/:id — deactivate expert (admin only)

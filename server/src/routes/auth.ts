@@ -8,43 +8,47 @@ import { decryptEmail } from '../db/database.js';
 const router = Router();
 
 // POST /api/auth/login
-router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
-  const { email, password } = req.body as { email: string; password: string };
+router.post('/login', authLimiter, validate(loginSchema), async (req, res, next) => {
+  try {
+    const { email, password } = req.body as { email: string; password: string };
 
-  const expert = getExpertByEmail(email);
-  if (!expert) {
-    res.status(401).json({ success: false, error: 'Invalid credentials' });
-    return;
+    const expert = getExpertByEmail(email);
+    if (!expert) {
+      res.status(401).json({ success: false, error: 'Invalid credentials' });
+      return;
+    }
+
+    if (expert.deactivatedAt) {
+      res.status(403).json({ success: false, error: 'Account has been deactivated' });
+      return;
+    }
+
+    if (!(await verifyPassword(expert, password))) {
+      res.status(401).json({ success: false, error: 'Invalid credentials' });
+      return;
+    }
+
+    const token = signToken({ expertId: expert.id, role: expert.role });
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 2 * 60 * 60 * 1000, // 2 hours
+    });
+
+    res.json({
+      success: true,
+      data: {
+        expertId: expert.id,
+        name: expert.name,
+        role: expert.role,
+        domains: expert.domains,
+      },
+    });
+  } catch (err) {
+    next(err);
   }
-
-  if (expert.deactivatedAt) {
-    res.status(403).json({ success: false, error: 'Account has been deactivated' });
-    return;
-  }
-
-  if (!(await verifyPassword(expert, password))) {
-    res.status(401).json({ success: false, error: 'Invalid credentials' });
-    return;
-  }
-
-  const token = signToken({ expertId: expert.id, role: expert.role });
-
-  res.cookie('token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    maxAge: 2 * 60 * 60 * 1000, // 2 hours
-  });
-
-  res.json({
-    success: true,
-    data: {
-      expertId: expert.id,
-      name: expert.name,
-      role: expert.role,
-      domains: expert.domains,
-    },
-  });
 });
 
 // POST /api/auth/logout
@@ -67,10 +71,10 @@ router.get('/me', verifyToken, (req, res) => {
 
   if (expert.deactivatedAt) {
     res.clearCookie('token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-  });
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
     res.status(403).json({ success: false, error: 'Account has been deactivated' });
     return;
   }

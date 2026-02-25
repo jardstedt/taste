@@ -99,6 +99,7 @@ function handleConnection(socket: Socket) {
 
   // Join a session room
   socket.on('session:join', (sessionId: string) => {
+    if (isRateLimited(socket)) return;
     if (typeof sessionId !== 'string' || !sessionId) return;
     const session = getSessionById(sessionId);
     if (session && (session.expertId === auth.expertId || auth.role === 'admin')) {
@@ -111,6 +112,7 @@ function handleConnection(socket: Socket) {
 
   // Leave a session room
   socket.on('session:leave', (sessionId: string) => {
+    if (typeof sessionId !== 'string' || !sessionId) return;
     socket.leave(`session:${sessionId}`);
   });
 
