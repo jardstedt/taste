@@ -82,7 +82,9 @@ function runMigrations(db: Database.Database): void {
   // v1.4: add 'file' to messages.message_type CHECK constraint (requires table rebuild)
   const msgSchema = (db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='messages'").get() as { sql: string } | undefined)?.sql ?? '';
   if (!msgSchema.includes("'file'")) {
+    db.pragma('foreign_keys = OFF');
     db.exec(`
+      DROP TABLE IF EXISTS messages_new;
       CREATE TABLE messages_new (
         id TEXT PRIMARY KEY,
         session_id TEXT NOT NULL REFERENCES sessions(id),
@@ -97,6 +99,7 @@ function runMigrations(db: Database.Database): void {
       DROP TABLE messages;
       ALTER TABLE messages_new RENAME TO messages;
     `);
+    db.pragma('foreign_keys = ON');
     console.log('[DB] v1.4 messages table rebuilt with file type');
   }
 
