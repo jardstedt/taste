@@ -110,6 +110,12 @@ function runMigrations(db: Database.Database): void {
     console.log('[DB] v1.4 migration applied');
   }
 
+  // v1.4: payment tracking for ACP sessions
+  if (!hasColumn(db, 'sessions', 'payment_received_at')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN payment_received_at TEXT');
+    console.log('[DB] v1.4 added payment_received_at to sessions');
+  }
+
   // v1.5: security hardening
   if (!hasColumn(db, 'sessions', 'payout_confirmed_at')) {
     db.exec('ALTER TABLE sessions ADD COLUMN payout_confirmed_at TEXT');

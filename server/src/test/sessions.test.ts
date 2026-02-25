@@ -200,4 +200,79 @@ describe('sessions', () => {
       expect(msg!.senderType).toBe('agent');
     });
   });
+
+  describe('paymentReceivedAt', () => {
+    it('is null on session creation', () => {
+      const session = testSession();
+      expect(session.paymentReceivedAt).toBeNull();
+    });
+
+    it('is null for ACP sessions before payment', () => {
+      const session = createSession({
+        offeringType: 'trust_evaluation',
+        tierId: 'quick',
+        description: 'ACP test',
+        buyerAgent: 'agent-1',
+        priceUsdc: 10,
+        acpJobId: '999',
+      });
+      expect(session.acpJobId).toBe('999');
+      expect(session.paymentReceivedAt).toBeNull();
+    });
+
+    it('is set when payment is received (simulating ACP TRANSACTION handler)', () => {
+      const session = createSession({
+        offeringType: 'trust_evaluation',
+        tierId: 'quick',
+        description: 'ACP test',
+        buyerAgent: 'agent-1',
+        priceUsdc: 10,
+        acpJobId: '888',
+      });
+
+      // Simulate what the ACP handler does
+      const db = getDb();
+      db.prepare(
+        "UPDATE sessions SET payment_received_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND payment_received_at IS NULL",
+      ).run(session.id);
+
+      const updated = getSessionById(session.id)!;
+      expect(updated.paymentReceivedAt).toBeTruthy();
+    });
+
+    it('is idempotent — second update does not overwrite first timestamp', () => {
+      const session = createSession({
+        offeringType: 'trust_evaluation',
+        tierId: 'quick',
+        description: 'ACP test',
+        buyerAgent: 'agent-1',
+        priceUsdc: 10,
+        acpJobId: '777',
+      });
+
+      const db = getDb();
+
+      // First payment received
+      db.prepare(
+        "UPDATE sessions SET payment_received_at = '2026-01-01 00:00:00', updated_at = datetime('now') WHERE id = ? AND payment_received_at IS NULL",
+      ).run(session.id);
+
+      // Second attempt (e.g. from polling + websocket race)
+      const result = db.prepare(
+        "UPDATE sessions SET payment_received_at = '2026-02-01 00:00:00', updated_at = datetime('now') WHERE id = ? AND payment_received_at IS NULL",
+      ).run(session.id);
+
+      expect(result.changes).toBe(0); // No rows changed — already set
+
+      const final = getSessionById(session.id)!;
+      expect(final.paymentReceivedAt).toBe('2026-01-01 00:00:00'); // Original preserved
+    });
+
+    it('is included in session response for non-ACP sessions (null)', () => {
+      const session = testSession();
+      const fetched = getSessionById(session.id)!;
+      expect('paymentReceivedAt' in fetched).toBe(true);
+      expect(fetched.paymentReceivedAt).toBeNull();
+    });
+  });
 });

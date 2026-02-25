@@ -14,6 +14,7 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
   const initials = getInitials(agentName);
   const offeringLabel = session.offeringType.replace(/_/g, ' ');
   const date = new Date(session.completedAt || session.createdAt).toLocaleDateString();
+  const awaitingPayment = !!session.acpJobId && !session.paymentReceivedAt && !['completed', 'cancelled', 'timeout'].includes(session.status);
 
   return (
     <div
@@ -31,7 +32,15 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
           {initials}
         </div>
         <div>
-          <div style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>{agentName}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>{agentName}</span>
+            {awaitingPayment && (
+              <span style={{
+                background: '#FEF3C7', color: '#92400E', fontWeight: 600,
+                padding: '1px 6px', borderRadius: 4, fontSize: 10, whiteSpace: 'nowrap',
+              }}>Awaiting Payment</span>
+            )}
+          </div>
           <div style={{ color: '#9CA3AF', fontSize: 12 }}>{offeringLabel} · {date}</div>
         </div>
       </div>

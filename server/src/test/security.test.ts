@@ -204,6 +204,46 @@ describe('security', () => {
     });
   });
 
+  describe('paymentReceivedAt safety', () => {
+    it('payment_received_at is not set on non-ACP session completion', () => {
+      const session = createActiveSession();
+      completeSession(session.id);
+
+      const final = getSessionById(session.id)!;
+      expect(final.paymentReceivedAt).toBeNull();
+      // Non-ACP sessions never go through the TRANSACTION handler
+    });
+
+    it('payment_received_at survives session completion', () => {
+      // Simulate ACP session with payment already received
+      createOnlineExpert('Charlie', 'charlie@test.com', ['crypto']);
+      const session = createSession({
+        offeringType: 'trust_evaluation',
+        tierId: 'quick',
+        description: 'ACP test',
+        buyerAgent: 'agent-1',
+        priceUsdc: 100,
+        acpJobId: '555',
+      });
+      matchSession(session.id);
+      const matched = getSessionById(session.id)!;
+      acceptSession(session.id, matched.expertId!);
+      getDb().prepare("UPDATE sessions SET status = 'active' WHERE id = ?").run(session.id);
+
+      // Simulate payment received
+      getDb().prepare(
+        "UPDATE sessions SET payment_received_at = datetime('now') WHERE id = ?",
+      ).run(session.id);
+
+      // Complete session
+      completeSession(session.id);
+
+      const final = getSessionById(session.id)!;
+      expect(final.status).toBe('completed');
+      expect(final.paymentReceivedAt).toBeTruthy(); // Not cleared by completion
+    });
+  });
+
   describe('withdrawal safety', () => {
     it('blocks withdrawal for deactivated expert', () => {
       const expert = createOnlineExpert('Alice', 'alice@test.com', ['crypto']);

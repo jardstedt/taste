@@ -33,6 +33,7 @@ interface SessionRow {
   started_at: string | null;
   completed_at: string | null;
   deadline_at: string | null;
+  payment_received_at: string | null;
   payout_confirmed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -60,6 +61,7 @@ function rowToSession(row: SessionRow): Session {
     startedAt: row.started_at,
     completedAt: row.completed_at,
     deadlineAt: row.deadline_at,
+    paymentReceivedAt: row.payment_received_at,
     payoutConfirmedAt: row.payout_confirmed_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

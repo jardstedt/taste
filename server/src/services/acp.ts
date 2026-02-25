@@ -253,6 +253,11 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
       // Check session status
       const session = getSessionByAcpId(String(job.id));
       if (session) {
+        // Mark payment received timestamp
+        const { getDb } = await import('../db/database.js');
+        getDb().prepare(
+          "UPDATE sessions SET payment_received_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND payment_received_at IS NULL",
+        ).run(session.id);
         if (session.status === 'completed') {
           const sessionDeliverable = formatSessionDeliverable(session.id);
           await job.deliver(JSON.stringify(sessionDeliverable));

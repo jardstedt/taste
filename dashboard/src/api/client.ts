@@ -263,6 +263,20 @@ export const agentSim = {
     request(`/agent-sim/jobs/${jobId}/reject`, { method: 'POST', body: JSON.stringify({ memo }) }),
 };
 
+// ── ACP Inspector (admin) ──
+
+export function getAcpJobs() {
+  return request('/acp/jobs');
+}
+
+export function getAcpJob(jobId: number) {
+  return request(`/acp/jobs/${jobId}`);
+}
+
+export function getAcpSessionInspection(sessionId: string) {
+  return request(`/acp/sessions/${sessionId}`);
+}
+
 // ── Public (no auth) ──
 
 export function getPublicStats() {

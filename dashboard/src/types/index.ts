@@ -173,6 +173,7 @@ export interface Session {
   startedAt: string | null;
   completedAt: string | null;
   deadlineAt: string | null;
+  paymentReceivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

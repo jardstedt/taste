@@ -83,6 +83,7 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
   const remainingMins = Math.ceil(remainingMs / 60_000);
 
   const isActive = session.status === 'active' || session.status === 'accepted' || session.status === 'wrapping_up';
+  const awaitingPayment = !!session.acpJobId && !session.paymentReceivedAt && !['completed', 'cancelled', 'timeout'].includes(session.status);
   const graceTurns = 5;
   const isLocked = session.turnCount >= session.maxTurns + graceTurns;
   const pendingAddons = addons.filter(a => a.status === 'pending');
@@ -111,6 +112,15 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
                         background: '#DBEAFE', color: '#1D4ED8', fontWeight: 600,
                         padding: '1px 5px', borderRadius: 4, fontSize: 10,
                       }}>ACP Agent</span>
+                    </>
+                  )}
+                  {awaitingPayment && (
+                    <>
+                      <span style={{ color: '#D1D5DB' }}>&middot;</span>
+                      <span style={{
+                        background: '#FEF3C7', color: '#92400E', fontWeight: 600,
+                        padding: '1px 5px', borderRadius: 4, fontSize: 10,
+                      }}>Awaiting Payment</span>
                     </>
                   )}
                   <span style={{ color: '#D1D5DB' }}>&middot;</span>
