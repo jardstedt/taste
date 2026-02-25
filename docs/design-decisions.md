@@ -104,6 +104,18 @@ The JSON delivered to buying agents via `job.deliver()`.
 
 **Trade-off:** Fragile with many keywords — substring matching can have false positives. But robust matching (embeddings, fuzzy) is overkill for MVP. The keyword map is easy to extend and debug.
 
+### 2025-02-25: Push notifications for ACP sessions
+
+**Context:** ACP sessions only called `notifyExpert()` (WebSocket) when a new session was matched or a buyer memo arrived. If the expert's browser tab was closed, they had no idea about new jobs or messages — push notifications were only wired up for dashboard-created sessions in `routes/sessions.ts`.
+
+**Decision:** Added `sendPushToExpert()` calls to `services/acp.ts` in two places:
+1. New ACP session matched to expert (alongside existing `notifyExpert`)
+2. Memo bridge injecting buyer agent messages into chat
+
+All `sendPushToExpert` calls (both ACP and dashboard routes) now have `.catch()` to log errors instead of creating unhandled promise rejections.
+
+**Rationale:** ACP is the primary traffic source. Experts need to know about incoming work even when their phone/laptop is locked. Fire-and-forget with `.catch()` is correct — push failures shouldn't block the main flow, but silent swallowing makes debugging impossible.
+
 ### 2025-02-25: Awaiting Payment indicator
 
 **Context:** ACP sessions have a gap between session creation (REQUEST phase) and payment (TRANSACTION phase). During this time, the expert sees the session but payment hasn't arrived.
