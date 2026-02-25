@@ -139,7 +139,10 @@ export function closeDb(): void {
 export function encryptEmail(email: string): string {
   const env = getEnv();
   const key = env.EMAIL_ENCRYPTION_KEY;
-  if (!key) return email; // No encryption without key (dev mode)
+  if (!key) {
+    if (env.NODE_ENV !== 'test') console.warn('[Security] EMAIL_ENCRYPTION_KEY not set — emails stored in plaintext');
+    return email;
+  }
 
   const keyBuf = Buffer.from(key, 'hex');
   const iv = randomBytes(12); // 12-byte IV for GCM

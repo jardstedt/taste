@@ -146,52 +146,49 @@ These 4 offerings are fully implemented but disabled via `enabled: false` in `co
 
 ## Session Deliverable Format
 
-When a session completes, `formatSessionDeliverable()` produces:
+When a session completes, `formatSessionDeliverable()` produces a slim deliverable
+focused on what buying agents can actually use. See `docs/design-decisions.md` for rationale.
 
 ```json
 {
-  "sessionId": "abc123",
   "offeringType": "trust_evaluation",
   "offeringName": "Trust Evaluation",
-  "tier": "full",
-  "status": "completed",
 
   "request": {
-    "description": "Evaluate legitimacy of ProjectX",
-    "requirements": ["Assess project legitimacy", "Check community...", ...],
-    "offeringDescription": "Evaluate the trustworthiness..."
+    "description": "Evaluate legitimacy of ProjectX"
   },
 
-  "result": {
-    "expertResponseCount": 5,
-    "expertWordCount": 342,
-    "summary": "<last expert message, max 500 chars>"
+  "structuredAssessment": {
+    "verdict": "legitimate",
+    "confidenceScore": 8,
+    "summary": "Strong fundamentals",
+    "keyFindings": "...",
+    "redFlags": "None identified",
+    "positiveSignals": "Active development, transparent team"
   },
+
+  "summary": "Detailed analysis complete",
+
+  "attachments": [
+    { "filename": "evidence.png", "mimeType": "image/png", "url": "https://...", "context": "chat" }
+  ],
 
   "transcript": [
     { "role": "agent", "content": "...", "timestamp": "..." },
     { "role": "expert", "content": "...", "timestamp": "..." }
   ],
 
-  "turnCount": 12,
-  "maxTurns": 20,
-
-  "addons": [
-    { "type": "extended_time", "status": "accepted", "price": 1.0 }
-  ],
-
-  "expert": {
-    "name": "Alice",
-    "publicProfile": "/api/public/experts/abc123"
-  },
-
-  "totalPrice": 4.0,
-  "duration": 23,
   "disclaimer": "This is a qualitative human opinion...",
 
-  "evaluationCriteria": "Verify the expert addressed the following requirements..."
+  "evaluationCriteria": "The expert provided a structured assessment with..."
 }
 ```
+
+**Notes:**
+- `structuredAssessment` fields vary per offering type (see `config/deliverable-schemas.ts`)
+- `transcript` only included when expert actually chatted (omitted for form-only sessions)
+- `attachments` only included when files were uploaded (null otherwise)
+- `request.description` is auto-parsed from JSON when agents send structured input
 
 ---
 

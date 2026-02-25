@@ -13,6 +13,29 @@ import {
 
 let _io: SocketServer | null = null;
 
+// ── Per-socket rate limiter ──
+
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 30; // 30 events per window
+
+interface RateBucket {
+  count: number;
+  resetAt: number;
+}
+
+const socketRates = new WeakMap<Socket, RateBucket>();
+
+function isRateLimited(socket: Socket): boolean {
+  const now = Date.now();
+  let bucket = socketRates.get(socket);
+  if (!bucket || now >= bucket.resetAt) {
+    bucket = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    socketRates.set(socket, bucket);
+  }
+  bucket.count++;
+  return bucket.count > RATE_LIMIT_MAX;
+}
+
 function parseCookies(cookieStr: string): Record<string, string> {
   const cookies: Record<string, string> = {};
   if (!cookieStr) return cookies;
@@ -28,9 +51,10 @@ export function getIO(): SocketServer | null {
 }
 
 export function initSocketServer(httpServer: HttpServer): SocketServer {
+  const origins = getEnv().CORS_ORIGIN.split(',').map(o => o.trim());
   _io = new SocketServer(httpServer, {
     cors: {
-      origin: getEnv().CORS_ORIGIN,
+      origin: origins,
       credentials: true,
     },
   });
@@ -75,10 +99,13 @@ function handleConnection(socket: Socket) {
 
   // Join a session room
   socket.on('session:join', (sessionId: string) => {
+    if (typeof sessionId !== 'string' || !sessionId) return;
     const session = getSessionById(sessionId);
-    if (session && session.expertId === auth.expertId) {
+    if (session && (session.expertId === auth.expertId || auth.role === 'admin')) {
       socket.join(`session:${sessionId}`);
       socket.emit('session:joined', { sessionId });
+    } else {
+      console.warn(`[Socket.io] Unauthorized session:join attempt by ${auth.expertId} for ${sessionId}`);
     }
   });
 
@@ -89,6 +116,8 @@ function handleConnection(socket: Socket) {
 
   // Accept a session
   socket.on('session:accept', (sessionId: string) => {
+    if (isRateLimited(socket)) return;
+    if (typeof sessionId !== 'string' || !sessionId) return;
     const session = acceptSession(sessionId, auth.expertId);
     if (session) {
       socket.join(`session:${sessionId}`);
@@ -99,6 +128,11 @@ function handleConnection(socket: Socket) {
 
   // Send a message
   socket.on('message:send', (data: { sessionId: string; content: string }) => {
+    if (isRateLimited(socket)) return;
+    // Validate input
+    if (!data || typeof data.sessionId !== 'string' || typeof data.content !== 'string') return;
+    if (data.content.length === 0 || data.content.length > 5000) return;
+
     const session = getSessionById(data.sessionId);
     if (!session || session.expertId !== auth.expertId) return;
     if (session.status !== 'active' && session.status !== 'accepted' && session.status !== 'wrapping_up') return;
@@ -128,6 +162,8 @@ function handleConnection(socket: Socket) {
 
   // Respond to addon
   socket.on('addon:respond', (data: { addonId: string; accepted: boolean }) => {
+    if (isRateLimited(socket)) return;
+    if (!data || typeof data.addonId !== 'string' || typeof data.accepted !== 'boolean') return;
     const addon = respondToAddon(data.addonId, data.accepted, auth.expertId);
     if (addon) {
       emitToSession(addon.sessionId, 'addon:updated', addon);

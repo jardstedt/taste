@@ -60,19 +60,19 @@ describe('experts', () => {
   });
 
   describe('password', () => {
-    it('sets and verifies password', () => {
+    it('sets and verifies password', async () => {
       const expert = createExpert('Alice', 'alice@test.com', ['crypto']);
-      expect(verifyPassword(expert, 'anything')).toBe(false);
+      expect(await verifyPassword(expert, 'anything')).toBe(false);
 
-      setExpertPassword(expert.id, 'securepass123');
+      await setExpertPassword(expert.id, 'securepass123');
       const refreshed = getExpertById(expert.id)!;
-      expect(verifyPassword(refreshed, 'securepass123')).toBe(true);
-      expect(verifyPassword(refreshed, 'wrongpassword')).toBe(false);
+      expect(await verifyPassword(refreshed, 'securepass123')).toBe(true);
+      expect(await verifyPassword(refreshed, 'wrongpassword')).toBe(false);
     });
 
-    it('returns false when no password is set', () => {
+    it('returns false when no password is set', async () => {
       const expert = createExpert('Alice', 'alice@test.com', ['crypto']);
-      expect(verifyPassword(expert, '')).toBe(false);
+      expect(await verifyPassword(expert, '')).toBe(false);
     });
   });
 

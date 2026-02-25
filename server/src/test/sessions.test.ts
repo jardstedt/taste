@@ -15,9 +15,9 @@ import {
   incrementTurnCount,
 } from '../services/sessions.js';
 
-function createOnlineExpert(name: string, email: string, domains: string[]) {
+async function createOnlineExpert(name: string, email: string, domains: string[]) {
   const expert = createExpert(name, email, domains as any);
-  setExpertPassword(expert.id, 'password123');
+  await setExpertPassword(expert.id, 'password123');
   acceptAgreement(expert.id);
   updateExpert(expert.id, { availability: 'online' });
   return expert;
@@ -35,8 +35,8 @@ function testSession() {
 }
 
 /** Helper: create session, match, accept, then force to active status */
-function createActiveSession() {
-  createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+async function createActiveSession() {
+  await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
   const session = testSession();
   matchSession(session.id);
   const matched = getSessionById(session.id)!;
@@ -52,7 +52,7 @@ describe('sessions', () => {
   });
 
   describe('createSession', () => {
-    it('creates a session with pending status', () => {
+    it('creates a session with pending status', async () => {
       const session = testSession();
       expect(session.id).toBeTruthy();
       expect(session.status).toBe('pending');
@@ -62,8 +62,8 @@ describe('sessions', () => {
   });
 
   describe('matchSession', () => {
-    it('matches session to an online expert with matching domain', () => {
-      createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('matches session to an online expert with matching domain', async () => {
+      await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       const session = testSession();
 
       const matched = matchSession(session.id);
@@ -72,8 +72,8 @@ describe('sessions', () => {
       expect(matched!.expertId).toBeTruthy();
     });
 
-    it('does not match deactivated experts', () => {
-      const expert = createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('does not match deactivated experts', async () => {
+      const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
 
       const db = getDb();
       db.prepare("UPDATE experts SET deactivated_at = datetime('now'), availability = 'offline' WHERE id = ?").run(expert.id);
@@ -85,8 +85,8 @@ describe('sessions', () => {
   });
 
   describe('acceptSession', () => {
-    it('sets session to accepted when expert accepts', () => {
-      createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('sets session to accepted when expert accepts', async () => {
+      await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       const session = testSession();
       matchSession(session.id);
       const matched = getSessionById(session.id)!;
@@ -98,8 +98,8 @@ describe('sessions', () => {
   });
 
   describe('completeSession', () => {
-    it('sets session to completed with payout', () => {
-      const session = createActiveSession();
+    it('sets session to completed with payout', async () => {
+      const session = await createActiveSession();
 
       const completed = completeSession(session.id);
       expect(completed).toBeTruthy();
@@ -109,8 +109,8 @@ describe('sessions', () => {
   });
 
   describe('timeoutSession', () => {
-    it('sets session to timeout with zero payout', () => {
-      const session = createActiveSession();
+    it('sets session to timeout with zero payout', async () => {
+      const session = await createActiveSession();
 
       const timedOut = timeoutSession(session.id);
       expect(timedOut).toBeTruthy();
@@ -120,7 +120,7 @@ describe('sessions', () => {
   });
 
   describe('cancelSession', () => {
-    it('sets session to cancelled', () => {
+    it('sets session to cancelled', async () => {
       const session = testSession();
       const cancelled = cancelSession(session.id, 'Test cancel');
       expect(cancelled).toBeTruthy();
@@ -129,8 +129,8 @@ describe('sessions', () => {
   });
 
   describe('declineSession', () => {
-    it('sets session to cancelled when expert declines', () => {
-      const session = createActiveSession();
+    it('sets session to cancelled when expert declines', async () => {
+      const session = await createActiveSession();
 
       const declined = declineSession(session.id, 'Not in my area');
       expect(declined).toBeTruthy();
@@ -138,8 +138,8 @@ describe('sessions', () => {
       expect(declined!.expertPayoutUsdc).toBe(0);
     });
 
-    it('returns null for already-completed session', () => {
-      const session = createActiveSession();
+    it('returns null for already-completed session', async () => {
+      const session = await createActiveSession();
       completeSession(session.id);
 
       const result = declineSession(session.id);
@@ -148,8 +148,8 @@ describe('sessions', () => {
   });
 
   describe('incrementTurnCount', () => {
-    it('increments only when sender alternates', () => {
-      const session = createActiveSession();
+    it('increments only when sender alternates', async () => {
+      const session = await createActiveSession();
 
       // Agent sends first message
       addMessage(session.id, 'agent', null, 'Hello', 'text');
@@ -167,8 +167,8 @@ describe('sessions', () => {
       expect(r3.turnCount).toBe(2);
     });
 
-    it('reports locked when grace period exhausted', () => {
-      const session = createActiveSession();
+    it('reports locked when grace period exhausted', async () => {
+      const session = await createActiveSession();
 
       // quick tier: 10 max turns, GRACE_TURNS = 5, locked at 15
       const db = getDb();
@@ -178,8 +178,8 @@ describe('sessions', () => {
       expect(result.locked).toBe(true);
     });
 
-    it('reports limitReached but not locked within grace period', () => {
-      const session = createActiveSession();
+    it('reports limitReached but not locked within grace period', async () => {
+      const session = await createActiveSession();
 
       // quick tier: 10 max turns, at turn 12 → limitReached but not locked
       const db = getDb();
@@ -192,7 +192,7 @@ describe('sessions', () => {
   });
 
   describe('addMessage', () => {
-    it('adds messages to a session', () => {
+    it('adds messages to a session', async () => {
       const session = testSession();
       const msg = addMessage(session.id, 'agent', null, 'Hello expert', 'text');
       expect(msg).toBeTruthy();
@@ -202,12 +202,12 @@ describe('sessions', () => {
   });
 
   describe('paymentReceivedAt', () => {
-    it('is null on session creation', () => {
+    it('is null on session creation', async () => {
       const session = testSession();
       expect(session.paymentReceivedAt).toBeNull();
     });
 
-    it('is null for ACP sessions before payment', () => {
+    it('is null for ACP sessions before payment', async () => {
       const session = createSession({
         offeringType: 'trust_evaluation',
         tierId: 'quick',
@@ -220,7 +220,7 @@ describe('sessions', () => {
       expect(session.paymentReceivedAt).toBeNull();
     });
 
-    it('is set when payment is received (simulating ACP TRANSACTION handler)', () => {
+    it('is set when payment is received (simulating ACP TRANSACTION handler)', async () => {
       const session = createSession({
         offeringType: 'trust_evaluation',
         tierId: 'quick',
@@ -240,7 +240,7 @@ describe('sessions', () => {
       expect(updated.paymentReceivedAt).toBeTruthy();
     });
 
-    it('is idempotent — second update does not overwrite first timestamp', () => {
+    it('is idempotent — second update does not overwrite first timestamp', async () => {
       const session = createSession({
         offeringType: 'trust_evaluation',
         tierId: 'quick',
@@ -268,7 +268,7 @@ describe('sessions', () => {
       expect(final.paymentReceivedAt).toBe('2026-01-01 00:00:00'); // Original preserved
     });
 
-    it('is included in session response for non-ACP sessions (null)', () => {
+    it('is included in session response for non-ACP sessions (null)', async () => {
       const session = testSession();
       const fetched = getSessionById(session.id)!;
       expect('paymentReceivedAt' in fetched).toBe(true);

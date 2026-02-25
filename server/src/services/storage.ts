@@ -219,7 +219,8 @@ export function createSignedUrl(attachmentId: string, baseUrl: string): string {
 
 export function signUrl(attachmentId: string, expires: number): string {
   const env = getEnv();
-  return createHmac('sha256', `url-sign:${env.JWT_SECRET}`)
+  const secret = env.FILE_SIGNING_SECRET || `url-sign:${env.JWT_SECRET}`;
+  return createHmac('sha256', secret)
     .update(`${attachmentId}:${expires}`)
     .digest('hex');
 }

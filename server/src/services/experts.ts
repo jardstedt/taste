@@ -202,9 +202,9 @@ export function updateExpert(
   return getExpertById(id);
 }
 
-export function setExpertPassword(id: string, password: string): void {
+export async function setExpertPassword(id: string, password: string): Promise<void> {
   const db = getDb();
-  const hash = bcrypt.hashSync(password, 12);
+  const hash = await bcrypt.hash(password, 12);
   db.prepare('UPDATE experts SET password_hash = ?, updated_at = datetime(\'now\') WHERE id = ?').run(hash, id);
   auditLog('expert', id, 'password_set');
 }
@@ -217,9 +217,9 @@ export function acceptAgreement(id: string): void {
   auditLog('expert', id, 'agreement_accepted');
 }
 
-export function verifyPassword(expert: Expert, password: string): boolean {
+export async function verifyPassword(expert: Expert, password: string): Promise<boolean> {
   if (!expert.passwordHash) return false;
-  return bcrypt.compareSync(password, expert.passwordHash);
+  return bcrypt.compare(password, expert.passwordHash);
 }
 
 // ── Deactivation ──
@@ -299,7 +299,7 @@ export function incrementCompletedJobs(expertId: string, responseTimeMins: numbe
 
 // ── Admin Seeding ──
 
-export function seedAdminExpert(email: string, password: string): Expert {
+export async function seedAdminExpert(email: string, password: string): Promise<Expert> {
   const existing = getExpertByEmail(email);
   if (existing) return existing;
 
@@ -311,7 +311,7 @@ export function seedAdminExpert(email: string, password: string): Expert {
     { bio: 'Platform administrator' },
   );
 
-  setExpertPassword(admin.id, password);
+  await setExpertPassword(admin.id, password);
   acceptAgreement(admin.id);
 
   // Set online by default

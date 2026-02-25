@@ -20,6 +20,7 @@ const envSchema = z.object({
   // File uploads
   UPLOAD_DIR: z.string().default('./data/uploads'),
   BASE_URL: z.string().optional(),
+  FILE_SIGNING_SECRET: z.string().min(16).optional(),
 
   // Security
   EMAIL_ENCRYPTION_KEY: z.string().length(64, 'EMAIL_ENCRYPTION_KEY must be 64 hex characters (32 bytes)').optional()

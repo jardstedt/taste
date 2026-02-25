@@ -8,7 +8,7 @@ import { decryptEmail } from '../db/database.js';
 const router = Router();
 
 // POST /api/auth/login
-router.post('/login', authLimiter, validate(loginSchema), (req, res) => {
+router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
   const { email, password } = req.body as { email: string; password: string };
 
   const expert = getExpertByEmail(email);
@@ -22,7 +22,7 @@ router.post('/login', authLimiter, validate(loginSchema), (req, res) => {
     return;
   }
 
-  if (!verifyPassword(expert, password)) {
+  if (!(await verifyPassword(expert, password))) {
     res.status(401).json({ success: false, error: 'Invalid credentials' });
     return;
   }
@@ -49,7 +49,11 @@ router.post('/login', authLimiter, validate(loginSchema), (req, res) => {
 
 // POST /api/auth/logout
 router.post('/logout', (_req, res) => {
-  res.clearCookie('token');
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
   res.json({ success: true });
 });
 
@@ -62,7 +66,11 @@ router.get('/me', verifyToken, (req, res) => {
   }
 
   if (expert.deactivatedAt) {
-    res.clearCookie('token');
+    res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
     res.status(403).json({ success: false, error: 'Account has been deactivated' });
     return;
   }

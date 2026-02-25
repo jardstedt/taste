@@ -429,7 +429,7 @@ router.get('/:id/attachments/:attachmentId/download', (req, res) => {
   }
 
   res.setHeader('Content-Type', attachment.mimeType);
-  res.setHeader('Content-Disposition', `attachment; filename="${attachment.originalFilename}"`);
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(sanitizeFilename(attachment.originalFilename))}`);
   res.setHeader('Content-Length', buffer.length);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Content-Security-Policy', "default-src 'none'");

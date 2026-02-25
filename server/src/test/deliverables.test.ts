@@ -16,9 +16,9 @@ import {
 import { buildZodSchema, getDeliverableFields } from '../config/deliverable-schemas.js';
 import { saveFile, saveAttachmentRecord } from '../services/storage.js';
 
-function createOnlineExpert(name: string, email: string, domains: string[]) {
+async function createOnlineExpert(name: string, email: string, domains: string[]) {
   const expert = createExpert(name, email, domains as any);
-  setExpertPassword(expert.id, 'password123');
+  await setExpertPassword(expert.id, 'password123');
   acceptAgreement(expert.id);
   updateExpert(expert.id, { availability: 'online' });
   return expert;
@@ -35,8 +35,8 @@ function testSession(offeringType = 'trust_evaluation') {
   });
 }
 
-function createActiveSession(offeringType = 'trust_evaluation') {
-  createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+async function createActiveSession(offeringType = 'trust_evaluation') {
+  await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
   const session = testSession(offeringType);
   matchSession(session.id);
   const matched = getSessionById(session.id)!;
@@ -51,7 +51,7 @@ describe('deliverables', () => {
   });
 
   describe('saveDeliverable / getDeliverable', () => {
-    it('saves and retrieves a structured deliverable', () => {
+    it('saves and retrieves a structured deliverable', async () => {
       const session = testSession();
       const data = { verdict: 'legitimate', confidenceScore: 8, summary: 'Looks good' };
 
@@ -66,7 +66,7 @@ describe('deliverables', () => {
       expect(fetched!.structuredData.verdict).toBe('legitimate');
     });
 
-    it('upserts on duplicate session_id', () => {
+    it('upserts on duplicate session_id', async () => {
       const session = testSession();
 
       saveDeliverable(session.id, 'trust_evaluation', { verdict: 'suspicious' });
@@ -79,8 +79,8 @@ describe('deliverables', () => {
   });
 
   describe('formatSessionDeliverable', () => {
-    it('includes structured assessment when present', () => {
-      const session = createActiveSession();
+    it('includes structured assessment when present', async () => {
+      const session = await createActiveSession();
       addMessage(session.id, 'expert', session.expertId, 'This project looks legitimate.');
 
       saveDeliverable(session.id, 'trust_evaluation', {
@@ -93,23 +93,23 @@ describe('deliverables', () => {
 
       expect(deliverable.structuredAssessment).not.toBeNull();
       expect((deliverable.structuredAssessment as Record<string, unknown>).verdict).toBe('legitimate');
-      expect((deliverable.result as Record<string, unknown>).summary).toBe('Detailed analysis complete');
+      expect(deliverable.summary).toBe('Detailed analysis complete');
       expect((deliverable.evaluationCriteria as string)).toContain('structured assessment');
     });
 
-    it('falls back to transcript-based summary without structured data', () => {
-      const session = createActiveSession();
+    it('falls back to transcript-based summary without structured data', async () => {
+      const session = await createActiveSession();
       addMessage(session.id, 'expert', session.expertId, 'My final assessment is that this is fine.');
 
       const deliverable = formatSessionDeliverable(session.id);
 
       expect(deliverable.structuredAssessment).toBeNull();
-      expect((deliverable.result as Record<string, unknown>).summary).toContain('My final assessment');
+      expect(deliverable.summary).toContain('My final assessment');
       expect((deliverable.evaluationCriteria as string)).toContain('Verify the expert addressed');
     });
 
-    it('includes signed attachment URLs when files are uploaded', () => {
-      const session = createActiveSession();
+    it('includes signed attachment URLs when files are uploaded', async () => {
+      const session = await createActiveSession();
       addMessage(session.id, 'expert', session.expertId, 'See attached evidence.');
 
       // Upload a file and create attachment record
@@ -143,20 +143,109 @@ describe('deliverables', () => {
       expect(attachments[0].context).toBe('chat');
     });
 
-    it('returns null attachments when no files uploaded', () => {
-      const session = createActiveSession();
+    it('returns null attachments when no files uploaded', async () => {
+      const session = await createActiveSession();
       addMessage(session.id, 'expert', session.expertId, 'No files here.');
 
       const deliverable = formatSessionDeliverable(session.id);
       expect(deliverable.attachments).toBeNull();
     });
+
+    it('parses JSON description into structured object', async () => {
+      const session = await createActiveSession();
+      // Simulate ACP-style JSON description
+      getDb().prepare('UPDATE sessions SET description = ? WHERE id = ?').run(
+        JSON.stringify({ aiOutput: 'Some text', outputType: 'analysis' }),
+        session.id,
+      );
+      addMessage(session.id, 'expert', session.expertId, 'Reviewed.');
+
+      const deliverable = formatSessionDeliverable(session.id);
+      const request = deliverable.request as { description: unknown };
+      expect(typeof request.description).toBe('object');
+      expect((request.description as Record<string, unknown>).aiOutput).toBe('Some text');
+      expect((request.description as Record<string, unknown>).outputType).toBe('analysis');
+    });
+
+    it('keeps plain string description as-is', async () => {
+      const session = await createActiveSession();
+      getDb().prepare('UPDATE sessions SET description = ? WHERE id = ?').run(
+        'Just a plain text request',
+        session.id,
+      );
+      addMessage(session.id, 'expert', session.expertId, 'Done.');
+
+      const deliverable = formatSessionDeliverable(session.id);
+      const request = deliverable.request as { description: unknown };
+      expect(request.description).toBe('Just a plain text request');
+    });
+
+    it('falls back to structuredData.summary when no form summary and no expert messages', async () => {
+      const session = await createActiveSession();
+      // Save deliverable with no separate summary (only structuredData has one)
+      saveDeliverable(session.id, 'output_quality_gate', {
+        qualityVerdict: 'needs_revision',
+        qualityScore: 3,
+        summary: 'It is a bad analysis',
+      });
+
+      const deliverable = formatSessionDeliverable(session.id);
+      expect(deliverable.summary).toBe('It is a bad analysis');
+    });
+
+    it('omits transcript when no expert messages', async () => {
+      const session = await createActiveSession();
+      // Only agent message, no expert messages
+      addMessage(session.id, 'agent', null, 'Hello expert');
+
+      const deliverable = formatSessionDeliverable(session.id);
+      expect(deliverable.transcript).toBeUndefined();
+    });
+
+    it('includes transcript when expert messages exist', async () => {
+      const session = await createActiveSession();
+      addMessage(session.id, 'agent', null, 'Hello expert');
+      addMessage(session.id, 'expert', session.expertId, 'Here is my analysis.');
+
+      const deliverable = formatSessionDeliverable(session.id);
+      expect(deliverable.transcript).toBeDefined();
+      const transcript = deliverable.transcript as Array<{ role: string; content: string }>;
+      expect(transcript.length).toBeGreaterThan(0);
+    });
+
+    it('does not include removed noise fields', async () => {
+      const session = await createActiveSession();
+      addMessage(session.id, 'expert', session.expertId, 'Done.');
+
+      const deliverable = formatSessionDeliverable(session.id);
+
+      // These fields were removed in the slim deliverable (see docs/design-decisions.md)
+      expect(deliverable.sessionId).toBeUndefined();
+      expect(deliverable.tier).toBeUndefined();
+      expect(deliverable.status).toBeUndefined();
+      expect(deliverable.turnCount).toBeUndefined();
+      expect(deliverable.maxTurns).toBeUndefined();
+      expect(deliverable.addons).toBeUndefined();
+      expect(deliverable.expert).toBeUndefined();
+      expect(deliverable.totalPrice).toBeUndefined();
+      expect(deliverable.duration).toBeUndefined();
+      expect(deliverable.result).toBeUndefined();
+
+      // These fields should still be present
+      expect(deliverable.offeringType).toBeDefined();
+      expect(deliverable.offeringName).toBeDefined();
+      expect(deliverable.request).toBeDefined();
+      expect(deliverable.summary).toBeDefined();
+      expect(deliverable.disclaimer).toBeDefined();
+      expect(deliverable.evaluationCriteria).toBeDefined();
+    });
   });
 
   describe('deliverable on completed sessions', () => {
-    it('saveDeliverable upserts even on completed session (service layer)', () => {
+    it('saveDeliverable upserts even on completed session (service layer)', async () => {
       // Note: the route handler guards against this, but the service layer allows upsert
       // This test documents that the route-level check is essential
-      const session = createActiveSession();
+      const session = await createActiveSession();
       saveDeliverable(session.id, 'trust_evaluation', { verdict: 'legitimate' }, 'First');
       completeSession(session.id);
 
@@ -167,7 +256,7 @@ describe('deliverables', () => {
   });
 
   describe('Zod validation (buildZodSchema)', () => {
-    it('validates trust_evaluation schema', () => {
+    it('validates trust_evaluation schema', async () => {
       const schema = buildZodSchema('trust_evaluation');
       const result = schema.safeParse({
         verdict: 'legitimate',
@@ -177,7 +266,7 @@ describe('deliverables', () => {
       expect(result.success).toBe(true);
     });
 
-    it('rejects invalid verdict for trust_evaluation', () => {
+    it('rejects invalid verdict for trust_evaluation', async () => {
       const schema = buildZodSchema('trust_evaluation');
       const result = schema.safeParse({
         verdict: 'definitely_a_scam', // not in options
@@ -187,7 +276,7 @@ describe('deliverables', () => {
       expect(result.success).toBe(false);
     });
 
-    it('rejects missing required field', () => {
+    it('rejects missing required field', async () => {
       const schema = buildZodSchema('trust_evaluation');
       const result = schema.safeParse({
         verdict: 'legitimate',
@@ -196,7 +285,7 @@ describe('deliverables', () => {
       expect(result.success).toBe(false);
     });
 
-    it('validates output_quality_gate schema', () => {
+    it('validates output_quality_gate schema', async () => {
       const schema = buildZodSchema('output_quality_gate');
       const result = schema.safeParse({
         qualityVerdict: 'approved',
@@ -206,7 +295,7 @@ describe('deliverables', () => {
       expect(result.success).toBe(true);
     });
 
-    it('validates option_ranking schema', () => {
+    it('validates option_ranking schema', async () => {
       const schema = buildZodSchema('option_ranking');
       const result = schema.safeParse({
         topPick: 'Option A',
@@ -216,7 +305,7 @@ describe('deliverables', () => {
       expect(result.success).toBe(true);
     });
 
-    it('validates fallback schema for unknown offering', () => {
+    it('validates fallback schema for unknown offering', async () => {
       const schema = buildZodSchema('some_unknown_offering');
       const result = schema.safeParse({
         summary: 'This is my assessment',
@@ -224,7 +313,7 @@ describe('deliverables', () => {
       expect(result.success).toBe(true);
     });
 
-    it('strips unknown extra keys silently', () => {
+    it('strips unknown extra keys silently', async () => {
       const schema = buildZodSchema('trust_evaluation');
       const result = schema.safeParse({
         verdict: 'legitimate',
@@ -236,7 +325,7 @@ describe('deliverables', () => {
       expect((result as { data: Record<string, unknown> }).data).not.toHaveProperty('extraField');
     });
 
-    it('enforces rating range', () => {
+    it('enforces rating range', async () => {
       const schema = buildZodSchema('trust_evaluation');
       const result = schema.safeParse({
         verdict: 'legitimate',
@@ -248,13 +337,13 @@ describe('deliverables', () => {
   });
 
   describe('getDeliverableFields', () => {
-    it('returns trust_evaluation fields', () => {
+    it('returns trust_evaluation fields', async () => {
       const fields = getDeliverableFields('trust_evaluation');
       expect(fields.length).toBeGreaterThan(0);
       expect(fields.find(f => f.key === 'verdict')).toBeTruthy();
     });
 
-    it('returns fallback fields for unknown offering', () => {
+    it('returns fallback fields for unknown offering', async () => {
       const fields = getDeliverableFields('unknown_offering');
       expect(fields.find(f => f.key === 'summary')).toBeTruthy();
     });

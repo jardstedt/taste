@@ -30,12 +30,30 @@ router.post('/subscribe', (req, res) => {
     return;
   }
 
+  // Validate endpoint is a legitimate HTTPS push service URL
+  try {
+    const url = new URL(subscription.endpoint);
+    if (url.protocol !== 'https:') {
+      res.status(400).json({ success: false, error: 'Push endpoint must use HTTPS' });
+      return;
+    }
+  } catch {
+    res.status(400).json({ success: false, error: 'Invalid push endpoint URL' });
+    return;
+  }
+
   saveSubscription(expertId, subscription);
   res.json({ success: true });
 });
 
 // POST /api/notifications/unsubscribe
 router.post('/unsubscribe', (req, res) => {
+  const expertId = req.auth?.expertId;
+  if (!expertId) {
+    res.status(401).json({ success: false, error: 'Unauthorized' });
+    return;
+  }
+
   const { endpoint } = req.body as { endpoint: string };
 
   if (!endpoint) {
@@ -43,7 +61,7 @@ router.post('/unsubscribe', (req, res) => {
     return;
   }
 
-  removeSubscription(endpoint);
+  removeSubscription(endpoint, expertId);
   res.json({ success: true });
 });
 

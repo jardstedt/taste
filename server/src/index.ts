@@ -27,7 +27,7 @@ import { initPush } from './services/push.js';
 import { getExpertPublic, getAllExpertsPublic, getAllExperts } from './services/experts.js';
 import { getAllSessions } from './services/sessions.js';
 import { getResourceAvailability } from './services/resource.js';
-import { getAttachmentById, readFile, verifySignedUrl } from './services/storage.js';
+import { getAttachmentById, readFile, verifySignedUrl, sanitizeFilename } from './services/storage.js';
 
 async function main() {
   // Load and validate environment
@@ -49,15 +49,15 @@ async function main() {
   initPush();
 
   // Seed admin expert
-  seedAdminExpert(env.ADMIN_EMAIL, env.ADMIN_PASSWORD);
+  await seedAdminExpert(env.ADMIN_EMAIL, env.ADMIN_PASSWORD);
   console.log('[DB] Admin expert seeded');
 
   // Create Express app
   const app = express();
 
-  // Trust first proxy (Nginx) so Express sees real client IPs for rate limiting
+  // Trust proxy chain (Cloudflare → Nginx) so Express sees real client IPs for rate limiting
   if (process.env.NODE_ENV === 'production') {
-    app.set('trust proxy', 1);
+    app.set('trust proxy', 2);
   }
 
   // Request logging (before other middleware)
@@ -79,25 +79,32 @@ async function main() {
 
   // Public API — no auth required
 
-  // Public stats
+  // Public stats (cached 60s to avoid repeated heavy queries)
+  let statsCache: { data: unknown; expiresAt: number } | null = null;
   app.get('/api/public/stats', (_req, res) => {
+    const now = Date.now();
+    if (statsCache && now < statsCache.expiresAt) {
+      res.json({ success: true, data: statsCache.data });
+      return;
+    }
+
     const experts = getAllExperts();
-    const sessions = getAllSessions(10000);
     const activeExperts = experts.filter(e => e.consentToPublicProfile && e.agreementAcceptedAt);
+    const sessions = getAllSessions(10000);
     const completedSessions = sessions.filter(s => s.status === 'completed');
     const domains = [...new Set(activeExperts.flatMap(e => e.domains))];
 
-    res.json({
-      success: true,
-      data: {
-        totalExperts: activeExperts.length,
-        totalSessions: completedSessions.length,
-        domains,
-        avgResponseMins: activeExperts.length > 0
-          ? Math.round(activeExperts.reduce((sum, e) => sum + e.avgResponseTimeMins, 0) / activeExperts.length)
-          : 0,
-      },
-    });
+    const data = {
+      totalExperts: activeExperts.length,
+      totalSessions: completedSessions.length,
+      domains,
+      avgResponseMins: activeExperts.length > 0
+        ? Math.round(activeExperts.reduce((sum, e) => sum + e.avgResponseTimeMins, 0) / activeExperts.length)
+        : 0,
+    };
+
+    statsCache = { data, expiresAt: now + 60_000 };
+    res.json({ success: true, data });
   });
 
   // ACP Resource endpoint — exposes expert availability for agent discovery
@@ -134,7 +141,7 @@ async function main() {
     }
 
     res.setHeader('Content-Type', attachment.mimeType);
-    res.setHeader('Content-Disposition', `attachment; filename="${attachment.originalFilename}"`);
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(sanitizeFilename(attachment.originalFilename))}`);
     res.setHeader('Content-Length', buffer.length);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', "default-src 'none'");

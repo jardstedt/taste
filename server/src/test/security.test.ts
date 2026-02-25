@@ -15,9 +15,9 @@ import {
 } from '../services/sessions.js';
 import { requestWithdrawal } from '../services/withdrawals.js';
 
-function createOnlineExpert(name: string, email: string, domains: string[]) {
+async function createOnlineExpert(name: string, email: string, domains: string[]) {
   const expert = createExpert(name, email, domains as any);
-  setExpertPassword(expert.id, 'Password1');
+  await setExpertPassword(expert.id, 'Password1');
   acceptAgreement(expert.id);
   updateExpert(expert.id, { availability: 'online' });
   return expert;
@@ -34,8 +34,8 @@ function testSession() {
   });
 }
 
-function createActiveSession() {
-  createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+async function createActiveSession() {
+  await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
   const session = testSession();
   matchSession(session.id);
   const matched = getSessionById(session.id)!;
@@ -50,8 +50,8 @@ describe('security', () => {
   });
 
   describe('race condition: complete vs timeout', () => {
-    it('only one of complete/timeout succeeds (no double-transition)', () => {
-      const session = createActiveSession();
+    it('only one of complete/timeout succeeds (no double-transition)', async () => {
+      const session = await createActiveSession();
 
       // Both attempt to transition from active — only one should succeed
       const completed = completeSession(session.id);
@@ -68,8 +68,8 @@ describe('security', () => {
       expect(['completed', 'timeout']).toContain(final.status);
     });
 
-    it('timeout returns null if session already completed', () => {
-      const session = createActiveSession();
+    it('timeout returns null if session already completed', async () => {
+      const session = await createActiveSession();
       completeSession(session.id);
 
       const result = timeoutSession(session.id);
@@ -79,8 +79,8 @@ describe('security', () => {
       expect(final.status).toBe('completed');
     });
 
-    it('complete returns null if session already timed out', () => {
-      const session = createActiveSession();
+    it('complete returns null if session already timed out', async () => {
+      const session = await createActiveSession();
       timeoutSession(session.id);
 
       const result = completeSession(session.id);
@@ -92,44 +92,44 @@ describe('security', () => {
   });
 
   describe('state transition validation', () => {
-    it('cannot complete a pending session', () => {
+    it('cannot complete a pending session', async () => {
       const session = testSession();
       const result = completeSession(session.id);
       expect(result).toBeNull();
       expect(getSessionById(session.id)!.status).toBe('pending');
     });
 
-    it('cannot timeout a pending session', () => {
+    it('cannot timeout a pending session', async () => {
       const session = testSession();
       const result = timeoutSession(session.id);
       expect(result).toBeNull();
       expect(getSessionById(session.id)!.status).toBe('pending');
     });
 
-    it('cannot cancel an already completed session', () => {
-      const session = createActiveSession();
+    it('cannot cancel an already completed session', async () => {
+      const session = await createActiveSession();
       completeSession(session.id);
       const result = cancelSession(session.id, 'too late');
       expect(result).toBeNull();
       expect(getSessionById(session.id)!.status).toBe('completed');
     });
 
-    it('cannot cancel an already timed-out session', () => {
-      const session = createActiveSession();
+    it('cannot cancel an already timed-out session', async () => {
+      const session = await createActiveSession();
       timeoutSession(session.id);
       const result = cancelSession(session.id, 'too late');
       expect(result).toBeNull();
       expect(getSessionById(session.id)!.status).toBe('timeout');
     });
 
-    it('cannot decline a completed session', () => {
-      const session = createActiveSession();
+    it('cannot decline a completed session', async () => {
+      const session = await createActiveSession();
       completeSession(session.id);
       const result = declineSession(session.id, 'changed mind');
       expect(result).toBeNull();
     });
 
-    it('cannot decline a pending session', () => {
+    it('cannot decline a pending session', async () => {
       const session = testSession();
       const result = declineSession(session.id, 'no thanks');
       expect(result).toBeNull();
@@ -137,8 +137,8 @@ describe('security', () => {
   });
 
   describe('payout safety', () => {
-    it('confirmSessionPayout is idempotent (no double-credit)', () => {
-      const session = createActiveSession();
+    it('confirmSessionPayout is idempotent (no double-credit)', async () => {
+      const session = await createActiveSession();
       completeSession(session.id);
 
       const expertBefore = getExpertById(session.expertId!)!;
@@ -153,8 +153,8 @@ describe('security', () => {
       expect(expertAfter.earningsUsdc).toBe(earningsBefore);
     });
 
-    it('timeout gives zero payout and no earnings', () => {
-      const session = createActiveSession();
+    it('timeout gives zero payout and no earnings', async () => {
+      const session = await createActiveSession();
       const expertBefore = getExpertById(session.expertId!)!;
 
       timeoutSession(session.id);
@@ -166,8 +166,8 @@ describe('security', () => {
       expect(expertAfter.earningsUsdc).toBe(expertBefore.earningsUsdc);
     });
 
-    it('completeSession records payout for non-ACP sessions', () => {
-      const session = createActiveSession();
+    it('completeSession records payout for non-ACP sessions', async () => {
+      const session = await createActiveSession();
       const completed = completeSession(session.id)!;
 
       expect(completed.expertPayoutUsdc).toBeGreaterThan(0);
@@ -177,8 +177,8 @@ describe('security', () => {
       expect(expert.earningsUsdc).toBeGreaterThan(0);
     });
 
-    it('completeSession does NOT credit earnings for ACP sessions', () => {
-      createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
+    it('completeSession does NOT credit earnings for ACP sessions', async () => {
+      await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
       const session = createSession({
         offeringType: 'trust_evaluation',
         tierId: 'quick',
@@ -205,8 +205,8 @@ describe('security', () => {
   });
 
   describe('paymentReceivedAt safety', () => {
-    it('payment_received_at is not set on non-ACP session completion', () => {
-      const session = createActiveSession();
+    it('payment_received_at is not set on non-ACP session completion', async () => {
+      const session = await createActiveSession();
       completeSession(session.id);
 
       const final = getSessionById(session.id)!;
@@ -214,9 +214,9 @@ describe('security', () => {
       // Non-ACP sessions never go through the TRANSACTION handler
     });
 
-    it('payment_received_at survives session completion', () => {
+    it('payment_received_at survives session completion', async () => {
       // Simulate ACP session with payment already received
-      createOnlineExpert('Charlie', 'charlie@test.com', ['crypto']);
+      await createOnlineExpert('Charlie', 'charlie@test.com', ['crypto']);
       const session = createSession({
         offeringType: 'trust_evaluation',
         tierId: 'quick',
@@ -245,8 +245,8 @@ describe('security', () => {
   });
 
   describe('withdrawal safety', () => {
-    it('blocks withdrawal for deactivated expert', () => {
-      const expert = createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('blocks withdrawal for deactivated expert', async () => {
+      const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       // Give expert some earnings
       getDb().prepare('UPDATE experts SET earnings_usdc = 100, wallet_address = ? WHERE id = ?').run('0x' + '1'.repeat(40), expert.id);
       deactivateExpert(expert.id);
@@ -256,8 +256,8 @@ describe('security', () => {
       expect((result as { error: string }).error).toContain('deactivated');
     });
 
-    it('blocks withdrawal exceeding balance', () => {
-      const expert = createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('blocks withdrawal exceeding balance', async () => {
+      const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       getDb().prepare('UPDATE experts SET earnings_usdc = 10, wallet_address = ? WHERE id = ?').run('0x' + '1'.repeat(40), expert.id);
 
       const result = requestWithdrawal(expert.id, 50);
@@ -265,8 +265,8 @@ describe('security', () => {
       expect((result as { error: string }).error).toContain('Insufficient');
     });
 
-    it('blocks withdrawal without wallet address', () => {
-      const expert = createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('blocks withdrawal without wallet address', async () => {
+      const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       getDb().prepare('UPDATE experts SET earnings_usdc = 100 WHERE id = ?').run(expert.id);
 
       const result = requestWithdrawal(expert.id, 50);
@@ -274,8 +274,8 @@ describe('security', () => {
       expect((result as { error: string }).error).toContain('wallet');
     });
 
-    it('atomic balance deduction prevents over-withdrawal', () => {
-      const expert = createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('atomic balance deduction prevents over-withdrawal', async () => {
+      const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       getDb().prepare('UPDATE experts SET earnings_usdc = 100, wallet_address = ? WHERE id = ?').run('0x' + '1'.repeat(40), expert.id);
 
       // First withdrawal: $60
@@ -292,8 +292,8 @@ describe('security', () => {
       expect(final.earningsUsdc).toBe(40);
     });
 
-    it('enforces daily withdrawal limit', () => {
-      const expert = createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('enforces daily withdrawal limit', async () => {
+      const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       getDb().prepare('UPDATE experts SET earnings_usdc = 10000, wallet_address = ? WHERE id = ?').run('0x' + '1'.repeat(40), expert.id);
 
       // Withdraw $1000 five times (total $5000 = daily limit)

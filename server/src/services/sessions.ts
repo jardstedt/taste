@@ -760,19 +760,9 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
   if (!session) return {};
 
   const messages = getMessages(sessionId);
-  const addons = getAddons(sessionId);
-  const expert = session.expertId ? getExpertById(session.expertId) : null;
   const offering = getSessionOffering(session.offeringType);
 
-  const transcript = messages
-    .filter(m => m.messageType === 'text' || m.messageType === 'file')
-    .map(m => ({
-      role: m.senderType,
-      content: m.content,
-      timestamp: m.createdAt,
-    }));
-
-  // Extract expert-only messages for evaluation summary
+  // Extract expert-only messages for summary fallback and transcript filtering
   const expertMessages = messages
     .filter(m => m.senderType === 'expert' && m.messageType === 'text')
     .map(m => m.content);
@@ -793,53 +783,54 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
     context: a.uploadContext,
   }));
 
-  // Use structured summary if available, otherwise fall back to last expert message
+  // Try to parse description as JSON (agents send structured input)
+  let parsedDescription: unknown = session.description;
+  if (session.description) {
+    try {
+      parsedDescription = JSON.parse(session.description);
+    } catch {
+      // Not JSON — keep as string
+    }
+  }
+
+  // Summary fallback chain: form summary → structuredData.summary → last expert message
+  const structuredSummary = deliverable?.structuredData?.summary as string | undefined;
   const summary = deliverable?.summary
+    ?? structuredSummary
     ?? (expertMessages.length > 0 ? expertMessages[expertMessages.length - 1].slice(0, 500) : null);
 
+  // Only include transcript when there was actual expert conversation (not just the seeded agent message)
+  const transcript = expertMessages.length > 0
+    ? messages
+      .filter(m => m.messageType === 'text' || m.messageType === 'file')
+      .map(m => ({
+        role: m.senderType,
+        content: m.content,
+        timestamp: m.createdAt,
+      }))
+    : undefined;
+
   return {
-    sessionId: session.id,
     offeringType: session.offeringType,
     offeringName: offering?.name ?? session.offeringType,
-    tier: session.tierId,
-    status: session.status,
 
     // What was requested
     request: {
-      description: session.description,
-      requirements,
-      offeringDescription: offering?.description ?? null,
+      description: parsedDescription,
     },
 
-    // What was delivered — structured assessment (primary) or transcript-based (fallback)
+    // Core value — structured assessment when expert filled the form
     structuredAssessment: deliverable ? deliverable.structuredData : null,
-    result: {
-      expertResponseCount: expertMessages.length,
-      expertWordCount: expertMessages.join(' ').split(/\s+/).length,
-      summary,
-    },
+
+    // Human-readable summary (top-level, not nested)
+    summary,
 
     // Attachments (signed URLs for ACP agents)
     attachments: attachmentUrls.length > 0 ? attachmentUrls : null,
 
-    // Full conversation
-    transcript,
-    turnCount: session.turnCount,
-    maxTurns: session.maxTurns,
+    // Full conversation — only when expert actually chatted
+    ...(transcript ? { transcript } : {}),
 
-    addons: addons.map(a => ({
-      type: a.addonType,
-      status: a.status,
-      price: a.priceUsdc,
-    })),
-    expert: expert ? {
-      name: expert.name,
-      publicProfile: expert.consentToPublicProfile ? `/api/public/experts/${expert.id}` : null,
-    } : null,
-    totalPrice: session.priceUsdc,
-    duration: session.startedAt && session.completedAt
-      ? Math.round((new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) / 60_000)
-      : null,
     disclaimer: 'This is a qualitative human opinion provided for informational purposes only. It does not constitute financial, investment, legal, or professional advice.',
 
     // Evaluation hint for ACP evaluators

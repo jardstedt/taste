@@ -5,9 +5,9 @@ import { createExpert, updateExpert, setExpertPassword, acceptAgreement } from '
 import { getResourceAvailability } from '../services/resource.js';
 import { createSession, matchSession, getSessionById, acceptSession } from '../services/sessions.js';
 
-function createOnlineExpert(name: string, email: string, domains: string[]) {
+async function createOnlineExpert(name: string, email: string, domains: string[]) {
   const expert = createExpert(name, email, domains as any);
-  setExpertPassword(expert.id, 'password123');
+  await setExpertPassword(expert.id, 'password123');
   acceptAgreement(expert.id);
   updateExpert(expert.id, { availability: 'online', consentToPublicProfile: true });
   return expert;
@@ -19,23 +19,23 @@ describe('resource availability', () => {
   });
 
   describe('status determination', () => {
-    it('returns offline when no experts are online', () => {
+    it('returns offline when no experts are online', async () => {
       const result = getResourceAvailability();
       expect(result.status).toBe('offline');
       expect(result.capacity.onlineExperts).toBe(0);
     });
 
-    it('returns limited when exactly 1 expert is online', () => {
-      createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('returns limited when exactly 1 expert is online', async () => {
+      await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
 
       const result = getResourceAvailability();
       expect(result.status).toBe('limited');
       expect(result.capacity.onlineExperts).toBe(1);
     });
 
-    it('returns available when 2+ experts are online', () => {
-      createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
-      createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
+    it('returns available when 2+ experts are online', async () => {
+      await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+      await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
 
       const result = getResourceAvailability();
       expect(result.status).toBe('available');
@@ -44,8 +44,8 @@ describe('resource availability', () => {
   });
 
   describe('capacity counts', () => {
-    it('counts busy experts separately', () => {
-      const expert = createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('counts busy experts separately', async () => {
+      const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       updateExpert(expert.id, { availability: 'busy' } as any);
 
       const result = getResourceAvailability();
@@ -53,8 +53,8 @@ describe('resource availability', () => {
       expect(result.capacity.onlineExperts).toBe(0);
     });
 
-    it('counts active sessions', () => {
-      createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('counts active sessions', async () => {
+      await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       const session = createSession({
         offeringType: 'trust_evaluation',
         tierId: 'quick',
@@ -72,8 +72,8 @@ describe('resource availability', () => {
       expect(result.capacity.activeSessions).toBe(1);
     });
 
-    it('excludes deactivated experts from total', () => {
-      const expert = createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('excludes deactivated experts from total', async () => {
+      const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       getDb().prepare("UPDATE experts SET deactivated_at = datetime('now') WHERE id = ?").run(expert.id);
 
       const result = getResourceAvailability();
@@ -82,9 +82,9 @@ describe('resource availability', () => {
   });
 
   describe('privacy: consentToPublicProfile filter', () => {
-    it('excludes experts who did not consent to public profile', () => {
+    it('excludes experts who did not consent to public profile', async () => {
       const expert = createExpert('Alice', 'alice@test.com', ['crypto'] as any);
-      setExpertPassword(expert.id, 'password123');
+      await setExpertPassword(expert.id, 'password123');
       acceptAgreement(expert.id);
       updateExpert(expert.id, { availability: 'online', consentToPublicProfile: false });
 
@@ -94,18 +94,18 @@ describe('resource availability', () => {
       expect(result.status).toBe('offline');
     });
 
-    it('includes experts who consented to public profile', () => {
-      createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('includes experts who consented to public profile', async () => {
+      await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
 
       const result = getResourceAvailability();
       expect(result.capacity.onlineExperts).toBe(1);
       expect(result.capacity.totalExperts).toBe(1);
     });
 
-    it('does not leak non-consenting expert availability in domain breakdown', () => {
+    it('does not leak non-consenting expert availability in domain breakdown', async () => {
       // Private expert — online but no public consent
       const privateExpert = createExpert('Private', 'private@test.com', ['crypto'] as any);
-      setExpertPassword(privateExpert.id, 'password123');
+      await setExpertPassword(privateExpert.id, 'password123');
       acceptAgreement(privateExpert.id);
       updateExpert(privateExpert.id, { availability: 'online', consentToPublicProfile: false });
 
@@ -116,8 +116,8 @@ describe('resource availability', () => {
   });
 
   describe('domain breakdown', () => {
-    it('only includes domains with online experts', () => {
-      createOnlineExpert('Alice', 'alice@test.com', ['crypto', 'community']);
+    it('only includes domains with online experts', async () => {
+      await createOnlineExpert('Alice', 'alice@test.com', ['crypto', 'community']);
 
       const result = getResourceAvailability();
       const domainNames = result.domains.map(d => d.domain);
@@ -126,9 +126,9 @@ describe('resource availability', () => {
       expect(domainNames).not.toContain('music');
     });
 
-    it('reports correct expert count per domain', () => {
-      createOnlineExpert('Alice', 'alice@test.com', ['crypto', 'community']);
-      createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
+    it('reports correct expert count per domain', async () => {
+      await createOnlineExpert('Alice', 'alice@test.com', ['crypto', 'community']);
+      await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
 
       const result = getResourceAvailability();
       const crypto = result.domains.find(d => d.domain === 'crypto')!;
@@ -139,7 +139,7 @@ describe('resource availability', () => {
   });
 
   describe('offerings', () => {
-    it('returns enabled offerings with tier info', () => {
+    it('returns enabled offerings with tier info', async () => {
       const result = getResourceAvailability();
       expect(result.offerings.length).toBeGreaterThan(0);
 
@@ -150,7 +150,7 @@ describe('resource availability', () => {
       expect(trust!.maxTurns).toBeGreaterThan(0);
     });
 
-    it('does not include disabled offerings', () => {
+    it('does not include disabled offerings', async () => {
       const result = getResourceAvailability();
       const cultural = result.offerings.find(o => o.type === 'cultural_context');
       expect(cultural).toBeUndefined();
@@ -158,7 +158,7 @@ describe('resource availability', () => {
   });
 
   describe('response shape', () => {
-    it('includes all required top-level fields', () => {
+    it('includes all required top-level fields', async () => {
       const result = getResourceAvailability();
       expect(result.service).toBe('Taste: Human Expert Consultation');
       expect(result.timestamp).toBeTruthy();
@@ -168,8 +168,8 @@ describe('resource availability', () => {
       expect(Array.isArray(result.offerings)).toBe(true);
     });
 
-    it('does not leak expert IDs, emails, or wallet addresses', () => {
-      createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+    it('does not leak expert IDs, emails, or wallet addresses', async () => {
+      await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
 
       const result = getResourceAvailability();
       const json = JSON.stringify(result);
