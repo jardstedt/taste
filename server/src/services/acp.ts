@@ -12,12 +12,24 @@ import { isOfferingEnabled, getEnabledSessionOfferings } from '../config/domains
 import {
   createSession, getSessionByAcpId, getSessionById,
   matchSession, startSession, formatSessionDeliverable, checkSessionTimeouts,
-  checkAllIdleSessions, confirmSessionPayout,
+  confirmSessionPayout, addMessage,
 } from './sessions.js';
-import { notifyExpert } from './socket.js';
+import { notifyExpert, emitToSession } from './socket.js';
 
 let _acpClient: InstanceType<typeof AcpClient> | null = null;
 let _pollInterval: ReturnType<typeof setInterval> | null = null;
+let _memoBridgeInterval: ReturnType<typeof setInterval> | null = null;
+
+// ── Memo Bridge State ──
+// Track which ACP memo IDs we've already injected into chat to avoid duplicates.
+// Key = acpJobId (string), Value = Set of memo IDs already seen.
+const _seenMemoIds = new Map<string, Set<number>>();
+
+// Active bridge subscriptions: acpJobId → sessionId for jobs we're bridging.
+// Only these jobs get polled, not all active sessions.
+const _bridgedJobs = new Map<string, string>();
+
+const MEMO_BRIDGE_POLL_MS = 10_000; // 10 seconds for active conversations
 
 // ── Offering Type Mapping ──
 
@@ -126,6 +138,23 @@ export async function initAcp(): Promise<InstanceType<typeof AcpClient> | null> 
   // Also start polling as a fallback (every 30 seconds)
   startPolling();
 
+  // Restore memo bridge for any active ACP sessions (server restart case)
+  try {
+    const { getDb } = await import('../db/database.js');
+    const db = getDb();
+    const activeSessions = db.prepare(
+      "SELECT id, acp_job_id FROM sessions WHERE acp_job_id IS NOT NULL AND status IN ('active', 'wrapping_up')",
+    ).all() as Array<{ id: string; acp_job_id: string }>;
+    for (const row of activeSessions) {
+      _bridgedJobs.set(row.acp_job_id, row.id);
+    }
+    if (_bridgedJobs.size > 0) {
+      startMemoBridge();
+    }
+  } catch {
+    // Non-critical — bridge will start when next session goes active
+  }
+
   return _acpClient;
 }
 
@@ -178,6 +207,9 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
 
       console.log(`[ACP] Job ${job.id} accepted`);
 
+      // Track recurring buyer relationships (non-blocking)
+      trackBuyerAccount(job).catch(() => {});
+
       // Create session and match expert
       try {
         const existingSession = getSessionByAcpId(String(job.id));
@@ -189,6 +221,19 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
             buyerAgentDisplay: job.name ?? `Agent ${job.id}`,
             description: JSON.stringify(requirements).slice(0, 500),
           });
+
+          // Seed chat with the buyer's requirement as the first message
+          if (Object.keys(requirements).length > 0) {
+            const reqText = Object.entries(requirements)
+              .map(([k, v]) => `**${k}:** ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+              .join('\n');
+            addMessage(session.id, 'agent', null, reqText);
+          }
+
+          // Record all current memo IDs so the bridge doesn't re-inject them
+          const seenIds = new Set(job.memos.map((m: AcpMemo) => m.id));
+          _seenMemoIds.set(String(job.id), seenIds);
+
           const matched = matchSession(session.id);
           if (matched?.expertId) {
             try { notifyExpert(matched.expertId, 'session:new', matched); } catch {}
@@ -217,6 +262,12 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
           console.log(`[ACP] Job ${job.id} rejected (session ${session.status}) — agent refunded`);
         } else if (session.status === 'accepted') {
           startSession(session.id);
+          // Register for memo bridging and seed seen-memo state
+          const seenIds = _seenMemoIds.get(String(job.id)) ?? new Set<number>();
+          for (const m of job.memos) seenIds.add(m.id);
+          _seenMemoIds.set(String(job.id), seenIds);
+          _bridgedJobs.set(String(job.id), session.id);
+          startMemoBridge();
           console.log(`[ACP] Session ${session.id} started (payment received)`);
         }
       }
@@ -310,7 +361,6 @@ function startPolling(): void {
     try {
       await pollJobs();
       checkSessionTimeouts();
-      checkAllIdleSessions();
       await reconcileStuckSessions();
     } catch (err) {
       console.error('[ACP] Polling error');
@@ -342,6 +392,93 @@ async function pollJobs(): Promise<void> {
       }
     }
   }
+
+}
+
+// ── Memo Bridge ──
+
+/**
+ * Start the memo bridge polling loop (10s).
+ * Auto-stops when there are no active ACP sessions to avoid wasted cycles.
+ * Called when a new ACP-linked session is created or payment is received.
+ */
+export function startMemoBridge(): void {
+  if (_memoBridgeInterval || !_acpClient) return;
+
+  _memoBridgeInterval = setInterval(async () => {
+    try {
+      const hadSessions = await bridgeInboundMemos();
+      if (!hadSessions) {
+        // No active ACP sessions — stop polling until needed again
+        stopMemoBridge();
+        console.log('[ACP] Memo bridge stopped — no active ACP sessions');
+      }
+    } catch {
+      // Non-critical — will retry next cycle
+    }
+  }, MEMO_BRIDGE_POLL_MS);
+
+  console.log(`[ACP] Memo bridge started (${MEMO_BRIDGE_POLL_MS / 1000}s interval)`);
+}
+
+function stopMemoBridge(): void {
+  if (_memoBridgeInterval) {
+    clearInterval(_memoBridgeInterval);
+    _memoBridgeInterval = null;
+  }
+}
+
+/**
+ * Memo Bridge — Inbound
+ * Poll only the registered bridged jobs for new buyer memos.
+ * Returns true if there are still jobs to bridge (so caller knows whether to keep polling).
+ */
+async function bridgeInboundMemos(): Promise<boolean> {
+  if (!_acpClient || _bridgedJobs.size === 0) return false;
+
+  const providerAddress = _acpClient.walletAddress?.toLowerCase();
+  if (!providerAddress) return false;
+
+  for (const [acpJobId, sessionId] of _bridgedJobs) {
+    try {
+      // Verify session is still active
+      const session = getSessionById(sessionId);
+      if (!session || !['active', 'wrapping_up'].includes(session.status)) {
+        _bridgedJobs.delete(acpJobId);
+        _seenMemoIds.delete(acpJobId);
+        continue;
+      }
+
+      const job = await _acpClient!.getJobById(Number(acpJobId));
+      if (!job || job.phase !== AcpJobPhases.TRANSACTION) {
+        _bridgedJobs.delete(acpJobId);
+        _seenMemoIds.delete(acpJobId);
+        continue;
+      }
+
+      const seen = _seenMemoIds.get(acpJobId) ?? new Set<number>();
+
+      for (const memo of job.memos) {
+        if (seen.has(memo.id)) continue;
+        seen.add(memo.id);
+
+        // Only inject memos from the buyer (not our own provider memos)
+        if (memo.senderAddress.toLowerCase() === providerAddress) continue;
+
+        // Inject as an agent message in the chat
+        const content = memo.content.slice(0, 2000);
+        const message = addMessage(sessionId, 'agent', null, content);
+        emitToSession(sessionId, 'message:new', message);
+        console.log(`[ACP] Memo bridge: injected memo ${memo.id} from buyer into session ${sessionId}`);
+      }
+
+      _seenMemoIds.set(acpJobId, seen);
+    } catch {
+      // Non-critical — will retry next poll cycle
+    }
+  }
+
+  return _bridgedJobs.size > 0;
 }
 
 export async function deliverSessionToAcp(internalSessionId: string): Promise<boolean> {
@@ -366,6 +503,45 @@ export async function deliverSessionToAcp(internalSessionId: string): Promise<bo
   }
 
   return false;
+}
+
+/**
+ * Memo Bridge — Outbound
+ * Relay an expert's chat message to the buying agent as an ACP notification memo.
+ * Called from socket handler and REST route when an expert sends a message
+ * on an ACP-linked session.
+ */
+export async function relayExpertMessageToAcp(
+  internalSessionId: string,
+  content: string,
+): Promise<boolean> {
+  if (!_acpClient) return false;
+
+  const session = getSessionById(internalSessionId);
+  if (!session?.acpJobId) return false;
+
+  try {
+    const acpJob = await _acpClient.getJobById(Number(session.acpJobId));
+    if (!acpJob || acpJob.phase !== AcpJobPhases.TRANSACTION) return false;
+
+    // Send as notification memo (capped at 2000 chars)
+    const safeMemo = content.slice(0, 2000);
+    await acpJob.createNotification(safeMemo);
+
+    // Record the memo we just sent so the inbound bridge ignores it
+    // (next poll will see our own memo — we skip it via senderAddress check,
+    // but also add to seen set as extra protection)
+    const seen = _seenMemoIds.get(session.acpJobId) ?? new Set<number>();
+    // The new memo's ID isn't returned by createNotification, so we rely
+    // on the senderAddress filter in bridgeInboundMemos to avoid echo.
+    _seenMemoIds.set(session.acpJobId, seen);
+
+    console.log(`[ACP] Memo bridge: relayed expert message to buyer for job ${session.acpJobId}`);
+    return true;
+  } catch (err) {
+    console.error(`[ACP] Memo bridge: failed to relay expert message for session ${internalSessionId}:`, err);
+    return false;
+  }
 }
 
 export async function rejectSessionOnAcp(internalSessionId: string): Promise<boolean> {
@@ -427,6 +603,84 @@ async function reconcileStuckSessions(): Promise<void> {
   }
 }
 
+// ── Account Tracking ──
+
+/** ACP Account shape (not directly exported from SDK) */
+interface AcpAccountInfo {
+  id: number;
+  clientAddress: string;
+  providerAddress: string;
+  metadata: Record<string, unknown>;
+}
+
+/**
+ * Look up the ACP Account relationship between a buyer and Taste.
+ * Returns the Account if one exists (persistent agent-agent relationship).
+ */
+export async function getAccountForAgent(clientAddress: string): Promise<AcpAccountInfo | null> {
+  if (!_acpClient) return null;
+
+  try {
+    const account = await _acpClient.getByClientAndProvider(
+      clientAddress as `0x${string}`,
+      _acpClient.walletAddress,
+    );
+    if (!account) return null;
+    return {
+      id: account.id,
+      clientAddress: account.clientAddress,
+      providerAddress: account.providerAddress,
+      metadata: account.metadata,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Look up the ACP Account associated with a specific job.
+ */
+export async function getAccountForJob(jobId: number): Promise<AcpAccountInfo | null> {
+  if (!_acpClient) return null;
+
+  try {
+    const account = await _acpClient.getAccountByJobId(jobId);
+    if (!account) return null;
+    return {
+      id: account.id,
+      clientAddress: account.clientAddress,
+      providerAddress: account.providerAddress,
+      metadata: account.metadata,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Track recurring buyer agents. Called when a new job arrives.
+ * Logs account relationship info for monitoring.
+ */
+async function trackBuyerAccount(job: AcpJob): Promise<void> {
+  if (!_acpClient) return;
+
+  try {
+    const account = await _acpClient.getByClientAndProvider(
+      job.clientAddress,
+      _acpClient.walletAddress,
+    );
+
+    if (account) {
+      console.log(`[ACP] Recurring buyer: account #${account.id} with ${job.clientAddress.slice(0, 10)}...`);
+      if (account.metadata && Object.keys(account.metadata).length > 0) {
+        console.log(`[ACP] Account metadata: ${JSON.stringify(account.metadata)}`);
+      }
+    }
+  } catch {
+    // Non-critical — don't fail the job handling
+  }
+}
+
 // ── Getters ──
 
 export function getAcpClient(): InstanceType<typeof AcpClient> | null {
@@ -450,6 +704,9 @@ export function stopAcp(): void {
     clearInterval(_pollInterval);
     _pollInterval = null;
   }
+  stopMemoBridge();
   _acpClient = null;
+  _seenMemoIds.clear();
+  _bridgedJobs.clear();
   console.log('[ACP] Stopped');
 }

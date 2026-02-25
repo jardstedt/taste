@@ -37,6 +37,7 @@ import type { Domain, ExpertCredentials, WalletChain } from '../types/index.js';
 import { withdrawalLimiter, passwordLimiter } from '../middleware/rateLimit.js';
 import sessionRoutes from './sessions.js';
 import notificationRoutes from './notifications.js';
+import agentSimRoutes from './agent-sim.js';
 
 function param(val: string | string[] | undefined): string {
   return Array.isArray(val) ? val[0] : val ?? '';
@@ -275,5 +276,8 @@ router.use('/notifications', notificationRoutes);
 
 // ── Sessions (v1.1) ──
 router.use('/sessions', sessionRoutes);
+
+// ── Agent Simulator (admin demo) ──
+router.use('/agent-sim', agentSimRoutes);
 
 export default router;

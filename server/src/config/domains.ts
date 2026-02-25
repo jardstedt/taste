@@ -149,6 +149,29 @@ export const SESSION_TIERS: SessionTierDefinition[] = [
   },
 ];
 
+// ── Legacy helpers (used by judgments service) ──
+
+export interface OfferingDefinition {
+  priceUsdc: number;
+  defaultSlaMins: number;
+}
+
+export function getOffering(offeringType: string): OfferingDefinition | undefined {
+  const offering = SESSION_OFFERINGS.find(o => o.type === offeringType);
+  if (!offering) return undefined;
+  const tier = SESSION_TIERS.find(t => t.id === offering.defaultTier);
+  if (!tier) return undefined;
+  return {
+    priceUsdc: tier.priceRange[0],
+    defaultSlaMins: tier.durationMinutes[1],
+  };
+}
+
+export function getDomainsForOffering(offeringType: string): Domain[] {
+  const offering = SESSION_OFFERINGS.find(o => o.type === offeringType);
+  return offering?.relevantDomains ?? [];
+}
+
 export function getSessionTier(tierId: SessionTier): SessionTierDefinition | undefined {
   return SESSION_TIERS.find(t => t.id === tierId);
 }

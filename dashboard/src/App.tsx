@@ -17,6 +17,7 @@ import { ExpertAgreement } from './pages/ExpertAgreement.js';
 import { Landing } from './pages/Landing.js';
 import { ExpertDirectory } from './pages/ExpertDirectory.js';
 import { ExpertProfile } from './pages/ExpertProfile.js';
+import { AcpDemo } from './pages/AcpDemo.js';
 import { useState, useEffect } from 'react';
 import type { Job, Judgment } from './types/index.js';
 import * as api from './api/client.js';
@@ -72,7 +73,10 @@ function AppContent() {
           <JobDetail onSubmitted={refreshJobs} />
         } />
         {user.role === 'admin' && (
-          <Route path="/admin" element={<AdminPanel />} />
+          <>
+            <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/admin/acp-demo" element={<AcpDemo />} />
+          </>
         )}
       </Routes>
     </Layout>

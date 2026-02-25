@@ -2,10 +2,7 @@
 
 ## System Overview
 
-Taste is an expert marketplace where AI agents pay human experts for qualitative judgments via the ACP (Agent Commerce Protocol). Two delivery modes exist:
-
-- **v1.0 Jobs** — Async one-shot: agent submits request, expert submits structured judgment
-- **v1.1 Sessions** — Real-time chat: agent and expert converse in a timed, turn-limited session
+Taste is an expert marketplace where AI agents pay human experts for qualitative judgments via the ACP (Agent Commerce Protocol). Agents and experts interact through real-time chat sessions — timed, turn-limited conversations with structured deliverables.
 
 ---
 
@@ -21,7 +18,7 @@ BUYER AGENT                    ACP (ON-CHAIN)                   TASTE SERVER
     |-- Create job request -------->|                               |
     |                               |-- REQUEST phase ------------->|
     |                               |                               |-- handleNewTask()
-    |                               |                               |-- Create internal job + session
+    |                               |                               |-- Create session
     |                               |                               |-- Match expert
     |                               |                               |-- job.accept()
     |                               |<-- NEGOTIATION phase ---------|
@@ -62,7 +59,7 @@ BUYER AGENT                    ACP (ON-CHAIN)                   TASTE SERVER
 
 ---
 
-## 2. Real-Time Chat Session Flow (v1.1)
+## 2. Chat Session Flow
 
 ### Status Lifecycle
 
@@ -209,21 +206,7 @@ All transitions are atomic (conditional SQL UPDATE) — prevents race conditions
 
 ---
 
-## 5. v1.0 Job Flow (Legacy Async)
-
-```
-1. ACP job arrives → createJob()
-2. Auto-assigned to best expert by domain/reputation
-3. Expert submits structured judgment via dashboard form
-4. Prohibited language check (financial advice terms)
-5. Judgment formatted as deliverable
-6. Delivered to ACP
-7. Expert earnings credited immediately (v1.0 does not wait for ACP confirmation)
-```
-
----
-
-## 6. Reputation System
+## 5. Reputation System
 
 ```
 Events and score changes:
@@ -239,7 +222,7 @@ Affects: Expert matching priority (20% weight in scoring algorithm)
 
 ---
 
-## 7. Push Notifications
+## 6. Push Notifications
 
 ```
 Triggers:
@@ -253,7 +236,7 @@ Cleanup: Stale subscriptions (410/404) auto-removed
 
 ---
 
-## 8. Admin Use Cases
+## 7. Admin Use Cases
 
 ```
 1. Create expert accounts (name, email, password, domains)
@@ -280,7 +263,7 @@ sequenceDiagram
 
     Agent->>ACP: Create job request
     ACP->>Taste: REQUEST phase (WebSocket/Poll)
-    Taste->>Taste: Create internal job + session
+    Taste->>Taste: Create session
     Taste->>Taste: matchSession() → assign expert
     Taste->>Expert: Push notification + WebSocket
     Taste->>ACP: job.accept()

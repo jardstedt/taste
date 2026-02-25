@@ -7,18 +7,23 @@ set -euo pipefail
 # Prerequisites:
 #   1. Fresh Ubuntu 22.04/24.04 VPS with root or sudo access
 #   2. Domain with DNS A record pointing to this VPS IP
-#   3. If using Cloudflare: SSL mode set to "Full (strict)"
+#   3. Cloudflare: proxy ON, SSL mode "Full (strict)"
+#   4. Cloudflare Origin Certificate created and saved locally
+#      (SSL/TLS → Origin Server → Create Certificate)
+#
+# Co-located services:
+#   - Aethir Checker Node on port 9002 (/home/AethirCheckerCLI-linux/)
+#   - Do NOT restart or interfere with Aethir processes
 #
 # Usage:
-#   curl -sL https://raw.githubusercontent.com/YOURREPO/main/scripts/vps-setup.sh | bash
-#   — or —
 #   git clone your-repo /opt/taste && bash /opt/taste/scripts/vps-setup.sh
 # ============================================================
 
 INSTALL_DIR="/opt/taste"
 DATA_DIR="/opt/taste/data"
 BACKUP_DIR="/opt/taste-backups"
-REPO_URL=""  # Set below interactively
+CLOUDFLARE_CERT_DIR="/etc/ssl/cloudflare"
+REPO_URL=""
 
 # Colors
 RED='\033[0;31m'
@@ -42,13 +47,13 @@ echo "============================================"
 echo ""
 
 # ---- Collect user inputs ----
-read -rp "Your domain (e.g. taste.yourdomain.com): " DOMAIN
+read -rp "Your domain (e.g. taste-api.com): " DOMAIN
 [ -z "$DOMAIN" ] && error "Domain is required"
 
 read -rp "Git repo URL (HTTPS, e.g. https://github.com/you/taste.git): " REPO_URL
 [ -z "$REPO_URL" ] && error "Repo URL is required"
 
-read -rp "Admin email (for login + Let's Encrypt): " ADMIN_EMAIL
+read -rp "Admin email (for login): " ADMIN_EMAIL
 [ -z "$ADMIN_EMAIL" ] && error "Admin email is required"
 
 read -rsp "Admin password (min 8 chars): " ADMIN_PASSWORD
@@ -71,17 +76,33 @@ apt-get update -qq
 apt-get upgrade -y -qq
 
 info "Installing prerequisites..."
-apt-get install -y -qq curl git build-essential nginx certbot python3-certbot-nginx ufw sqlite3
+apt-get install -y -qq curl git build-essential nginx ufw sqlite3 python3
 
 # ============================================================
-# 2. Node.js 20 LTS
+# 2. Node.js 20 LTS via nvm
 # ============================================================
+# NodeSource doesn't work on all Ubuntu versions — nvm is more reliable
+export NVM_DIR="/root/.nvm"
+
+if [ ! -d "$NVM_DIR" ]; then
+    info "Installing nvm..."
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+fi
+
+# Load nvm
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
 if ! command -v node &>/dev/null || [[ "$(node -v)" != v20* ]]; then
-    info "Installing Node.js 20 LTS..."
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get install -y -qq nodejs
+    info "Installing Node.js 20 LTS via nvm..."
+    nvm install 20
+    nvm alias default 20
 fi
 info "Node.js $(node -v)"
+
+# Symlink node/npm to /usr/local/bin so PM2 systemd service can find them
+ln -sf "$(which node)" /usr/local/bin/node
+ln -sf "$(which npm)" /usr/local/bin/npm
+ln -sf "$(which npx)" /usr/local/bin/npx
 
 # ============================================================
 # 3. PM2
@@ -90,6 +111,7 @@ if ! command -v pm2 &>/dev/null; then
     info "Installing PM2..."
     npm install -g pm2
 fi
+ln -sf "$(which pm2)" /usr/local/bin/pm2
 info "PM2 $(pm2 -v)"
 
 # ============================================================
@@ -98,14 +120,14 @@ info "PM2 $(pm2 -v)"
 info "Configuring firewall..."
 ufw default deny incoming
 ufw default allow outgoing
-ufw allow 22/tcp   # SSH
-ufw allow 80/tcp   # HTTP (redirect + certbot)
-ufw allow 443/tcp  # HTTPS
+ufw allow 22/tcp    # SSH
+ufw allow 80/tcp    # HTTP (redirect to HTTPS)
+ufw allow 443/tcp   # HTTPS
+ufw allow 9002/tcp  # Aethir Checker Node
 
 # Check for other services that need ports open
-warn "UFW is about to be enabled. Only ports 22, 80, 443 are allowed."
-warn "Check 'ss -tlnp' in another terminal if other services need ports open."
-read -rp "Additional ports to allow (comma-separated, e.g. 9002,8080) or Enter to skip: " EXTRA_PORTS
+warn "UFW will allow ports: 22, 80, 443, 9002 (Aethir)"
+read -rp "Additional ports to allow (comma-separated) or Enter to skip: " EXTRA_PORTS
 if [ -n "$EXTRA_PORTS" ]; then
     IFS=',' read -ra PORTS <<< "$EXTRA_PORTS"
     for PORT in "${PORTS[@]}"; do
@@ -169,6 +191,12 @@ CORS_ORIGIN=https://$DOMAIN
 VAPID_PUBLIC_KEY=$VAPID_PUBLIC
 VAPID_PRIVATE_KEY=$VAPID_PRIVATE
 VAPID_EMAIL=mailto:$ADMIN_EMAIL
+
+# Virtuals ACP (fill in when ready to connect)
+# ACP_WALLET_PRIVATE_KEY=
+# ACP_AGENT_WALLET_ADDRESS=
+# ACP_SESSION_ENTITY_KEY_ID=
+# GAME_API_KEY=
 ENVEOF
 
 chmod 600 "$ENV_FILE"
@@ -184,50 +212,151 @@ info "Building server and dashboard..."
 npm run build
 
 # ============================================================
-# 8. Nginx — temporary HTTP config for Certbot
+# 8. Cloudflare Origin Certificate
 # ============================================================
-info "Configuring Nginx (HTTP-only for cert issuance)..."
-rm -f /etc/nginx/sites-enabled/default
+info "Setting up Cloudflare Origin Certificate..."
+mkdir -p "$CLOUDFLARE_CERT_DIR"
 
-cat > /etc/nginx/sites-available/taste <<NGINXEOF
+if [ ! -f "$CLOUDFLARE_CERT_DIR/$DOMAIN.pem" ]; then
+    echo ""
+    warn "Paste your Cloudflare Origin Certificate below."
+    warn "Create it at: Cloudflare → SSL/TLS → Origin Server → Create Certificate"
+    warn "Paste the certificate, then press Ctrl+D on a new line:"
+    echo ""
+    cat > "$CLOUDFLARE_CERT_DIR/$DOMAIN.pem"
+    echo ""
+
+    warn "Now paste the Private Key, then press Ctrl+D on a new line:"
+    echo ""
+    cat > "$CLOUDFLARE_CERT_DIR/$DOMAIN.key"
+    chmod 600 "$CLOUDFLARE_CERT_DIR/$DOMAIN.key"
+    echo ""
+    info "Certificate and key saved"
+else
+    info "Certificate already exists at $CLOUDFLARE_CERT_DIR/$DOMAIN.pem"
+fi
+
+# ============================================================
+# 9. Nginx — Cloudflare reverse proxy
+# ============================================================
+info "Configuring Nginx with Cloudflare Origin Certificate..."
+
+# Determine nginx config directory (sites-available or conf.d)
+if [ -d /etc/nginx/sites-available ]; then
+    NGINX_CONF="/etc/nginx/sites-available/taste"
+    NGINX_ENABLED="/etc/nginx/sites-enabled/taste"
+    rm -f /etc/nginx/sites-enabled/default
+else
+    NGINX_CONF="/etc/nginx/conf.d/taste.conf"
+    NGINX_ENABLED=""
+    # Remove default conf if present
+    rm -f /etc/nginx/conf.d/default.conf
+fi
+
+cat > "$NGINX_CONF" <<NGINXEOF
+# Taste — Nginx reverse proxy with Cloudflare Origin Certificate
+# Generated by vps-setup.sh
+
+limit_req_zone \$binary_remote_addr zone=api:10m rate=10r/s;
+
+# Redirect HTTP → HTTPS
 server {
     listen 80;
     listen [::]:80;
-    server_name $DOMAIN;
+    server_name $DOMAIN www.$DOMAIN;
+    return 301 https://\$server_name\$request_uri;
+}
 
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name $DOMAIN www.$DOMAIN;
+
+    # Cloudflare Origin Certificate
+    ssl_certificate $CLOUDFLARE_CERT_DIR/$DOMAIN.pem;
+    ssl_certificate_key $CLOUDFLARE_CERT_DIR/$DOMAIN.key;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+
+    # Real client IP from Cloudflare
+    set_real_ip_from 173.245.48.0/20;
+    set_real_ip_from 103.21.244.0/22;
+    set_real_ip_from 103.22.200.0/22;
+    set_real_ip_from 103.31.4.0/22;
+    set_real_ip_from 141.101.64.0/18;
+    set_real_ip_from 108.162.192.0/18;
+    set_real_ip_from 190.93.240.0/20;
+    set_real_ip_from 188.114.96.0/20;
+    set_real_ip_from 197.234.240.0/22;
+    set_real_ip_from 198.41.128.0/17;
+    set_real_ip_from 162.158.0.0/15;
+    set_real_ip_from 104.16.0.0/13;
+    set_real_ip_from 104.24.0.0/14;
+    set_real_ip_from 172.64.0.0/13;
+    set_real_ip_from 131.0.72.0/22;
+    real_ip_header CF-Connecting-IP;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+    # Proxy settings
+    proxy_http_version 1.1;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+
+    # API — rate limited
+    location /api/ {
+        limit_req zone=api burst=20 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:3001;
+    }
+
+    # Socket.io — WebSocket upgrade
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    # Static assets — long cache
+    location /assets/ {
+        proxy_pass http://127.0.0.1:3001;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # SPA fallback
     location / {
         proxy_pass http://127.0.0.1:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
     }
+
+    # Block dotfiles
+    location ~ /\. {
+        deny all;
+        return 404;
+    }
+
+    client_max_body_size 2m;
 }
 NGINXEOF
 
-ln -sf /etc/nginx/sites-available/taste /etc/nginx/sites-enabled/taste
+# Enable site if using sites-available pattern
+if [ -n "$NGINX_ENABLED" ]; then
+    ln -sf "$NGINX_CONF" "$NGINX_ENABLED"
+fi
+
 nginx -t || error "Nginx config test failed"
 systemctl restart nginx
-info "Nginx running (HTTP)"
-
-# ============================================================
-# 9. Let's Encrypt SSL
-# ============================================================
-info "Obtaining SSL certificate..."
-certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$ADMIN_EMAIL"
-info "SSL certificate obtained"
-
-# ============================================================
-# 9b. Install full HTTPS Nginx config
-# ============================================================
-info "Installing production Nginx config..."
-cp "$INSTALL_DIR/scripts/nginx-taste.conf" /etc/nginx/sites-available/taste
-sed -i "s/YOURDOMAIN/$DOMAIN/g" /etc/nginx/sites-available/taste
-
-nginx -t || error "Nginx production config test failed"
-systemctl reload nginx
-info "Nginx configured with HTTPS, auto-renewal enabled"
+info "Nginx configured with Cloudflare Origin Certificate"
 
 # ============================================================
 # 10. Start with PM2
@@ -274,12 +403,21 @@ echo "  App:           $INSTALL_DIR"
 echo "  Env:           $ENV_FILE"
 echo "  DB:            $DATA_DIR/taste.db"
 echo "  Backups:       $BACKUP_DIR/"
-echo "  Nginx:         /etc/nginx/sites-available/taste"
+echo "  Nginx:         $NGINX_CONF"
+echo "  SSL cert:      $CLOUDFLARE_CERT_DIR/$DOMAIN.pem"
 echo "  Logs:          $INSTALL_DIR/logs/"
+echo ""
+echo "  Cloudflare settings to verify:"
+echo "  - SSL/TLS → Overview: Full (strict)"
+echo "  - SSL/TLS → Edge Certificates → Always Use HTTPS: On"
+echo "  - Network → WebSockets: On"
+echo ""
+echo "  Co-located services:"
+echo "  - Aethir Checker Node on port 9002 (DO NOT restart)"
 echo ""
 echo "  Next steps:"
 echo "  1. Verify: curl -I https://$DOMAIN"
 echo "  2. Test login at https://$DOMAIN"
-echo "  3. Test push notifications"
-echo "  4. SSL Labs: https://www.ssllabs.com/ssltest/analyze.html?d=$DOMAIN"
+echo "  3. Test push notifications on mobile"
+echo "  4. See scripts/POST_DEPLOY_CHECKLIST.md"
 echo ""

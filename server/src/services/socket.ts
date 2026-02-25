@@ -110,6 +110,13 @@ function handleConnection(socket: Socket) {
     const turnInfo = incrementTurnCount(data.sessionId, 'expert');
     emitToSession(data.sessionId, 'message:new', message);
 
+    // Relay expert message to buyer agent via ACP memo (non-blocking)
+    if (session.acpJobId) {
+      import('./acp.js').then(({ relayExpertMessageToAcp }) => {
+        relayExpertMessageToAcp(data.sessionId, data.content).catch(() => {});
+      }).catch(() => {});
+    }
+
     // Always emit updated session so dashboard gets fresh turn count + status
     const updated = getSessionById(data.sessionId);
     emitToSession(data.sessionId, 'session:updated', updated);

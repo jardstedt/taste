@@ -82,7 +82,10 @@ export function Layout({ children, user, onLogout, onRefresh }: LayoutProps) {
     { path: '/dashboard/active', label: 'Active' },
     { path: '/dashboard/history', label: 'History' },
     { path: '/dashboard/earnings', label: 'Earnings' },
-    ...(user.role === 'admin' ? [{ path: '/dashboard/admin', label: 'Admin' }] : []),
+    ...(user.role === 'admin' ? [
+      { path: '/dashboard/admin', label: 'Admin' },
+      { path: '/dashboard/admin/acp-demo', label: 'ACP Demo' },
+    ] : []),
   ];
 
   const bottomNavItems = [

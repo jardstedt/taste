@@ -173,58 +173,6 @@ create_session() {
   fi
 }
 
-create_job() {
-  divider
-  echo -e "${BOLD}Create V1.0 Job${NC}"
-  echo ""
-  echo "Offering type:"
-  echo "  [1] vibes_check"
-  echo "  [2] narrative"
-  echo "  [3] creative_review"
-  echo "  [4] community_sentiment"
-  echo "  [5] general"
-  echo ""
-  read -rp "Choose (1-5): " job_choice
-
-  local offering payload
-  case $job_choice in
-    1)
-      offering="vibes_check"
-      payload='{"offeringType":"vibes_check","requirements":{"projectName":"TestProject","tokenAddress":"0x1234...","specificQuestion":"Is this project legit or a rug pull?"}}'
-      ;;
-    2)
-      offering="narrative"
-      payload='{"offeringType":"narrative","requirements":{"narrative":"AI agents managing DeFi portfolios","context":"Multiple protocols launching autonomous trading agents. CT is very bullish.","relatedTokens":["VIRTUAL","AI16Z"]}}'
-      ;;
-    3)
-      offering="creative_review"
-      payload='{"offeringType":"creative_review","requirements":{"contentUrls":["https://example.com/logo.png"],"contentType":"design","reviewType":"feedback","context":"Logo for a new DeFi protocol. Need honest feedback."}}'
-      ;;
-    4)
-      offering="community_sentiment"
-      payload='{"offeringType":"community_sentiment","requirements":{"community":"Monad","platforms":["Twitter","Discord"],"timeframe":"Last 7 days before TGE"}}'
-      ;;
-    5)
-      offering="general"
-      payload='{"offeringType":"general","requirements":{"question":"Should I invest in this project? The team is anon, 3-page whitepaper, launched 2 days ago.","domain":"crypto","urgency":"standard"}}'
-      ;;
-    *)
-      offering="general"
-      payload='{"offeringType":"general","requirements":{"question":"Test question","domain":"general"}}'
-      ;;
-  esac
-
-  local result
-  result=$(api_post "/api/jobs" "$payload")
-  if check_success "$result" "Job created ($offering)"; then
-    local job_id
-    job_id=$(extract_id "$result")
-    info "Job ID: $job_id"
-    echo ""
-    warn "Check the dashboard to see the job and submit a judgment."
-  fi
-}
-
 # ── Agent Actions ──
 
 send_agent_message() {
@@ -645,7 +593,6 @@ main_menu() {
     echo ""
     echo -e "  ${BOLD}── Session ──${NC}"
     echo "  [n] Create new session"
-    echo "  [j] Create V1.0 job"
     echo "  [v] View current session"
     echo "  [l] List all sessions / switch"
     echo "  [r] Rapid-fire (burn turns fast)"
@@ -662,7 +609,6 @@ main_menu() {
       5) accept_session ;;
       6) complete_session ;;
       n|N) create_session ;;
-      j|J) create_job ;;
       v|V) view_session ;;
       l|L) list_sessions ;;
       r|R) rapid_fire ;;

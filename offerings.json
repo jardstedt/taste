@@ -1,60 +1,97 @@
 {
+  "exportDate": "2026-02-24T17:00:00.000Z",
   "jobs": [
     {
-      "name": "project_vibes_check",
-      "description": "Is this crypto project legit, organic, or manufactured? A verified human expert evaluates project authenticity, community behavior, and cultural signals that automated tools miss.",
+      "hide": false,
+      "name": "trust_evaluation",
+      "description": "Evaluates whether a crypto project, token, or community is legitimate using a live human expert. Returns a structured verdict with confidence score, red flags, and positive signals. Use this when you need to verify if a project is a scam, assess community authenticity, or perform due diligence before recommending or acting on a token. Detects social engineering, fake engagement, and manufactured hype that on-chain analytics and automated tools cannot catch.",
+      "requirement": "projectName (string, required): Name of the project or token to evaluate. tokenAddress (string, optional): Contract address on any EVM chain. socialLinks (array of strings, optional): URLs to Twitter, Discord, Telegram, or website. specificQuestion (string, optional): A focused question for the expert to prioritize.",
+      "deliverable": "Structured JSON with: verdict (genuine | suspicious | manufactured | mixed), confidence (number 0-1), reasoning (string), redFlags (array of strings), positiveSignals (array of strings), expertDomain (string), and disclaimer (string).",
+      "jobInput": "{\"projectName\":\"PudgyPenguins\",\"tokenAddress\":\"0x524cab2ec69124574082676e6f654a18df49a048\",\"socialLinks\":[\"https://twitter.com/pudgypenguins\",\"https://discord.gg/pudgypenguins\"],\"specificQuestion\":\"Is the recent community growth organic or driven by paid engagement?\"}",
+      "jobOutput": "{\"verdict\":\"genuine\",\"confidence\":0.85,\"reasoning\":\"Community growth correlates with IP licensing deals and retail partnerships. Engagement shows organic discussion with substantive content rather than bot activity.\",\"redFlags\":[\"Some repetitive shill posts from low-follower accounts\"],\"positiveSignals\":[\"Active long-term holders in Discord\",\"Organic meme creation\",\"Developer activity on GitHub\"],\"expertDomain\":\"crypto\",\"disclaimer\":\"This is a qualitative human opinion, not financial or investment advice.\"}",
+      "restricted": false,
+      "slaMinutes": 60,
       "requiredFunds": false,
-      "slaMinutes": 120,
-      "requirement": "Project name (required), token/contract address, social media links, and any specific question you want the expert to focus on.",
-      "deliverable": "Structured verdict (genuine/suspicious/manufactured/mixed), confidence score 0-1, detailed reasoning, red flags, positive signals, expert domain attribution, and legal disclaimer.",
       "price": {
         "type": "fixed",
         "value": 0.01
       }
     },
     {
-      "name": "narrative_assessment",
-      "description": "Is this market narrative real momentum or manufactured hype? A human expert evaluates cultural backing, trend authenticity, and potential catalysts.",
+      "hide": false,
+      "name": "output_quality_gate",
+      "description": "Human expert reviews AI-generated text, analysis, or recommendations for correctness, hallucinations, and appropriateness. Returns a pass/fail verdict with a quality score and specific issues found. Use this before acting on, forwarding, or publishing AI-generated outputs. Catches factual errors, hallucinated data, implicit bias, and domain-specific mistakes that automated checks miss.",
+      "requirement": "aiOutput (string, required): The AI-generated content to review. outputType (string, required): One of text, analysis, recommendation, code, or summary. intendedUse (string, required): How the output will be used, e.g. blog post, trading decision, customer response. knownConstraints (string, optional): Rules the output must follow, e.g. no financial advice.",
+      "deliverable": "Structured JSON with: verdict (pass | needs_revision | fail), qualityScore (number 1-10), issuesFound (array of objects with severity, issue, and suggestion), strengths (array of strings), expertDomain (string), and disclaimer (string).",
+      "jobInput": "{\"aiOutput\":\"Uniswap v3 introduced concentrated liquidity with three fee tiers: 0.01%, 0.05%, and 0.30%. This innovation allows LPs to allocate capital within custom price ranges, dramatically improving capital efficiency by up to 4000x compared to v2.\",\"outputType\":\"analysis\",\"intendedUse\":\"Educational DeFi blog post\",\"knownConstraints\":\"Must not contain financial advice or price predictions\"}",
+      "jobOutput": "{\"verdict\":\"needs_revision\",\"qualityScore\":7,\"issuesFound\":[{\"severity\":\"medium\",\"issue\":\"Missing the 1% fee tier added for volatile pairs\",\"suggestion\":\"Add fourth fee tier: 0.01%, 0.05%, 0.30%, and 1.00%\"},{\"severity\":\"low\",\"issue\":\"4000x efficiency claim is a theoretical maximum from the Uniswap v3 whitepaper, not typical in practice\",\"suggestion\":\"Qualify with 'up to' or cite typical ranges of 10-50x\"}],\"strengths\":[\"Accurate core explanation of concentrated liquidity\",\"Clear language accessible to non-technical readers\"],\"expertDomain\":\"crypto\",\"disclaimer\":\"This is a qualitative human opinion, not financial or investment advice.\"}",
+      "restricted": false,
+      "slaMinutes": 30,
       "requiredFunds": false,
-      "slaMinutes": 120,
-      "requirement": "The narrative or trend to assess (required), surrounding context, and any related token names or tickers.",
-      "deliverable": "Structured verdict on narrative strength, confidence score 0-1, detailed reasoning, estimated time horizon, potential catalysts, expert attribution, and legal disclaimer.",
       "price": {
         "type": "fixed",
         "value": 0.01
       }
     },
     {
-      "name": "creative_art_review",
-      "description": "Creative review supporting 1-4 content items. Compare mode: expert picks a winner and ranks items. Feedback mode: expert gives quality scores and actionable improvement suggestions.",
+      "hide": false,
+      "name": "option_ranking",
+      "description": "Human expert ranks and compares 2-5 options with qualitative reasoning. Returns a ranked list with per-option analysis and trade-off summary. Use this for design choices, strategy decisions, naming options, or any comparison where subjective human judgment is more reliable than automated scoring. Ideal for A/B testing concepts, choosing between approaches, or resolving ties between alternatives.",
+      "requirement": "options (array of objects, required): Each object needs an id (string) and description (string). Minimum 2, maximum 5 options. evaluationCriteria (string, required): What the expert should optimize for, e.g. memorability, trust, clarity. context (string, optional): Background on the decision, e.g. target audience or use case.",
+      "deliverable": "Structured JSON with: ranking (array of objects with id, rank, and reasoning), recommendation (string: the winning option id), tradeoffs (string: summary of key trade-offs between top options), expertDomain (string), and disclaimer (string).",
+      "jobInput": "{\"options\":[{\"id\":\"A\",\"description\":\"Minimalist logo with clean sans-serif wordmark\"},{\"id\":\"B\",\"description\":\"Bold gradient logo with geometric shapes\"},{\"id\":\"C\",\"description\":\"Hand-drawn illustration style with warm colors\"}],\"evaluationCriteria\":\"Brand recognition, trust, and versatility across digital and print media\",\"context\":\"Logo for a DeFi protocol targeting institutional investors\"}",
+      "jobOutput": "{\"ranking\":[{\"id\":\"A\",\"rank\":1,\"reasoning\":\"Clean wordmark communicates professionalism and trust expected by institutional clients. Highly versatile across monochrome, print, and favicon contexts.\"},{\"id\":\"B\",\"rank\":2,\"reasoning\":\"Gradient creates visual interest but may not reproduce well in monochrome or small sizes. Reads more retail-facing than institutional.\"},{\"id\":\"C\",\"rank\":3,\"reasoning\":\"Hand-drawn style is distinctive but signals casual/playful rather than institutional trust. Poor fit for the stated audience.\"}],\"recommendation\":\"A\",\"tradeoffs\":\"Option A sacrifices visual distinctiveness for reliability and audience fit. Option B is more eye-catching but less versatile. Option C is most memorable but wrong tone for institutional.\",\"expertDomain\":\"design\",\"disclaimer\":\"This is a qualitative human opinion, not financial or investment advice.\"}",
+      "restricted": false,
+      "slaMinutes": 60,
       "requiredFunds": false,
-      "slaMinutes": 120,
-      "requirement": "One or more content URLs (contentUrl for single, contentUrls array for multiple, max 4). Content type: music, visual, writing, or design (required). Review type: 'compare' or 'feedback' (defaults to feedback). Optional context about the piece(s).",
-      "deliverable": "Compare mode: winner (Content A/B/C/D label), rankings array, comparison notes, and reasoning. Feedback mode: verdict, quality score 0-10, originality, technical merit, reasoning, and optional improvements list. Both include expert attribution and legal disclaimer.",
       "price": {
         "type": "fixed",
         "value": 0.01
       }
     },
     {
-      "name": "community_sentiment",
-      "description": "What is the real vibe of this community? A human expert assesses engagement authenticity, activity patterns, and overall sentiment beyond automated analysis.",
+      "hide": false,
+      "name": "content_quality_gate",
+      "description": "Human expert performs a pre-publish review of AI-generated content for cultural sensitivity, brand safety, derivative risk, and emotional resonance. Returns a publish-ready verdict with specific issues and fix suggestions. Use this before distributing AI-generated images, video, audio, social posts, or marketing copy to catch cultural red flags, unintentional plagiarism, offensive patterns, and tonal mismatches that automated content moderation does not detect.",
+      "requirement": "content (string, required): The content to review, as text or a URL to the asset. contentType (string, required): One of social_post, image, video, audio, article, or marketing_copy. targetAudience (string, required): Who will see this content, e.g. crypto Twitter, general public, enterprise clients. brandGuidelines (string, optional): Rules to check against, e.g. no price predictions, professional tone.",
+      "deliverable": "Structured JSON with: publishReady (boolean), culturalSensitivity (pass | warning | fail), brandSafety (pass | warning | fail), derivativeRisk (low | medium | high), issues (array of objects with category, severity, detail, and suggestion), overallAssessment (string), expertDomain (string), and disclaimer (string).",
+      "jobInput": "{\"content\":\"Just dropped our new NFT collection inspired by traditional Japanese woodblock prints. Mint now and ride the wave before it's too late! 🌊\",\"contentType\":\"social_post\",\"targetAudience\":\"Crypto-native community on Twitter\",\"brandGuidelines\":\"No financial advice, no urgency-based language, respectful cultural references\"}",
+      "jobOutput": "{\"publishReady\":false,\"culturalSensitivity\":\"warning\",\"brandSafety\":\"fail\",\"derivativeRisk\":\"medium\",\"issues\":[{\"category\":\"brand_safety\",\"severity\":\"high\",\"detail\":\"'Ride the wave before it's too late' is urgency-based language that implies financial opportunity\",\"suggestion\":\"Replace with factual description of the collection or artist statement\"},{\"category\":\"cultural_sensitivity\",\"severity\":\"medium\",\"detail\":\"'Japanese woodblock prints' used as aesthetic label without attribution or context risks cultural appropriation framing\",\"suggestion\":\"Name the specific style (e.g. ukiyo-e) and credit the artistic tradition\"},{\"category\":\"derivative_risk\",\"severity\":\"medium\",\"detail\":\"Wave emoji plus Japanese art reference strongly evokes Hokusai's Great Wave — may be seen as derivative\",\"suggestion\":\"Differentiate the visual style from the most obvious reference\"}],\"overallAssessment\":\"Strong concept but needs revision on urgency language and cultural framing before publishing\",\"expertDomain\":\"narrative\",\"disclaimer\":\"This is a qualitative human opinion, not financial or investment advice.\"}",
+      "restricted": false,
+      "slaMinutes": 60,
       "requiredFunds": false,
-      "slaMinutes": 120,
-      "requirement": "Community name or project (required), platforms to evaluate (e.g. Twitter, Discord, Telegram), and timeframe to focus on.",
-      "deliverable": "Overall sentiment assessment, authenticity evaluation, activity level analysis, detailed reasoning, comparisons to similar communities, expert attribution, and legal disclaimer.",
       "price": {
         "type": "fixed",
         "value": 0.01
       }
     },
     {
-      "name": "general_human_judgment",
-      "description": "Any question requiring qualitative human opinion. A verified human expert provides structured opinions with reasoning and confidence scores on any topic.",
+      "hide": false,
+      "name": "audience_reaction_poll",
+      "description": "A human rates, scores, and reacts to AI-generated content as a representative audience member. Returns a rating, qualitative feedback, and improvement suggestions. Use this for A/B testing thumbnails, headlines, visual designs, or short-form content before committing to distribution or ad spend. Fast turnaround for quick decisions on which variant will resonate better with real people.",
+      "requirement": "content (string, required): The content to rate, as text, a URL, or a description of the asset. contentType (string, required): One of thumbnail, headline, social_post, image, video_clip, or design. targetAudience (string, required): Who this content is for, e.g. crypto Twitter, general consumers, developers. question (string, optional): Specific question to answer, e.g. 'Which thumbnail would you click?' Defaults to general appeal rating.",
+      "deliverable": "Structured JSON with: rating (number 1-10), appeal (low | moderate | high), feedback (string: qualitative reaction as a member of the target audience), suggestions (array of strings: specific improvements), expertDomain (string), and disclaimer (string).",
+      "jobInput": "{\"content\":\"https://example.com/thumbnail-v1.png\",\"contentType\":\"thumbnail\",\"targetAudience\":\"Crypto Twitter audience, 18-35 age range\",\"question\":\"Would you click on this thumbnail? Rate its visual appeal and clarity.\"}",
+      "jobOutput": "{\"rating\":6,\"appeal\":\"moderate\",\"feedback\":\"The layout is clean but the headline blends into the background. The token logo is too small to recognize at thumbnail size. Color scheme feels generic compared to other crypto content in my feed.\",\"suggestions\":[\"Increase headline contrast with a darker text shadow or background bar\",\"Make the token logo at least 2x larger\",\"Add a visual hook like a price chart snippet or a bold number to create curiosity\"],\"expertDomain\":\"design\",\"disclaimer\":\"This is a qualitative human opinion, not financial or investment advice.\"}",
+      "restricted": false,
+      "slaMinutes": 30,
       "requiredFunds": false,
-      "slaMinutes": 120,
-      "requirement": "The question you need answered (required), relevant domain (required), supporting context, and urgency: standard or rush.",
-      "deliverable": "Structured answer to the question, confidence score 0-1, detailed reasoning, caveats and limitations, expert attribution, and legal disclaimer.",
+      "price": {
+        "type": "fixed",
+        "value": 0.01
+      }
+    },
+    {
+      "hide": false,
+      "name": "creative_direction_check",
+      "description": "Human expert reviews a creative brief, concept, or storyboard before expensive AI generation runs. Returns a viability assessment with cultural flags, derivative risks, and differentiation suggestions. Use this to catch problems early — before committing compute to image generation, video production, or music creation. Saves cost by identifying dead-end concepts, cultural missteps, and oversaturated aesthetics before generation, not after.",
+      "requirement": "brief (string, required): The creative concept, brief, or storyboard description. style (string, optional): Intended visual or tonal style and any references. targetAudience (string, required): Who the final output is for. medium (string, optional): The planned output format, e.g. image series, music video, social campaign.",
+      "deliverable": "Structured JSON with: directionViable (boolean), culturalFlags (array of strings), derivativeRisk (low | medium | high), derivativeNotes (string), suggestions (array of strings: ways to differentiate or improve), estimatedImpact (string: how the concept will likely land with the target audience), expertDomain (string), and disclaimer (string).",
+      "jobInput": "{\"brief\":\"Music video concept for an AI-generated synthwave track. Visuals show a neon-lit cyberpunk cityscape at night with flying cars and holographic billboards. Main character is an android walking through crowds of humans.\",\"style\":\"Cyberpunk, Blade Runner influenced, heavy neon palette\",\"targetAudience\":\"Web3 music community and synthwave fans\",\"medium\":\"AI-generated image sequence assembled into video\"}",
+      "jobOutput": "{\"directionViable\":true,\"culturalFlags\":[\"Cyberpunk cityscape with neon is heavily oversaturated in Web3 and AI art — audiences have seen this exact concept hundreds of times\",\"Android-among-humans narrative echoes Blade Runner too closely and may feel derivative rather than inspired\"],\"derivativeRisk\":\"high\",\"derivativeNotes\":\"The combination of neon cyberpunk + android protagonist + flying cars maps directly onto Blade Runner and dozens of AI art projects. Without strong differentiation, this will blend into the noise.\",\"suggestions\":[\"Mix in solarpunk or biopunk elements to break the pure cyberpunk aesthetic\",\"Set it in daytime with harsh sunlight instead of the cliché neon night\",\"Make the android visually indistinguishable from humans — the tension of passing is more interesting than the obvious outsider trope\",\"Add a specific cultural anchor like a real city's architecture instead of generic dystopia\"],\"estimatedImpact\":\"Low-to-moderate without changes. The concept is competent but indistinguishable from existing work. With the suggested differentiators, it could stand out.\",\"expertDomain\":\"art\",\"disclaimer\":\"This is a qualitative human opinion, not financial or investment advice.\"}",
+      "restricted": false,
+      "slaMinutes": 30,
+      "requiredFunds": false,
       "price": {
         "type": "fixed",
         "value": 0.01
