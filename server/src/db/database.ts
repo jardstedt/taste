@@ -79,6 +79,27 @@ function runMigrations(db: Database.Database): void {
     db.exec('ALTER TABLE experts ADD COLUMN deactivated_at TEXT');
   }
 
+  // v1.4: add 'file' to messages.message_type CHECK constraint (requires table rebuild)
+  const msgSchema = (db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='messages'").get() as { sql: string } | undefined)?.sql ?? '';
+  if (!msgSchema.includes("'file'")) {
+    db.exec(`
+      CREATE TABLE messages_new (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL REFERENCES sessions(id),
+        sender_type TEXT NOT NULL CHECK (sender_type IN ('agent', 'expert', 'system')),
+        sender_id TEXT,
+        content TEXT NOT NULL,
+        message_type TEXT NOT NULL DEFAULT 'text' CHECK (message_type IN ('text', 'addon_request', 'addon_response', 'system_notice', 'summary', 'image', 'file')),
+        metadata TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO messages_new SELECT * FROM messages;
+      DROP TABLE messages;
+      ALTER TABLE messages_new RENAME TO messages;
+    `);
+    console.log('[DB] v1.4 messages table rebuilt with file type');
+  }
+
   // v1.4: structured deliverables & file attachments
   const v14 = resolve(__dirname, 'migration-v1.4.sql');
   if (existsSync(v14)) {

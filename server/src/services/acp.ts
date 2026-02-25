@@ -697,6 +697,170 @@ export function getOfferingDefinitions() {
   }));
 }
 
+// ── On-Chain Inspector (read-only, no gas) ──
+
+const PHASE_NAMES: Record<number, string> = {
+  [AcpJobPhases.REQUEST]: 'REQUEST',
+  [AcpJobPhases.NEGOTIATION]: 'NEGOTIATION',
+  [AcpJobPhases.TRANSACTION]: 'TRANSACTION',
+  [AcpJobPhases.EVALUATION]: 'EVALUATION',
+  [AcpJobPhases.COMPLETED]: 'COMPLETED',
+  [AcpJobPhases.REJECTED]: 'REJECTED',
+};
+
+const MEMO_TYPE_NAMES: Record<number, string> = {
+  0: 'MESSAGE',
+  1: 'CONTEXT_URL',
+  2: 'IMAGE_URL',
+  3: 'VOICE_URL',
+  4: 'OBJECT_URL',
+  5: 'TXHASH',
+  6: 'PAYABLE_REQUEST',
+  7: 'PAYABLE_TRANSFER',
+  8: 'PAYABLE_TRANSFER_ESCROW',
+  9: 'NOTIFICATION',
+  10: 'PAYABLE_NOTIFICATION',
+};
+
+const MEMO_STATUS_NAMES: Record<string, string> = {
+  '0': 'PENDING',
+  '1': 'APPROVED',
+  '2': 'REJECTED',
+};
+
+export interface AcpJobInspection {
+  acpJobId: number;
+  phase: string;
+  phaseCode: number;
+  clientAddress: string;
+  providerAddress: string;
+  evaluatorAddress: string;
+  price: number;
+  deliverable: string | null;
+  rejectionReason: string | null;
+  requirement: unknown;
+  memos: Array<{
+    id: number;
+    type: string;
+    typeCode: number;
+    status: string;
+    senderAddress: string;
+    content: string;
+    nextPhase: string;
+    txHash: string | null;
+    signedTxHash: string | null;
+  }>;
+  localSession: {
+    id: string;
+    status: string;
+    expertId: string | null;
+    offeringType: string;
+  } | null;
+}
+
+export async function inspectAcpJob(acpJobId: number): Promise<AcpJobInspection | null> {
+  if (!_acpClient) return null;
+
+  const job = await _acpClient.getJobById(acpJobId);
+  if (!job) return null;
+
+  // Find local session linked to this ACP job
+  const session = getSessionByAcpId(String(acpJobId));
+
+  return {
+    acpJobId: job.id,
+    phase: PHASE_NAMES[job.phase] ?? `UNKNOWN(${job.phase})`,
+    phaseCode: job.phase,
+    clientAddress: job.clientAddress,
+    providerAddress: job.providerAddress,
+    evaluatorAddress: job.evaluatorAddress,
+    price: job.price,
+    deliverable: job.deliverable ?? null,
+    rejectionReason: job.rejectionReason ?? null,
+    requirement: job.requirement ?? null,
+    memos: (job.memos ?? []).map(m => ({
+      id: m.id,
+      type: MEMO_TYPE_NAMES[m.type] ?? `UNKNOWN(${m.type})`,
+      typeCode: m.type,
+      status: MEMO_STATUS_NAMES[String(m.status)] ?? String(m.status),
+      senderAddress: m.senderAddress,
+      content: m.content,
+      nextPhase: PHASE_NAMES[m.nextPhase] ?? `UNKNOWN(${m.nextPhase})`,
+      txHash: m.txHash ?? null,
+      signedTxHash: m.signedTxHash ?? null,
+    })),
+    localSession: session ? {
+      id: session.id,
+      status: session.status,
+      expertId: session.expertId,
+      offeringType: session.offeringType,
+    } : null,
+  };
+}
+
+export async function inspectSessionAcp(sessionId: string): Promise<AcpJobInspection | null> {
+  const session = getSessionById(sessionId);
+  if (!session?.acpJobId) return null;
+  return inspectAcpJob(Number(session.acpJobId));
+}
+
+export async function listAcpJobs(): Promise<AcpJobInspection[]> {
+  if (!_acpClient) return [];
+
+  const results: AcpJobInspection[] = [];
+
+  // Fetch from all categories
+  const [active, pending, completed, cancelled] = await Promise.all([
+    _acpClient.getActiveJobs().catch(() => [] as AcpJob[]),
+    _acpClient.getPendingMemoJobs().catch(() => [] as AcpJob[]),
+    _acpClient.getCompletedJobs().catch(() => [] as AcpJob[]),
+    _acpClient.getCancelledJobs().catch(() => [] as AcpJob[]),
+  ]);
+
+  // Deduplicate by job ID
+  const seen = new Set<number>();
+  const allJobs = [...active, ...pending, ...completed, ...cancelled];
+
+  for (const job of allJobs) {
+    if (seen.has(job.id)) continue;
+    seen.add(job.id);
+
+    const session = getSessionByAcpId(String(job.id));
+
+    results.push({
+      acpJobId: job.id,
+      phase: PHASE_NAMES[job.phase] ?? `UNKNOWN(${job.phase})`,
+      phaseCode: job.phase,
+      clientAddress: job.clientAddress,
+      providerAddress: job.providerAddress,
+      evaluatorAddress: job.evaluatorAddress,
+      price: job.price,
+      deliverable: job.deliverable ?? null,
+      rejectionReason: job.rejectionReason ?? null,
+      requirement: job.requirement ?? null,
+      memos: (job.memos ?? []).map(m => ({
+        id: m.id,
+        type: MEMO_TYPE_NAMES[m.type] ?? `UNKNOWN(${m.type})`,
+        typeCode: m.type,
+        status: MEMO_STATUS_NAMES[String(m.status)] ?? String(m.status),
+        senderAddress: m.senderAddress,
+        content: m.content,
+        nextPhase: PHASE_NAMES[m.nextPhase] ?? `UNKNOWN(${m.nextPhase})`,
+        txHash: m.txHash ?? null,
+        signedTxHash: m.signedTxHash ?? null,
+      })),
+      localSession: session ? {
+        id: session.id,
+        status: session.status,
+        expertId: session.expertId,
+        offeringType: session.offeringType,
+      } : null,
+    });
+  }
+
+  return results.sort((a, b) => b.acpJobId - a.acpJobId);
+}
+
 // ── Cleanup ──
 
 export function stopAcp(): void {

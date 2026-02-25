@@ -32,7 +32,7 @@ import {
   getPendingWithdrawals,
 } from '../services/withdrawals.js';
 import { getExpertReputationScores, getExpertReputationHistory } from '../services/reputation.js';
-import { getOfferingDefinitions } from '../services/acp.js';
+import { getOfferingDefinitions, inspectAcpJob, inspectSessionAcp, listAcpJobs } from '../services/acp.js';
 import type { Domain, ExpertCredentials, WalletChain } from '../types/index.js';
 import { withdrawalLimiter, passwordLimiter } from '../middleware/rateLimit.js';
 import sessionRoutes from './sessions.js';
@@ -279,5 +279,53 @@ router.use('/sessions', sessionRoutes);
 
 // ── Agent Simulator (admin demo) ──
 router.use('/agent-sim', agentSimRoutes);
+
+// ── ACP Inspector (admin, read-only, no gas) ──
+
+// GET /api/acp/jobs — list all on-chain jobs for our provider
+router.get('/acp/jobs', requireRole('admin'), async (_req, res) => {
+  try {
+    const jobs = await listAcpJobs();
+    res.json({ success: true, data: jobs });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to fetch ACP jobs';
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+// GET /api/acp/jobs/:jobId — inspect a specific on-chain job
+router.get('/acp/jobs/:jobId', requireRole('admin'), async (req, res) => {
+  const jobId = parseInt(param(req.params.jobId), 10);
+  if (isNaN(jobId)) {
+    res.status(400).json({ success: false, error: 'Invalid job ID' });
+    return;
+  }
+  try {
+    const inspection = await inspectAcpJob(jobId);
+    if (!inspection) {
+      res.status(404).json({ success: false, error: 'Job not found or ACP not connected' });
+      return;
+    }
+    res.json({ success: true, data: inspection });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to inspect job';
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+// GET /api/acp/sessions/:sessionId — inspect on-chain data for a local session
+router.get('/acp/sessions/:sessionId', requireRole('admin'), async (req, res) => {
+  try {
+    const inspection = await inspectSessionAcp(param(req.params.sessionId));
+    if (!inspection) {
+      res.status(404).json({ success: false, error: 'Session has no ACP job or ACP not connected' });
+      return;
+    }
+    res.json({ success: true, data: inspection });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to inspect session';
+    res.status(500).json({ success: false, error: message });
+  }
+});
 
 export default router;

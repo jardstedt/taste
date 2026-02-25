@@ -8,7 +8,7 @@ import { getDb, generateId } from '../db/database.js';
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB per file
 export const MAX_SESSION_TOTAL = 20 * 1024 * 1024; // 20MB per session
-export const SIGNED_URL_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+export const SIGNED_URL_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export const ALLOWED_MIME_TYPES = [
   'image/png',
