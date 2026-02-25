@@ -40,7 +40,7 @@ export function initDb(): Database.Database {
   return _db;
 }
 
-const KNOWN_TABLES = ['experts', 'withdrawals', 'sessions', 'messages', 'addons', 'jobs', 'judgments', 'reputation_events', 'audit_log'];
+const KNOWN_TABLES = ['experts', 'withdrawals', 'sessions', 'messages', 'addons', 'jobs', 'judgments', 'reputation_events', 'audit_log', 'session_deliverables', 'session_attachments'];
 
 function hasColumn(db: Database.Database, table: string, column: string): boolean {
   if (!KNOWN_TABLES.includes(table)) throw new Error(`Unknown table: ${table}`);
@@ -77,6 +77,13 @@ function runMigrations(db: Database.Database): void {
   // v1.4: soft-delete for experts
   if (!hasColumn(db, 'experts', 'deactivated_at')) {
     db.exec('ALTER TABLE experts ADD COLUMN deactivated_at TEXT');
+  }
+
+  // v1.4: structured deliverables & file attachments
+  const v14 = resolve(__dirname, 'migration-v1.4.sql');
+  if (existsSync(v14)) {
+    db.exec(readFileSync(v14, 'utf-8'));
+    console.log('[DB] v1.4 migration applied');
   }
 
   // v1.5: security hardening

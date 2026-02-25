@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useChat } from '../hooks/useChat.js';
 import { AddonDetail } from './AddonDetail.js';
+import { CompletionForm } from './CompletionForm.js';
 import * as api from '../api/client.js';
 import type { ChatMessage } from '../types/index.js';
 
@@ -28,7 +29,10 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
   const [sending, setSending] = useState(false);
   const [showRequirements, setShowRequirements] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
+  const [showCompletionForm, setShowCompletionForm] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Reset checklist when session changes
   useEffect(() => {
@@ -53,12 +57,23 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
     setSending(false);
   };
 
-  const handleComplete = async () => {
-    await api.completeSession(sessionId);
+  const handleComplete = () => {
+    setShowCompletionForm(true);
   };
 
   const handleDecline = async () => {
     await api.declineSession(sessionId, 'Expert unable to fulfill request');
+  };
+
+  const handleFileAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingFile(true);
+    for (const file of Array.from(files)) {
+      await api.uploadAttachment(sessionId, file, 'chat');
+    }
+    setUploadingFile(false);
+    e.target.value = '';
   };
 
   // Timer
@@ -89,6 +104,15 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
               {isActive ? (
                 <>
                   <span style={{ color: '#059669', fontWeight: 600 }}>Live</span>
+                  {session.acpJobId && (
+                    <>
+                      <span style={{ color: '#D1D5DB' }}>&middot;</span>
+                      <span style={{
+                        background: '#DBEAFE', color: '#1D4ED8', fontWeight: 600,
+                        padding: '1px 5px', borderRadius: 4, fontSize: 10,
+                      }}>ACP Agent</span>
+                    </>
+                  )}
                   <span style={{ color: '#D1D5DB' }}>&middot;</span>
                   {deadline && (
                     <>
@@ -190,8 +214,8 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Pending addons */}
-      {pendingAddons.map(addon => (
+      {/* Pending addons (disabled for ACP sessions — no agent-side support) */}
+      {!session.acpJobId && pendingAddons.map(addon => (
         <AddonDetail
           key={addon.id}
           addon={addon}
@@ -202,6 +226,27 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
       {/* Input */}
       {isActive && !isLocked && (
         <form onSubmit={handleSend} className="chat-input-area">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
+            onChange={handleFileAttach}
+            style={{ display: 'none' }}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingFile}
+            title="Attach file"
+            style={{
+              background: 'none', border: 'none', cursor: uploadingFile ? 'wait' : 'pointer',
+              padding: '6px 8px', fontSize: 18, color: '#9CA3AF', flexShrink: 0,
+              lineHeight: 1,
+            }}
+          >
+            {uploadingFile ? '\u23F3' : '\uD83D\uDCCE'}
+          </button>
           <input
             type="text"
             className="chat-input"
@@ -236,6 +281,15 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
           Session timed out
         </div>
       )}
+
+      {/* Completion Form Modal */}
+      {showCompletionForm && session && (
+        <CompletionForm
+          session={session}
+          onComplete={() => setShowCompletionForm(false)}
+          onCancel={() => setShowCompletionForm(false)}
+        />
+      )}
     </div>
   );
 }
@@ -264,6 +318,48 @@ function ChatBubble({ message }: { message: ChatMessage }) {
 
   const isAgent = message.senderType === 'agent';
   const isExpert = message.senderType === 'expert';
+
+  // File message — show inline preview or download link
+  if (message.messageType === 'file') {
+    const meta = message.metadata as { attachmentId?: string; filename?: string; mimeType?: string; fileSize?: number };
+    const isImage = meta.mimeType?.startsWith('image/');
+    const downloadUrl = meta.attachmentId
+      ? `/api/sessions/${message.sessionId}/attachments/${meta.attachmentId}/download`
+      : undefined;
+
+    return (
+      <div className={`chat-bubble ${isAgent ? 'chat-bubble-agent' : ''} ${isExpert ? 'chat-bubble-expert' : ''}`}>
+        <div className="chat-bubble-content">
+          {isImage && downloadUrl && (
+            <img
+              src={downloadUrl}
+              alt={meta.filename ?? 'attachment'}
+              style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 6, marginBottom: 4, display: 'block' }}
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+            <span>{isImage ? '\uD83D\uDDBC\uFE0F' : '\uD83D\uDCC4'}</span>
+            {downloadUrl ? (
+              <a href={downloadUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>
+                {meta.filename ?? 'attachment'}
+              </a>
+            ) : (
+              <span>{meta.filename ?? 'attachment'}</span>
+            )}
+            {meta.fileSize && (
+              <span style={{ color: '#9CA3AF', fontSize: 11 }}>
+                {meta.fileSize < 1024 ? `${meta.fileSize}B` : meta.fileSize < 1024 * 1024 ? `${(meta.fileSize / 1024).toFixed(1)}KB` : `${(meta.fileSize / (1024 * 1024)).toFixed(1)}MB`}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="chat-bubble-time">
+          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`chat-bubble ${isAgent ? 'chat-bubble-agent' : ''} ${isExpert ? 'chat-bubble-expert' : ''}`}>

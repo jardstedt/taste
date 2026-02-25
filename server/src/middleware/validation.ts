@@ -94,6 +94,11 @@ export const respondAddonSchema = z.object({
   accepted: z.boolean(),
 });
 
+export const completeSessionSchema = z.object({
+  structuredData: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+  summary: z.string().max(5000).optional(),
+});
+
 // ── Validation Middleware Factory ──
 
 export function validate<T>(schema: z.ZodSchema<T>) {

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { requireRole } from '../middleware/auth.js';
 import {
   validate,
@@ -6,6 +7,7 @@ import {
   sendMessageSchema,
   createAddonSchema,
   respondAddonSchema,
+  completeSessionSchema,
 } from '../middleware/validation.js';
 import {
   createSession,
@@ -24,11 +26,38 @@ import {
   getAddons,
   matchSession,
   incrementTurnCount,
+  saveDeliverable,
 } from '../services/sessions.js';
+import {
+  saveFile,
+  deleteFile,
+  saveAttachmentRecord,
+  getSessionAttachments as getAttachments,
+  getAttachmentById,
+  readFile,
+  isAllowedMimeType,
+  sanitizeFilename,
+  MAX_FILE_SIZE,
+  ALLOWED_MIME_TYPES,
+} from '../services/storage.js';
+import { buildZodSchema } from '../config/deliverable-schemas.js';
 import { emitToSession, notifyExpert } from '../services/socket.js';
 import { sendPushToExpert } from '../services/push.js';
-import { sessionCreateLimiter, messageLimiter } from '../middleware/rateLimit.js';
+import { sessionCreateLimiter, messageLimiter, uploadLimiter } from '../middleware/rateLimit.js';
 import type { AddonType } from '../types/index.js';
+
+// Multer setup — memory storage so we validate magic bytes before writing to disk
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: (_req, file, cb) => {
+    if (isAllowedMimeType(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type "${file.mimetype}" is not allowed. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}`));
+    }
+  },
+});
 
 function param(val: string | string[] | undefined): string {
   return Array.isArray(val) ? val[0] : val ?? '';
@@ -140,6 +169,13 @@ router.post('/:id/messages', messageLimiter, validate(sendMessageSchema), (req, 
     });
   }
 
+  // Relay expert message to buyer agent via ACP memo (non-blocking)
+  if (type === 'expert' && session.acpJobId) {
+    import('../services/acp.js').then(({ relayExpertMessageToAcp }) => {
+      relayExpertMessageToAcp(session.id, content).catch(() => {});
+    }).catch(() => {});
+  }
+
   // Always emit updated session so dashboard gets fresh turn count + status
   const updated = getSessionById(session.id);
   emitToSession(session.id, 'session:updated', updated);
@@ -165,8 +201,8 @@ router.get('/:id/messages', (req, res) => {
   res.json({ success: true, data: getMessages(session.id) });
 });
 
-// POST /sessions/:id/complete
-router.post('/:id/complete', (req, res) => {
+// POST /sessions/:id/complete — now accepts optional { structuredData, summary }
+router.post('/:id/complete', validate(completeSessionSchema), (req, res) => {
   const session = getSessionById(param(req.params.id));
   if (!session) {
     res.status(404).json({ success: false, error: 'Session not found' });
@@ -175,6 +211,29 @@ router.post('/:id/complete', (req, res) => {
   if (req.auth!.role !== 'admin' && session.expertId !== req.auth!.expertId) {
     res.status(403).json({ success: false, error: 'Access denied' });
     return;
+  }
+
+  // Only active/wrapping_up sessions can be completed
+  if (!['active', 'wrapping_up'].includes(session.status)) {
+    res.status(400).json({ success: false, error: 'Cannot complete this session' });
+    return;
+  }
+
+  // Save structured deliverable if provided
+  const body = req.body as { structuredData?: Record<string, unknown>; summary?: string } | undefined;
+  if (body?.structuredData && Object.keys(body.structuredData).length > 0) {
+    // Validate against offering schema
+    const schema = buildZodSchema(session.offeringType);
+    const parseResult = schema.safeParse(body.structuredData);
+    if (!parseResult.success) {
+      const errors = parseResult.error.issues.map(i => `${i.path.join('.')}: ${i.message}`);
+      res.status(400).json({ success: false, error: 'Invalid structured data', details: errors });
+      return;
+    }
+    saveDeliverable(session.id, session.offeringType, parseResult.data as Record<string, unknown>, body.summary);
+  } else if (body?.summary) {
+    // Summary only, no structured data
+    saveDeliverable(session.id, session.offeringType, {}, body.summary);
   }
 
   const completed = completeSession(session.id);
@@ -255,6 +314,126 @@ router.post('/:id/addons/:addonId/respond', validate(respondAddonSchema), (req, 
   }
 
   res.json({ success: true, data: addon });
+});
+
+// POST /sessions/:id/attachments — upload file
+router.post('/:id/attachments', uploadLimiter, (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      const message = err instanceof Error ? err.message : 'Upload failed';
+      res.status(400).json({ success: false, error: message });
+      return;
+    }
+    next();
+  });
+}, (req, res) => {
+  const session = getSessionById(param(req.params.id));
+  if (!session) {
+    res.status(404).json({ success: false, error: 'Session not found' });
+    return;
+  }
+
+  // Only session expert or admin can upload
+  if (req.auth!.role !== 'admin' && session.expertId !== req.auth!.expertId) {
+    res.status(403).json({ success: false, error: 'Access denied' });
+    return;
+  }
+
+  // Block uploads to completed/cancelled/timeout sessions
+  if (['completed', 'cancelled', 'timeout'].includes(session.status)) {
+    res.status(400).json({ success: false, error: 'Cannot upload to a finished session' });
+    return;
+  }
+
+  const file = (req as Express.Request & { file?: Express.Multer.File }).file;
+  if (!file) {
+    res.status(400).json({ success: false, error: 'No file provided' });
+    return;
+  }
+
+  try {
+    const uploadContext = (req.body?.context === 'completion' ? 'completion' : 'chat') as 'chat' | 'completion';
+
+    const { id, storedFilename, fileSizeBytes } = saveFile(
+      session.id, file.buffer, file.originalname, file.mimetype,
+    );
+
+    // Create a chat message for chat-context uploads
+    let messageId: string | undefined;
+    if (uploadContext === 'chat') {
+      const displayName = sanitizeFilename(file.originalname);
+      const msg = addMessage(
+        session.id, 'expert', req.auth!.expertId,
+        `[File: ${displayName}]`,
+        'file',
+        { attachmentId: id, filename: displayName, mimeType: file.mimetype, fileSize: fileSizeBytes },
+      );
+      messageId = msg.id;
+      emitToSession(session.id, 'message:new', msg);
+    }
+
+    try {
+      const attachment = saveAttachmentRecord(
+        id, session.id, file.originalname, storedFilename,
+        file.mimetype, fileSizeBytes, uploadContext, req.auth!.expertId, messageId,
+      );
+      res.status(201).json({ success: true, data: attachment });
+    } catch (dbErr) {
+      // DB insert failed — clean up orphaned file on disk
+      try { deleteFile(session.id, storedFilename); } catch { /* best effort */ }
+      throw dbErr;
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Upload failed';
+    res.status(400).json({ success: false, error: message });
+  }
+});
+
+// GET /sessions/:id/attachments — list attachments
+router.get('/:id/attachments', (req, res) => {
+  const session = getSessionById(param(req.params.id));
+  if (!session) {
+    res.status(404).json({ success: false, error: 'Session not found' });
+    return;
+  }
+  if (req.auth!.role !== 'admin' && session.expertId !== req.auth!.expertId) {
+    res.status(403).json({ success: false, error: 'Access denied' });
+    return;
+  }
+  const attachments = getAttachments(session.id);
+  res.json({ success: true, data: attachments });
+});
+
+// GET /sessions/:id/attachments/:attachmentId/download — serve file (auth required)
+router.get('/:id/attachments/:attachmentId/download', (req, res) => {
+  const session = getSessionById(param(req.params.id));
+  if (!session) {
+    res.status(404).json({ success: false, error: 'Session not found' });
+    return;
+  }
+  if (req.auth!.role !== 'admin' && session.expertId !== req.auth!.expertId) {
+    res.status(403).json({ success: false, error: 'Access denied' });
+    return;
+  }
+
+  const attachment = getAttachmentById(param(req.params.attachmentId));
+  if (!attachment || attachment.sessionId !== session.id) {
+    res.status(404).json({ success: false, error: 'Attachment not found' });
+    return;
+  }
+
+  const buffer = readFile(session.id, attachment.storedFilename);
+  if (!buffer) {
+    res.status(404).json({ success: false, error: 'File not found on disk' });
+    return;
+  }
+
+  res.setHeader('Content-Type', attachment.mimeType);
+  res.setHeader('Content-Disposition', `attachment; filename="${attachment.originalFilename}"`);
+  res.setHeader('Content-Length', buffer.length);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'none'");
+  res.send(buffer);
 });
 
 // POST /sessions — create session manually (admin/testing)

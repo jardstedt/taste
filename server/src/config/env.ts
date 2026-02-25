@@ -4,6 +4,7 @@ const envSchema = z.object({
   // Virtuals ACP
   ACP_WALLET_PRIVATE_KEY: z.string().min(1).optional(),
   ACP_AGENT_WALLET_ADDRESS: z.string().min(1).optional(),
+  ACP_BUYER_WALLET_ADDRESS: z.string().min(1).optional(),
   ACP_SESSION_ENTITY_KEY_ID: z.string().min(1).optional(),
   GAME_API_KEY: z.string().min(1).optional(),
 
@@ -15,6 +16,10 @@ const envSchema = z.object({
 
   // Database
   DB_PATH: z.string().default('./data/taste.db'),
+
+  // File uploads
+  UPLOAD_DIR: z.string().default('./data/uploads'),
+  BASE_URL: z.string().optional(),
 
   // Security
   EMAIL_ENCRYPTION_KEY: z.string().length(64, 'EMAIL_ENCRYPTION_KEY must be 64 hex characters (32 bytes)').optional()

@@ -2,10 +2,13 @@ import { getDb, generateId, auditLog } from '../db/database.js';
 import type {
   Session, ChatMessage, Addon, SessionStatus, SessionTier,
   MessageSenderType, MessageType, AddonType, AddonStatus, Domain,
+  SessionDeliverable,
 } from '../types/index.js';
 import { getSessionTier, getSessionOffering, isOfferingEnabled } from '../config/domains.js';
 import { getExpertById, findExpertsForDomain, incrementCompletedJobs } from './experts.js';
 import { getExpertReputationScores, recordEvent } from './reputation.js';
+import { getSessionAttachments, createSignedUrl } from './storage.js';
+import { getEnv } from '../config/env.js';
 
 // ── Row Mapping ──
 
@@ -415,6 +418,10 @@ export function timeoutSession(sessionId: string): Session | null {
 
   const db = getDb();
 
+  // Check who was idle — only penalize expert if they were the one not responding
+  const lastMsg = getLatestMessage(sessionId);
+  const expertWasIdle = !lastMsg || lastMsg.senderType === 'agent' || lastMsg.senderType === 'system';
+
   // Atomic conditional update — prevents race between timeout and complete
   const result = db.prepare(
     "UPDATE sessions SET status = 'timeout', expert_payout_usdc = 0, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status IN ('active', 'wrapping_up')",
@@ -422,22 +429,27 @@ export function timeoutSession(sessionId: string): Session | null {
 
   if (result.changes === 0) return null; // Already transitioned by another path
 
-  // Negative reputation event for expert
-  if (session.expertId) {
-    const offering = getSessionOffering(session.offeringType);
-    const expert = getExpertById(session.expertId);
-    if (offering && expert) {
-      for (const domain of offering.relevantDomains) {
-        if (expert.domains.includes(domain)) {
-          recordEvent(session.expertId, domain, 'timeout', undefined, 'Session timed out due to expert inactivity');
-          break;
+  if (expertWasIdle) {
+    // Expert didn't respond — reputation penalty
+    if (session.expertId) {
+      const offering = getSessionOffering(session.offeringType);
+      const expert = getExpertById(session.expertId);
+      if (offering && expert) {
+        for (const domain of offering.relevantDomains) {
+          if (expert.domains.includes(domain)) {
+            recordEvent(session.expertId, domain, 'timeout', undefined, 'Session timed out due to expert inactivity');
+            break;
+          }
         }
       }
     }
+    addMessage(sessionId, 'system', null, 'Session timed out due to expert inactivity.', 'system_notice');
+  } else {
+    // Expert was waiting on the agent — no reputation penalty
+    addMessage(sessionId, 'system', null, 'Session timed out — agent stopped responding.', 'system_notice');
   }
 
-  addMessage(sessionId, 'system', null, 'Session timed out due to expert inactivity.', 'system_notice');
-  auditLog('session', sessionId, 'timeout', { expertId: session.expertId });
+  auditLog('session', sessionId, 'timeout', { expertId: session.expertId, expertWasIdle });
 
   return getSessionById(sessionId);
 }
@@ -493,13 +505,6 @@ export function addMessage(
   const session = getSessionById(sessionId);
   if (session && session.status === 'accepted' && senderType !== 'system') {
     startSession(sessionId);
-  }
-
-  // Clear idle warning when expert sends a message
-  if (senderType === 'expert' && session?.idleWarnedAt) {
-    db.prepare(
-      "UPDATE sessions SET idle_warned_at = NULL, updated_at = datetime('now') WHERE id = ?",
-    ).run(sessionId);
   }
 
   return getMessageById(id)!;
@@ -633,12 +638,11 @@ export function incrementTurnCount(sessionId: string, senderType: MessageSenderT
 
   if (shouldIncrement) {
     db.prepare(
-      "UPDATE sessions SET turn_count = turn_count + 1, idle_warned_at = NULL, updated_at = datetime('now') WHERE id = ?",
+      "UPDATE sessions SET turn_count = turn_count + 1, updated_at = datetime('now') WHERE id = ?",
     ).run(sessionId);
   } else {
-    // Still clear idle warning on any message
     db.prepare(
-      "UPDATE sessions SET idle_warned_at = NULL, updated_at = datetime('now') WHERE id = ?",
+      "UPDATE sessions SET updated_at = datetime('now') WHERE id = ?",
     ).run(sessionId);
   }
 
@@ -658,48 +662,6 @@ export function incrementTurnCount(sessionId: string, senderType: MessageSenderT
   }
 
   return { turnCount: session.turnCount, maxTurns: session.maxTurns, limitReached, locked };
-}
-
-export function checkIdleSession(sessionId: string): 'ok' | 'warned' | 'timed_out' {
-  const session = getSessionById(sessionId);
-  if (!session || (session.status !== 'active' && session.status !== 'wrapping_up')) return 'ok';
-
-  const lastMsg = getLatestMessage(sessionId);
-  if (!lastMsg) return 'ok';
-
-  // Only trigger when it's the expert's turn (last message is from agent)
-  if (lastMsg.senderType !== 'agent') return 'ok';
-
-  const lastMsgTime = new Date(lastMsg.createdAt).getTime();
-  const now = Date.now();
-  const idleMs = now - lastMsgTime;
-
-  const WARN_THRESHOLD = 5 * 60 * 1000;   // 5 minutes — warn expert
-  const TIMEOUT_THRESHOLD = 5 * 60 * 1000; // 5 minutes after warning — timeout
-
-  if (session.idleWarnedAt) {
-    const warnedAt = new Date(session.idleWarnedAt).getTime();
-    if (now - warnedAt > TIMEOUT_THRESHOLD) {
-      timeoutSession(sessionId);
-      return 'timed_out';
-    }
-  } else if (idleMs > WARN_THRESHOLD) {
-    const db = getDb();
-    db.prepare(
-      "UPDATE sessions SET idle_warned_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
-    ).run(sessionId);
-    addMessage(sessionId, 'system', null, 'Expert has not responded in 5 minutes. Session will time out in 5 minutes if no reply is received.', 'system_notice');
-    return 'warned';
-  }
-
-  return 'ok';
-}
-
-export function checkAllIdleSessions(): void {
-  const sessions = getActiveSessions();
-  for (const session of sessions) {
-    checkIdleSession(session.id);
-  }
 }
 
 export function checkSessionTimeouts(): number {
@@ -722,6 +684,57 @@ export function checkSessionTimeouts(): number {
   }
 
   return expiredSessions.length;
+}
+
+// ── Structured Deliverables ──
+
+interface DeliverableRow {
+  id: string;
+  session_id: string;
+  offering_type: string;
+  structured_data: string;
+  summary: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function rowToDeliverable(row: DeliverableRow): SessionDeliverable {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    offeringType: row.offering_type,
+    structuredData: JSON.parse(row.structured_data),
+    summary: row.summary,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function saveDeliverable(
+  sessionId: string,
+  offeringType: string,
+  structuredData: Record<string, unknown>,
+  summary?: string,
+): SessionDeliverable {
+  const db = getDb();
+  const id = generateId();
+
+  db.prepare(
+    `INSERT INTO session_deliverables (id, session_id, offering_type, structured_data, summary)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(session_id) DO UPDATE SET
+       structured_data = excluded.structured_data,
+       summary = excluded.summary,
+       updated_at = datetime('now')`,
+  ).run(id, sessionId, offeringType, JSON.stringify(structuredData), summary ?? null);
+
+  return getDeliverable(sessionId)!;
+}
+
+export function getDeliverable(sessionId: string): SessionDeliverable | null {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM session_deliverables WHERE session_id = ?').get(sessionId) as DeliverableRow | undefined;
+  return row ? rowToDeliverable(row) : null;
 }
 
 // ── Deliverable Formatting ──
@@ -750,7 +763,7 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
   const offering = getSessionOffering(session.offeringType);
 
   const transcript = messages
-    .filter(m => m.messageType === 'text')
+    .filter(m => m.messageType === 'text' || m.messageType === 'file')
     .map(m => ({
       role: m.senderType,
       content: m.content,
@@ -763,6 +776,24 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
     .map(m => m.content);
 
   const requirements = OFFERING_REQUIREMENTS[session.offeringType] ?? [];
+
+  // Check for structured deliverable
+  const deliverable = getDeliverable(sessionId);
+
+  // Generate signed URLs for attachments
+  const attachments = getSessionAttachments(sessionId);
+  const env = getEnv();
+  const baseUrl = (env as Record<string, string>).BASE_URL || env.CORS_ORIGIN;
+  const attachmentUrls = attachments.map(a => ({
+    filename: a.originalFilename,
+    mimeType: a.mimeType,
+    url: createSignedUrl(a.id, baseUrl),
+    context: a.uploadContext,
+  }));
+
+  // Use structured summary if available, otherwise fall back to last expert message
+  const summary = deliverable?.summary
+    ?? (expertMessages.length > 0 ? expertMessages[expertMessages.length - 1].slice(0, 500) : null);
 
   return {
     sessionId: session.id,
@@ -778,14 +809,16 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
       offeringDescription: offering?.description ?? null,
     },
 
-    // What was delivered
+    // What was delivered — structured assessment (primary) or transcript-based (fallback)
+    structuredAssessment: deliverable ? deliverable.structuredData : null,
     result: {
       expertResponseCount: expertMessages.length,
       expertWordCount: expertMessages.join(' ').split(/\s+/).length,
-      summary: expertMessages.length > 0
-        ? expertMessages[expertMessages.length - 1].slice(0, 500)
-        : null,
+      summary,
     },
+
+    // Attachments (signed URLs for ACP agents)
+    attachments: attachmentUrls.length > 0 ? attachmentUrls : null,
 
     // Full conversation
     transcript,
@@ -808,6 +841,8 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
     disclaimer: 'This is a qualitative human opinion provided for informational purposes only. It does not constitute financial, investment, legal, or professional advice.',
 
     // Evaluation hint for ACP evaluators
-    evaluationCriteria: `Verify the expert addressed the following requirements for a "${offering?.name ?? session.offeringType}" session: ${requirements.join('; ')}. The expert's responses should be substantive and relevant to the request description.`,
+    evaluationCriteria: deliverable
+      ? `The expert provided a structured assessment with the following fields: ${Object.keys(deliverable.structuredData).join(', ')}. Verify these fields are substantive and address the "${offering?.name ?? session.offeringType}" requirements: ${requirements.join('; ')}.`
+      : `Verify the expert addressed the following requirements for a "${offering?.name ?? session.offeringType}" session: ${requirements.join('; ')}. The expert's responses should be substantive and relevant to the request description.`,
   };
 }

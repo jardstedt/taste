@@ -80,6 +80,39 @@ export interface ReputationScore {
   score: number;
 }
 
+// ── Legacy Job/Judgment Types (v1.0) ──
+
+export type OfferingType = SessionOfferingType;
+
+export interface Job {
+  id: string;
+  acpJobId: string | null;
+  offeringType: OfferingType;
+  status: 'pending' | 'assigned' | 'in_progress' | 'delivered' | 'timeout' | 'cancelled';
+  expertId: string | null;
+  requirements: Record<string, unknown>;
+  buyerAgent: string | null;
+  priceUsdc: number;
+  slaMinutes: number;
+  assignedAt: string | null;
+  deadlineAt: string | null;
+  deliveredAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Judgment {
+  id: string;
+  jobId: string;
+  expertId: string;
+  offeringType: OfferingType;
+  content: Record<string, unknown>;
+  disclaimer: string;
+  expertName: string;
+  expertPublicProfile: string | null;
+  submittedAt: string;
+}
+
 // ── Audit ──
 
 export interface AuditEntry {
@@ -112,7 +145,7 @@ export type SessionStatus = 'pending' | 'matching' | 'accepted' | 'active' | 'wr
 
 export type MessageSenderType = 'agent' | 'expert' | 'system';
 
-export type MessageType = 'text' | 'addon_request' | 'addon_response' | 'system_notice' | 'summary' | 'image';
+export type MessageType = 'text' | 'addon_request' | 'addon_response' | 'system_notice' | 'summary' | 'image' | 'file';
 
 export type AddonType = 'screenshot' | 'extended_time' | 'written_report' | 'second_opinion' | 'image_upload' | 'follow_up' | 'crowd_poll';
 
@@ -202,6 +235,33 @@ export interface Withdrawal {
   requestedAt: string;
   processedAt: string | null;
   completedAt: string | null;
+}
+
+// ── Session Deliverable ──
+
+export interface SessionDeliverable {
+  id: string;
+  sessionId: string;
+  offeringType: string;
+  structuredData: Record<string, unknown>;
+  summary: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Session Attachment ──
+
+export interface SessionAttachment {
+  id: string;
+  sessionId: string;
+  originalFilename: string;
+  storedFilename: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  uploadContext: 'chat' | 'completion';
+  uploaderId: string;
+  messageId: string | null;
+  createdAt: string;
 }
 
 // ── Disclaimer ──

@@ -43,6 +43,15 @@ export const withdrawalLimiter = rateLimit({
   message: { success: false, error: 'Too many withdrawal requests, please try again later' },
 });
 
+/** File uploads: 10 per minute per IP */
+export const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many uploads, please try again later' },
+});
+
 /** Password attempts: 10 per 15 minutes per IP */
 export const passwordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

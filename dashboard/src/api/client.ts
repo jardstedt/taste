@@ -170,8 +170,34 @@ export function sendSessionMessage(id: string, content: string, senderType?: str
   });
 }
 
-export function completeSession(id: string) {
-  return request(`/sessions/${id}/complete`, { method: 'POST' });
+export function completeSession(id: string, deliverable?: { structuredData?: Record<string, unknown>; summary?: string }) {
+  return request(`/sessions/${id}/complete`, {
+    method: 'POST',
+    body: JSON.stringify(deliverable ?? {}),
+  });
+}
+
+export async function uploadAttachment(
+  sessionId: string,
+  file: File,
+  context: 'chat' | 'completion' = 'chat',
+): Promise<ApiResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('context', context);
+
+  const res = await fetch(`${BASE}/sessions/${sessionId}/attachments`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+    // Note: no Content-Type header — browser sets it with boundary for FormData
+  });
+
+  return res.json() as Promise<ApiResponse>;
+}
+
+export function getSessionAttachments(sessionId: string) {
+  return request(`/sessions/${sessionId}/attachments`);
 }
 
 export function declineSession(id: string, reason?: string) {
@@ -218,6 +244,24 @@ export function unsubscribePush(endpoint: string) {
     body: JSON.stringify({ endpoint }),
   });
 }
+
+// ── Agent Simulator (admin demo) ──
+
+export const agentSim = {
+  init: () => request('/agent-sim/init', { method: 'POST' }),
+  status: () => request('/agent-sim/status'),
+  offerings: () => request('/agent-sim/offerings'),
+  samples: () => request('/agent-sim/samples'),
+  createJob: (offeringIndex: number, requirement: Record<string, unknown>) =>
+    request('/agent-sim/jobs', { method: 'POST', body: JSON.stringify({ offeringIndex, requirement }) }),
+  getJobs: () => request('/agent-sim/jobs'),
+  getJob: (jobId: number) => request(`/agent-sim/jobs/${jobId}`),
+  payJob: (jobId: number) => request(`/agent-sim/jobs/${jobId}/pay`, { method: 'POST' }),
+  acceptJob: (jobId: number, memo?: string) =>
+    request(`/agent-sim/jobs/${jobId}/accept`, { method: 'POST', body: JSON.stringify({ memo }) }),
+  rejectJob: (jobId: number, memo?: string) =>
+    request(`/agent-sim/jobs/${jobId}/reject`, { method: 'POST', body: JSON.stringify({ memo }) }),
+};
 
 // ── Public (no auth) ──
 

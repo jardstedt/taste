@@ -146,7 +146,7 @@ export type SessionStatus = 'pending' | 'matching' | 'accepted' | 'active' | 'wr
 
 export type MessageSenderType = 'agent' | 'expert' | 'system';
 
-export type MessageType = 'text' | 'addon_request' | 'addon_response' | 'system_notice' | 'summary' | 'image';
+export type MessageType = 'text' | 'addon_request' | 'addon_response' | 'system_notice' | 'summary' | 'image' | 'file';
 
 export type AddonType = 'screenshot' | 'extended_time' | 'written_report' | 'second_opinion' | 'image_upload' | 'follow_up' | 'crowd_poll';
 
@@ -198,6 +198,19 @@ export interface Addon {
   requestedBy: string | null;
   messageId: string | null;
   completedAt: string | null;
+  createdAt: string;
+}
+
+export interface SessionAttachment {
+  id: string;
+  sessionId: string;
+  originalFilename: string;
+  storedFilename: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  uploadContext: 'chat' | 'completion';
+  uploaderId: string;
+  messageId: string | null;
   createdAt: string;
 }
 

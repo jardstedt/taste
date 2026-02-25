@@ -12,7 +12,7 @@ dotenv.config({ path: resolve(projectRoot, envFile) });
 import express from 'express';
 import { createServer } from 'http';
 import cookieParser from 'cookie-parser';
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { loadEnv, getEnv } from './config/env.js';
 import { initDb, closeDb } from './db/database.js';
 import { seedAdminExpert } from './services/experts.js';
@@ -26,6 +26,8 @@ import apiRoutes from './routes/api.js';
 import { initPush } from './services/push.js';
 import { getExpertPublic, getAllExpertsPublic, getAllExperts } from './services/experts.js';
 import { getAllSessions } from './services/sessions.js';
+import { getResourceAvailability } from './services/resource.js';
+import { getAttachmentById, readFile, verifySignedUrl } from './services/storage.js';
 
 async function main() {
   // Load and validate environment
@@ -35,6 +37,13 @@ async function main() {
   // Initialize database
   initDb();
   console.log('[DB] Initialized');
+
+  // Ensure upload directory exists
+  const uploadDir = resolve((env as Record<string, string>).UPLOAD_DIR || './data/uploads');
+  if (!existsSync(uploadDir)) {
+    mkdirSync(uploadDir, { recursive: true });
+    console.log('[Storage] Created upload directory:', uploadDir);
+  }
 
   // Initialize push notifications
   initPush();
@@ -89,6 +98,48 @@ async function main() {
           : 0,
       },
     });
+  });
+
+  // ACP Resource endpoint — exposes expert availability for agent discovery
+  app.get('/api/public/resource/availability', (_req, res) => {
+    res.json(getResourceAvailability());
+  });
+
+  // Public signed URL file access (no auth — HMAC-signed)
+  app.get('/api/public/files/:attachmentId', (req, res) => {
+    const attachmentId = Array.isArray(req.params.attachmentId) ? req.params.attachmentId[0] : req.params.attachmentId ?? '';
+    const expires = parseInt(req.query.expires as string, 10);
+    const sig = req.query.sig as string;
+
+    if (!attachmentId || !expires || !sig) {
+      res.status(400).json({ success: false, error: 'Missing required parameters' });
+      return;
+    }
+
+    if (!verifySignedUrl(attachmentId, expires, sig)) {
+      res.status(403).json({ success: false, error: 'Invalid or expired signature' });
+      return;
+    }
+
+    const attachment = getAttachmentById(attachmentId);
+    if (!attachment) {
+      res.status(404).json({ success: false, error: 'Attachment not found' });
+      return;
+    }
+
+    const buffer = readFile(attachment.sessionId, attachment.storedFilename);
+    if (!buffer) {
+      res.status(404).json({ success: false, error: 'File not found' });
+      return;
+    }
+
+    res.setHeader('Content-Type', attachment.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${attachment.originalFilename}"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'");
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(buffer);
   });
 
   // Public expert directory
