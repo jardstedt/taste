@@ -12,7 +12,6 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
   const { completed } = useSessions();
 
   const [walletInput, setWalletInput] = useState('');
-  const [walletChain, setWalletChain] = useState<'base' | 'ethereum'>('base');
   const [walletSaving, setWalletSaving] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
 
@@ -24,8 +23,6 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
 
   const totalPayout = completed.reduce((sum, s) => sum + s.expertPayoutUsdc, 0);
-  const basePayout = completed.reduce((sum, s) => sum + s.priceUsdc * 0.6, 0);
-  const addonRevenue = Math.max(0, totalPayout - basePayout);
 
   useEffect(() => {
     api.getWithdrawals().then(res => {
@@ -40,7 +37,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
     setWalletSaving(true);
     setWalletError(null);
 
-    const res = await api.setWallet(user.expertId, walletInput, walletChain);
+    const res = await api.setWallet(user.expertId, walletInput, 'base');
     if (res.success) {
       setWalletInput('');
       onRefresh();
@@ -99,7 +96,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
         <div className="card mb-xl" style={{ padding: 20 }}>
           <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 12 }}>Set your wallet address</div>
           <form onSubmit={handleSetWallet}>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <div style={{ marginBottom: 8 }}>
               <input
                 type="text"
                 value={walletInput}
@@ -107,18 +104,10 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
                 placeholder="0x..."
                 pattern="^0x[a-fA-F0-9]{40}$"
                 required
-                className="input"
-                style={{ flex: 1, fontFamily: 'monospace' }}
+                className="input input-full"
+                style={{ fontFamily: 'monospace' }}
               />
-              <select
-                value={walletChain}
-                onChange={e => setWalletChain(e.target.value as 'base' | 'ethereum')}
-                className="input"
-                style={{ width: 120 }}
-              >
-                <option value="base">Base L2</option>
-                <option value="ethereum">Ethereum</option>
-              </select>
+              <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>Base L2 (USDC)</div>
             </div>
             {walletError && <div style={{ color: '#EF4444', fontSize: 12, marginBottom: 8 }}>{walletError}</div>}
             <button type="submit" disabled={walletSaving} className="btn btn-primary btn-sm">
@@ -132,9 +121,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
           <div className="wallet-address-display" style={{ fontFamily: 'monospace', fontSize: 13, color: '#1A1A2E', wordBreak: 'break-all' }}>
             {user.walletAddress}
           </div>
-          <div style={{ color: '#9CA3AF', fontSize: 11, marginTop: 4 }}>
-            {user.walletChain === 'base' ? 'Base L2' : 'Ethereum'}
-          </div>
+          <div style={{ color: '#9CA3AF', fontSize: 11, marginTop: 4 }}>Base L2</div>
         </div>
       )}
 
@@ -142,7 +129,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
       <div className="earnings-withdrawal mb-xl">
         <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 8 }}>Available for withdrawal</div>
         <div className="earnings-balance">${user.earningsUsdc.toFixed(2)}</div>
-        <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 16 }}>USDC on {user.walletChain === 'ethereum' ? 'Ethereum' : 'Base L2'}</div>
+        <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 16 }}>USDC on Base L2</div>
         <button
           className="btn-green"
           disabled={!user.walletAddress || user.earningsUsdc < 1}
@@ -184,20 +171,11 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
         </div>
       )}
 
-      {/* 2-column revenue split */}
-      <div className="grid-2col">
-        <div className="card" style={{ padding: 20 }}>
-          <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 8 }}>Base session revenue</div>
-          <div style={{ color: '#1A1A2E', fontSize: 24, fontWeight: 700 }}>${totalPayout.toFixed(2)}</div>
-          <div style={{ color: '#9CA3AF', fontSize: 12 }}>{completed.length} sessions</div>
-        </div>
-        <div className="card" style={{ padding: 20 }}>
-          <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 8 }}>Add-on revenue</div>
-          <div style={{ color: '#D97706', fontSize: 24, fontWeight: 700 }}>${addonRevenue.toFixed(2)}</div>
-          <div style={{ color: '#9CA3AF', fontSize: 12 }}>
-            {completed.length > 0 ? `${((addonRevenue / (totalPayout || 1)) * 100).toFixed(1)}% of total` : 'No sessions yet'}
-          </div>
-        </div>
+      {/* Session revenue */}
+      <div className="card mb-xl" style={{ padding: 20 }}>
+        <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 8 }}>Session revenue</div>
+        <div style={{ color: '#1A1A2E', fontSize: 24, fontWeight: 700 }}>${totalPayout.toFixed(2)}</div>
+        <div style={{ color: '#9CA3AF', fontSize: 12 }}>{completed.length} completed sessions</div>
       </div>
 
       {/* Withdrawal History */}

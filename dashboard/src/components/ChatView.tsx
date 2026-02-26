@@ -4,18 +4,7 @@ import { AddonDetail } from './AddonDetail.js';
 import { CompletionForm } from './CompletionForm.js';
 import * as api from '../api/client.js';
 import type { ChatMessage } from '../types/index.js';
-
-/** Format offering type: "trust_evaluation" → "Trust Evaluation" */
-function formatOffering(type: string): string {
-  return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
-
-/** Truncate address/ID: "0xAbCdEf123456" → "0xA...456" */
-function truncateAddress(addr: string | null): string {
-  if (!addr) return '???';
-  if (addr.length <= 8) return addr;
-  return `${addr.slice(0, 3)}...${addr.slice(-3)}`;
-}
+import { formatOffering, truncateAddress, parseDescription } from '../utils/format.js';
 
 const OFFERING_CHECKLIST: Record<string, string[]> = {
   trust_evaluation: ['Assess project legitimacy', 'Check community authenticity', 'Review team/partnership claims', 'Provide trust verdict'],
@@ -35,27 +24,6 @@ const OFFERING_CHECKLIST: Record<string, string[]> = {
 interface ChatViewProps {
   sessionId: string;
   onBack?: () => void;
-}
-
-/** Try to parse a JSON string into key-value pairs for display */
-function parseDescription(desc: string | null): { isJson: boolean; pairs: [string, string][]; raw: string } {
-  if (!desc) return { isJson: false, pairs: [], raw: '' };
-  const trimmed = desc.trim();
-  if (trimmed.startsWith('{')) {
-    try {
-      const obj = JSON.parse(trimmed);
-      const pairs: [string, string][] = [];
-      for (const [k, v] of Object.entries(obj)) {
-        const label = k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim();
-        const value = typeof v === 'string' ? v : JSON.stringify(v);
-        pairs.push([label, value]);
-      }
-      return { isJson: true, pairs, raw: trimmed };
-    } catch {
-      // Not valid JSON, fall through
-    }
-  }
-  return { isJson: false, pairs: [], raw: trimmed };
 }
 
 export function ChatView({ sessionId, onBack }: ChatViewProps) {
@@ -114,7 +82,7 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
   const totalItems = checklistItems.length;
 
   const desc = parseDescription(session.description);
-  const messageCount = messages.length;
+  const userMessages = messages.filter(m => m.senderType === 'agent' || m.senderType === 'expert').length;
 
   return (
     <div className="chat-container">
@@ -280,16 +248,19 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
             >
               <span>
                 Messages
-                {messageCount > 0 && (
-                  <span className="chat-collapse-badge">{messageCount}</span>
+                {userMessages > 0 && (
+                  <span className="chat-collapse-badge">{userMessages}</span>
                 )}
               </span>
               <span style={{ fontSize: 10, color: '#9CA3AF' }}>{showChat ? '\u25B2' : '\u25BC'}</span>
             </button>
             {showChat && (
               <div className="chat-collapse-body">
+                <div style={{ fontSize: 12, color: '#9CA3AF', padding: '4px 0 8px', fontStyle: 'italic' }}>
+                  You can send messages to the agent. Responses are not guaranteed.
+                </div>
                 <div className="chat-messages" style={{ maxHeight: 300, flex: 'none' }}>
-                  {messages.map(msg => (
+                  {messages.filter(m => m.messageType !== 'system_notice' || m.content !== messages[0]?.content).map(msg => (
                     <ChatBubble key={msg.id} message={msg} />
                   ))}
                   <div ref={messagesEndRef} />

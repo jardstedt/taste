@@ -1,4 +1,5 @@
 import type { Session } from '../types/index.js';
+import { formatOffering, truncateAddress, parseDescription } from '../utils/format.js';
 
 interface SessionRequestProps {
   session: Session;
@@ -6,37 +7,23 @@ interface SessionRequestProps {
   onDecline: (sessionId: string) => void;
 }
 
-function getInitials(name: string): string {
-  return name.split(/[_\s]+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
-}
-
 export function SessionRequest({ session, onAccept, onDecline }: SessionRequestProps) {
   const deadline = session.deadlineAt ? new Date(session.deadlineAt) : null;
   const now = Date.now();
   const remainingMs = deadline ? Math.max(0, deadline.getTime() - now) : 0;
   const remainingMins = Math.ceil(remainingMs / 60_000);
-  const agentName = session.buyerAgentDisplay || session.buyerAgent || 'AI Agent';
-  const initials = getInitials(agentName);
+  const desc = parseDescription(session.description);
 
   return (
     <div className="session-request">
-      {/* Top row: avatar + name | price + deadline */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: 10,
-            background: 'linear-gradient(135deg, #3B82F6, #06B6D4)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 13, fontWeight: 700, color: '#fff'
-          }}>
-            {initials}
-          </div>
-          <div>
-            <div style={{ color: '#1A1A2E', fontSize: 15, fontWeight: 600 }}>{agentName}</div>
-            <div style={{ color: '#9CA3AF', fontSize: 12 }}>{session.offeringType.replace(/_/g, ' ')}</div>
+      {/* Top row: title | price + deadline */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div>
+          <div style={{ color: '#1A1A2E', fontSize: 15, fontWeight: 600 }}>
+            {formatOffering(session.offeringType)} for {truncateAddress(session.buyerAgent)}
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
           <div style={{ color: '#059669', fontSize: 20, fontWeight: 700 }}>${session.priceUsdc.toFixed(0)}</div>
           {deadline && (
             <div style={{ color: '#D97706', fontSize: 11, fontWeight: 500 }}>{remainingMins} min to accept</div>
@@ -44,9 +31,20 @@ export function SessionRequest({ session, onAccept, onDecline }: SessionRequestP
         </div>
       </div>
 
-      {/* Description */}
-      {session.description && (
-        <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.6, marginBottom: 16 }}>{session.description}</p>
+      {/* Description — parsed */}
+      {desc.raw && (
+        desc.isJson ? (
+          <div className="session-request-details" style={{ marginBottom: 16 }}>
+            {desc.pairs.map(([label, value]) => (
+              <div key={label}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 2, textTransform: 'capitalize' }}>{label}</div>
+                <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{value}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.6, marginBottom: 16 }}>{desc.raw}</p>
+        )
       )}
 
       {/* Tags */}

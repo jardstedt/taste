@@ -3,6 +3,7 @@ import { useSessions } from '../hooks/useSessions.js';
 import { SessionRequest } from './SessionRequest.js';
 import * as api from '../api/client.js';
 import type { AuthUser } from '../types/index.js';
+import { formatOffering, truncateAddress } from '../utils/format.js';
 
 interface StatsOverviewProps {
   user: AuthUser;
@@ -53,7 +54,7 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
   // Group sessions by offering type for breakdown
   const offeringCounts: Record<string, number> = {};
   sessions.forEach(s => {
-    const label = s.offeringType.replace(/_/g, ' ');
+    const label = formatOffering(s.offeringType);
     offeringCounts[label] = (offeringCounts[label] || 0) + 1;
   });
   const totalForBreakdown = sessions.length || 1;
@@ -73,7 +74,7 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
       <div className="stats-grid mb-xl">
         <div className="stat-card">
           <div className="stat-label">This Month</div>
-          <div className="stat-value" style={{ marginTop: 8 }}>${totalEarnings.toFixed(0)}</div>
+          <div className="stat-value" style={{ marginTop: 8 }}>${totalEarnings.toFixed(2)}</div>
           <div className="stat-sub stat-sub-green">Earned from {completed.length} sessions</div>
         </div>
         <div className="stat-card">
@@ -170,8 +171,6 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
           <div className="section-header">Recent Sessions</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {completed.slice(0, 5).map(session => {
-              const agentName = session.buyerAgentDisplay || session.buyerAgent || 'AI Agent';
-              const offeringLabel = session.offeringType.replace(/_/g, ' ');
               const date = new Date(session.completedAt || session.createdAt).toLocaleDateString();
               return (
                 <div
@@ -180,11 +179,13 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
                   onClick={() => onNavigateSession(session.id)}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                 >
-                  <div>
-                    <div style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>{agentName}</div>
-                    <div style={{ color: '#9CA3AF', fontSize: 12 }}>{offeringLabel} · {date}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>
+                      {formatOffering(session.offeringType)} for {truncateAddress(session.buyerAgent)}
+                    </div>
+                    <div style={{ color: '#9CA3AF', fontSize: 12 }}>{date}</div>
                   </div>
-                  <div style={{ color: '#059669', fontSize: 15, fontWeight: 600 }}>
+                  <div style={{ color: '#059669', fontSize: 15, fontWeight: 600, flexShrink: 0 }}>
                     ${session.expertPayoutUsdc.toFixed(2)}
                   </div>
                 </div>
