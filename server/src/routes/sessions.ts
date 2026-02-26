@@ -45,6 +45,7 @@ import { emitToSession, notifyExpert } from '../services/socket.js';
 import { sendPushToExpert } from '../services/push.js';
 import { sessionCreateLimiter, messageLimiter, uploadLimiter } from '../middleware/rateLimit.js';
 import type { AddonType } from '../types/index.js';
+import { GRACE_TURNS } from '../config/constants.js';
 
 // Multer setup — memory storage so we validate magic bytes before writing to disk
 const upload = multer({
@@ -136,7 +137,7 @@ router.post('/:id/messages', messageLimiter, validate(sendMessageSchema), (req, 
   }
 
   // Block messages if grace period is exhausted
-  if (session.turnCount >= session.maxTurns + 5) {
+  if (session.turnCount >= session.maxTurns + GRACE_TURNS) {
     res.status(400).json({ success: false, error: 'Grace period exhausted. Please complete or decline the session.' });
     return;
   }
@@ -172,8 +173,8 @@ router.post('/:id/messages', messageLimiter, validate(sendMessageSchema), (req, 
   // Relay expert message to buyer agent via ACP memo (non-blocking)
   if (type === 'expert' && session.acpJobId) {
     import('../services/acp.js').then(({ relayExpertMessageToAcp }) => {
-      relayExpertMessageToAcp(session.id, content).catch(() => {});
-    }).catch(() => {});
+      relayExpertMessageToAcp(session.id, content).catch(err => console.error('[Sessions] ACP relay failed:', err));
+    }).catch(err => console.error('[Sessions] ACP import failed:', err));
   }
 
   // Always emit updated session so dashboard gets fresh turn count + status

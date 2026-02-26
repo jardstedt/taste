@@ -1492,13 +1492,7 @@ select.input {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: #6B21A8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff;
+  object-fit: cover;
 }
 
 .header-avatar {

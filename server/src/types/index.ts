@@ -80,39 +80,6 @@ export interface ReputationScore {
   score: number;
 }
 
-// ── Legacy Job/Judgment Types (v1.0) ──
-
-export type OfferingType = SessionOfferingType;
-
-export interface Job {
-  id: string;
-  acpJobId: string | null;
-  offeringType: OfferingType;
-  status: 'pending' | 'assigned' | 'in_progress' | 'delivered' | 'timeout' | 'cancelled';
-  expertId: string | null;
-  requirements: Record<string, unknown>;
-  buyerAgent: string | null;
-  priceUsdc: number;
-  slaMinutes: number;
-  assignedAt: string | null;
-  deadlineAt: string | null;
-  deliveredAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Judgment {
-  id: string;
-  jobId: string;
-  expertId: string;
-  offeringType: OfferingType;
-  content: Record<string, unknown>;
-  disclaimer: string;
-  expertName: string;
-  expertPublicProfile: string | null;
-  submittedAt: string;
-}
-
 // ── Audit ──
 
 export interface AuditEntry {
@@ -267,22 +234,3 @@ export interface SessionAttachment {
   createdAt: string;
 }
 
-// ── Disclaimer ──
-
-export const JUDGMENT_DISCLAIMER = 'This is a qualitative human opinion provided for informational purposes only. It does not constitute financial, investment, legal, or professional advice. The requesting party assumes all risk for decisions made based on this opinion.';
-
-// ── Prohibited Language ──
-
-export const PROHIBITED_PHRASES = [
-  'buy',
-  'sell',
-  'invest in',
-  'financial advice',
-  'guaranteed returns',
-  'should purchase',
-  'should invest',
-  'price target',
-  'price prediction',
-  'allocation advice',
-  'not financial advice',
-];

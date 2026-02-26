@@ -1,11 +1,8 @@
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth.js';
-import { useJobs } from './hooks/useJobs.js';
 import { LoginForm } from './components/LoginForm.js';
 import { Layout } from './components/Layout.js';
-import { JudgmentForm } from './components/JudgmentForm.js';
 import { ProfileCard } from './components/ProfileCard.js';
-import { JobHistory } from './components/JobHistory.js';
 import { StatsOverview } from './components/StatsOverview.js';
 import { ChatView } from './components/ChatView.js';
 import { EarningsView } from './components/EarningsView.js';
@@ -20,12 +17,10 @@ import { ExpertProfile } from './pages/ExpertProfile.js';
 import { AcpDemo } from './pages/AcpDemo.js';
 import { AcpInspector } from './pages/AcpInspector.js';
 import { useState, useEffect } from 'react';
-import type { Job, Judgment } from './types/index.js';
 import * as api from './api/client.js';
 
 function AppContent() {
   const { user, loading: authLoading, login, logout, refresh: refreshAuth } = useAuth();
-  const { allJobs, loading: jobsLoading, refresh: refreshJobs } = useJobs();
   const navigate = useNavigate();
 
   if (authLoading) {
@@ -56,23 +51,12 @@ function AppContent() {
           />
         } />
         <Route path="/active" element={<ActiveSessions />} />
-        <Route path="/history" element={
-          <>
-            <SessionHistory />
-            <div className="mt-xl">
-              <h3>Legacy Jobs</h3>
-              <JobHistory jobs={allJobs} loading={jobsLoading} />
-            </div>
-          </>
-        } />
+        <Route path="/history" element={<SessionHistory />} />
         <Route path="/earnings" element={<EarningsView user={user} onRefresh={refreshAuth} />} />
         <Route path="/profile" element={
           <ProfileCard user={user} onRefresh={refreshAuth} />
         } />
         <Route path="/session/:sessionId" element={<SessionView />} />
-        <Route path="/job/:jobId" element={
-          <JobDetail onSubmitted={refreshJobs} />
-        } />
         {user.role === 'admin' && (
           <>
             <Route path="/admin" element={<AdminPanel />} />
@@ -92,62 +76,6 @@ function SessionView() {
   if (!sessionId) return <p className="text-grey">Session not found.</p>;
 
   return <ChatView sessionId={sessionId} onBack={() => navigate('/dashboard/active')} />;
-}
-
-function JobDetail({ onSubmitted }: { onSubmitted: () => void }) {
-  const [job, setJob] = useState<Job | null>(null);
-  const [judgment, setJudgment] = useState<Judgment | null>(null);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-
-  const jobId = window.location.pathname.split('/job/')[1];
-
-  useEffect(() => {
-    if (!jobId) return;
-    api.getJob(jobId).then(res => {
-      if (res.success && res.data) {
-        const data = res.data as { job: Job; judgment: Judgment | null };
-        setJob(data.job);
-        setJudgment(data.judgment);
-      }
-      setLoading(false);
-    });
-  }, [jobId]);
-
-  if (loading) return <p className="text-grey">Loading...</p>;
-  if (!job) return <p className="text-grey">Job not found.</p>;
-
-  if (judgment) {
-    return (
-      <div className="card">
-        <button onClick={() => navigate('/dashboard')} className="btn btn-ghost btn-sm mb-lg">
-          Back to Queue
-        </button>
-        <h3>Judgment Submitted</h3>
-        <pre className="alert alert-info mt-md" style={{ whiteSpace: 'pre-wrap', fontSize: 'var(--font-size-sm)' }}>
-          {JSON.stringify(judgment.content, null, 2)}
-        </pre>
-        <p className="text-xs text-grey mt-sm">
-          Submitted: {new Date(judgment.submittedAt).toLocaleString()}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <button onClick={() => navigate('/dashboard')} className="btn btn-ghost btn-sm mb-lg">
-        Back to Queue
-      </button>
-      <JudgmentForm
-        job={job}
-        onSubmitted={() => {
-          onSubmitted();
-          navigate('/dashboard');
-        }}
-      />
-    </div>
-  );
 }
 
 function AdminPanel() {

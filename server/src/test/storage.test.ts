@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestDb } from './helpers.js';
+import { setupTestDb, testSession } from './helpers.js';
 import {
   validateMagicBytes,
   validateExtension,
@@ -16,17 +16,6 @@ import {
   MAX_FILE_SIZE,
   SIGNED_URL_EXPIRY_MS,
 } from '../services/storage.js';
-import { createSession } from '../services/sessions.js';
-
-function testSession() {
-  return createSession({
-    offeringType: 'trust_evaluation',
-    tierId: 'quick',
-    description: 'Test',
-    buyerAgent: 'agent-1',
-    priceUsdc: 0.01,
-  });
-}
 
 // Valid PNG: minimal 1x1 pixel PNG
 const VALID_PNG = Buffer.from([

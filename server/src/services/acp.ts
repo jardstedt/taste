@@ -9,10 +9,12 @@ import acpModule, {
 const AcpClient = (acpModule as unknown as { default: typeof acpModule }).default ?? acpModule;
 import { getEnv } from '../config/env.js';
 import { isOfferingEnabled, getEnabledSessionOfferings } from '../config/domains.js';
+import { MEMO_BRIDGE_POLL_MS, MAX_DESCRIPTION_LENGTH, MAX_MEMO_LENGTH, MAX_VERDICT_REASON_LENGTH } from '../config/constants.js';
 import {
   createSession, getSessionByAcpId, getSessionById,
   matchSession, startSession, formatSessionDeliverable, checkSessionTimeouts,
   confirmSessionPayout, addMessage,
+  getActiveAcpSessions, markPaymentReceived, cancelSessionFromAcp, getStuckAcpSessions,
 } from './sessions.js';
 import { notifyExpert, emitToSession } from './socket.js';
 import { sendPushToExpert } from './push.js';
@@ -29,8 +31,6 @@ const _seenMemoIds = new Map<string, Set<number>>();
 // Active bridge subscriptions: acpJobId → sessionId for jobs we're bridging.
 // Only these jobs get polled, not all active sessions.
 const _bridgedJobs = new Map<string, string>();
-
-const MEMO_BRIDGE_POLL_MS = 10_000; // 10 seconds for active conversations
 
 // ── Offering Type Mapping ──
 
@@ -168,13 +168,9 @@ export async function initAcp(): Promise<InstanceType<typeof AcpClient> | null> 
 
   // Restore memo bridge for any active ACP sessions (server restart case)
   try {
-    const { getDb } = await import('../db/database.js');
-    const db = getDb();
-    const activeSessions = db.prepare(
-      "SELECT id, acp_job_id FROM sessions WHERE acp_job_id IS NOT NULL AND status IN ('active', 'wrapping_up')",
-    ).all() as Array<{ id: string; acp_job_id: string }>;
+    const activeSessions = getActiveAcpSessions();
     for (const row of activeSessions) {
-      _bridgedJobs.set(row.acp_job_id, row.id);
+      _bridgedJobs.set(row.acpJobId, row.id);
     }
     if (_bridgedJobs.size > 0) {
       startMemoBridge();
@@ -236,7 +232,7 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
       console.log(`[ACP] Job ${job.id} accepted`);
 
       // Track recurring buyer relationships (non-blocking)
-      trackBuyerAccount(job).catch(() => {});
+      trackBuyerAccount(job).catch(err => console.error('[ACP] trackBuyerAccount failed:', err));
 
       // Create session and match expert
       try {
@@ -247,7 +243,7 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
             acpJobId: String(job.id),
             buyerAgent: String(job.id),
             buyerAgentDisplay: job.name ?? `Agent ${job.id}`,
-            description: JSON.stringify(requirements).slice(0, 500),
+            description: JSON.stringify(requirements).slice(0, MAX_DESCRIPTION_LENGTH),
           });
 
           // Seed chat with the buyer's requirement as the first message
@@ -287,11 +283,7 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
       // Check session status
       const session = getSessionByAcpId(String(job.id));
       if (session) {
-        // Mark payment received timestamp
-        const { getDb } = await import('../db/database.js');
-        getDb().prepare(
-          "UPDATE sessions SET payment_received_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND payment_received_at IS NULL",
-        ).run(session.id);
+        markPaymentReceived(session.id);
         if (session.status === 'completed') {
           const sessionDeliverable = formatSessionDeliverable(session.id);
           await job.deliver(JSON.stringify(sessionDeliverable));
@@ -344,15 +336,7 @@ async function handleEvaluate(job: AcpJob): Promise<void> {
       // Treat like a cancellation — no expert payout, no reputation penalty
       const session = getSessionByAcpId(String(job.id));
       if (session && session.status !== 'cancelled' && session.status !== 'timeout') {
-        const { getDb } = await import('../db/database.js');
-        const db = getDb();
-        db.prepare(
-          "UPDATE sessions SET status = 'cancelled', expert_payout_usdc = 0, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
-        ).run(session.id);
-
-        const { addMessage } = await import('./sessions.js');
-        addMessage(session.id, 'system', null, 'ACP job expired on-chain. Session closed, agent refunded.', 'system_notice');
-
+        cancelSessionFromAcp(session.id, 'ACP job expired on-chain. Session closed, agent refunded.');
         console.log(`[ACP] Session ${session.id} cancelled due to on-chain expiry`);
       }
     } else if (job.phase === AcpJobPhases.REJECTED) {
@@ -361,17 +345,8 @@ async function handleEvaluate(job: AcpJob): Promise<void> {
       // Update session — agent disputed the result
       const session = getSessionByAcpId(String(job.id));
       if (session && session.status === 'completed') {
-        const { getDb } = await import('../db/database.js');
-        const db = getDb();
-        // Revoke expert payout — agent rejected the deliverable
-        db.prepare(
-          "UPDATE sessions SET status = 'cancelled', expert_payout_usdc = 0, updated_at = datetime('now') WHERE id = ?",
-        ).run(session.id);
-
-        const { addMessage } = await import('./sessions.js');
-        addMessage(session.id, 'system', null,
-          `Agent disputed the result${job.rejectionReason ? ': ' + job.rejectionReason : ''}. Expert payout revoked.`,
-          'system_notice');
+        cancelSessionFromAcp(session.id,
+          `Agent disputed the result${job.rejectionReason ? ': ' + job.rejectionReason : ''}. Expert payout revoked.`);
 
         // Negative reputation for disputed delivery
         if (session.expertId) {
@@ -462,7 +437,7 @@ export async function submitEvaluatorVerdict(sessionId: string): Promise<void> {
     structuredAssessment?.summary
     || deliverable.summary
     || (approved ? 'Deliverable meets requirements' : 'Deliverable does not meet requirements'),
-  ).slice(0, 500);
+  ).slice(0, MAX_VERDICT_REASON_LENGTH);
 
   try {
     const job = await _acpClient.getJobById(Number(session.acpJobId));
@@ -591,7 +566,7 @@ async function bridgeInboundMemos(): Promise<boolean> {
         if (memo.senderAddress.toLowerCase() === providerAddress) continue;
 
         // Inject as an agent message in the chat
-        const content = memo.content.slice(0, 2000);
+        const content = memo.content.slice(0, MAX_MEMO_LENGTH);
         const message = addMessage(sessionId, 'agent', null, content);
         emitToSession(sessionId, 'message:new', message);
 
@@ -662,7 +637,7 @@ export async function relayExpertMessageToAcp(
     if (!acpJob || acpJob.phase !== AcpJobPhases.TRANSACTION) return false;
 
     // Send as notification memo (capped at 2000 chars)
-    const safeMemo = content.slice(0, 2000);
+    const safeMemo = content.slice(0, MAX_MEMO_LENGTH);
     await acpJob.createNotification(safeMemo);
 
     // Record the memo we just sent so the inbound bridge ignores it
@@ -713,17 +688,11 @@ export async function rejectSessionOnAcp(internalSessionId: string): Promise<boo
 async function reconcileStuckSessions(): Promise<void> {
   if (!_acpClient) return;
 
-  const { getDb } = await import('../db/database.js');
-  const db = getDb();
-
-  // Find completed sessions with ACP jobs that haven't been delivered yet
-  const stuckRows = db.prepare(
-    "SELECT * FROM sessions WHERE acp_job_id IS NOT NULL AND status IN ('completed', 'cancelled', 'timeout') AND completed_at < datetime('now', '-2 minutes')",
-  ).all() as Array<{ id: string; acp_job_id: string; status: string }>;
+  const stuckRows = getStuckAcpSessions();
 
   for (const row of stuckRows) {
     try {
-      const acpJob = await _acpClient!.getJobById(Number(row.acp_job_id));
+      const acpJob = await _acpClient!.getJobById(Number(row.acpJobId));
       if (!acpJob || acpJob.phase !== AcpJobPhases.TRANSACTION) continue;
 
       if (row.status === 'completed') {

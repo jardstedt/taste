@@ -33,7 +33,7 @@ self.addEventListener('push', (event) => {
 
   const options: NotificationOptions & { vibrate?: number[] } = {
     body: payload.body,
-    icon: payload.icon || '/icon-192.svg',
+    icon: payload.icon || '/icon-192.png',
     tag: payload.tag || 'taste-default',
     vibrate: [200, 100, 200],
     data: payload.data || {},

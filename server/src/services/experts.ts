@@ -265,20 +265,6 @@ export function findExpertsForDomain(domain: Domain): Expert[] {
     );
 }
 
-export function selectBestExpert(domain: Domain): Expert | null {
-  const candidates = findExpertsForDomain(domain);
-  if (candidates.length === 0) return null;
-
-  // Sort by reputation score for that domain (highest first)
-  const scored = candidates.map(expert => {
-    const scores = getExpertReputationScores(expert.id);
-    return { expert, score: scores[domain] ?? 50 };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored[0].expert;
-}
-
 // ── Stats ──
 
 export function incrementCompletedJobs(expertId: string, responseTimeMins: number, earningsUsdc: number): void {

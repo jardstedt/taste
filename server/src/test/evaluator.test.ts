@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestDb } from './helpers.js';
+import { setupTestDb, createOnlineExpert } from './helpers.js';
 import { getDb } from '../db/database.js';
-import { createExpert, updateExpert, setExpertPassword, acceptAgreement } from '../services/experts.js';
 import {
   createSession,
   getSessionById,
@@ -14,14 +13,6 @@ import {
 } from '../services/sessions.js';
 import { buildZodSchema, getDeliverableFields } from '../config/deliverable-schemas.js';
 import { isOfferingEnabled, getSessionOffering } from '../config/domains.js';
-
-async function createOnlineExpert(name: string, email: string, domains: string[]) {
-  const expert = createExpert(name, email, domains as any);
-  await setExpertPassword(expert.id, 'password123');
-  acceptAgreement(expert.id);
-  updateExpert(expert.id, { availability: 'online' });
-  return expert;
-}
 
 function createDisputeSession(acpJobId?: string) {
   return createSession({

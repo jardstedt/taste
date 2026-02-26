@@ -40,7 +40,7 @@ export function initDb(): Database.Database {
   return _db;
 }
 
-const KNOWN_TABLES = ['experts', 'withdrawals', 'sessions', 'messages', 'addons', 'jobs', 'judgments', 'reputation_events', 'audit_log', 'session_deliverables', 'session_attachments'];
+const KNOWN_TABLES = ['experts', 'withdrawals', 'sessions', 'messages', 'addons', 'reputation_events', 'audit_log', 'session_deliverables', 'session_attachments'];
 
 function hasColumn(db: Database.Database, table: string, column: string): boolean {
   if (!KNOWN_TABLES.includes(table)) throw new Error(`Unknown table: ${table}`);

@@ -103,7 +103,7 @@ export function Layout({ children, user, onLogout, onRefresh }: LayoutProps) {
       {/* Row 1: Logo + user controls */}
       <header className="header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div className="header-logo-box">T</div>
+          <img src="/logo-64.png" alt="Taste" className="header-logo-box" />
           <span style={{ fontSize: 18, fontWeight: 700, color: '#1A1A2E', letterSpacing: '-0.3px' }}>Taste</span>
           <span className="header-subtitle">Expert Dashboard</span>
         </div>

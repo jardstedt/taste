@@ -9,6 +9,7 @@ import { getExpertById, findExpertsForDomain, incrementCompletedJobs } from './e
 import { getExpertReputationScores, recordEvent } from './reputation.js';
 import { getSessionAttachments, createSignedUrl } from './storage.js';
 import { getEnv } from '../config/env.js';
+import { EXPERT_SHARE, PLATFORM_FEE, GRACE_TURNS } from '../config/constants.js';
 
 // ── Row Mapping ──
 
@@ -338,7 +339,7 @@ export function completeSession(sessionId: string): Session | null {
   if (!session) return null;
 
   const db = getDb();
-  const expertPayout = session.priceUsdc * 0.8 * 0.75;
+  const expertPayout = session.priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE);
 
   // Atomic conditional update — prevents race between complete and timeout
   const result = db.prepare(
@@ -633,8 +634,6 @@ function getAddonById(id: string): Addon | null {
 
 // ── Guardrails ──
 
-const GRACE_TURNS = 5;
-
 export function incrementTurnCount(sessionId: string, senderType: MessageSenderType): { turnCount: number; maxTurns: number; limitReached: boolean; locked: boolean } {
   const db = getDb();
 
@@ -848,4 +847,44 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
       ? `The expert provided a structured assessment with the following fields: ${Object.keys(deliverable.structuredData).join(', ')}. Verify these fields are substantive and address the "${offering?.name ?? session.offeringType}" requirements: ${requirements.join('; ')}.`
       : `Verify the expert addressed the following requirements for a "${offering?.name ?? session.offeringType}" session: ${requirements.join('; ')}. The expert's responses should be substantive and relevant to the request description.`,
   };
+}
+
+// ── ACP Service Wrappers ──
+// These functions encapsulate direct SQL so acp.ts doesn't bypass the service boundary.
+
+/** Get active sessions with ACP job IDs (for memo bridge restore on server restart) */
+export function getActiveAcpSessions(): Array<{ id: string; acpJobId: string }> {
+  const db = getDb();
+  const rows = db.prepare(
+    "SELECT id, acp_job_id FROM sessions WHERE acp_job_id IS NOT NULL AND status IN ('active', 'wrapping_up')",
+  ).all() as Array<{ id: string; acp_job_id: string }>;
+  return rows.map(r => ({ id: r.id, acpJobId: r.acp_job_id }));
+}
+
+/** Mark payment received (idempotent) */
+export function markPaymentReceived(sessionId: string): void {
+  const db = getDb();
+  db.prepare(
+    "UPDATE sessions SET payment_received_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND payment_received_at IS NULL",
+  ).run(sessionId);
+}
+
+/** Cancel session from ACP event (zeroes payout, adds system message) */
+export function cancelSessionFromAcp(sessionId: string, reason: string): void {
+  const db = getDb();
+  const result = db.prepare(
+    "UPDATE sessions SET status = 'cancelled', expert_payout_usdc = 0, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status NOT IN ('cancelled', 'timeout')",
+  ).run(sessionId);
+  if (result.changes > 0) {
+    addMessage(sessionId, 'system', null, reason, 'system_notice');
+  }
+}
+
+/** Get completed/cancelled/timeout sessions not yet delivered to ACP */
+export function getStuckAcpSessions(): Array<{ id: string; acpJobId: string; status: string }> {
+  const db = getDb();
+  const rows = db.prepare(
+    "SELECT id, acp_job_id, status FROM sessions WHERE acp_job_id IS NOT NULL AND status IN ('completed', 'cancelled', 'timeout') AND completed_at < datetime('now', '-2 minutes')",
+  ).all() as Array<{ id: string; acp_job_id: string; status: string }>;
+  return rows.map(r => ({ id: r.id, acpJobId: r.acp_job_id, status: r.status }));
 }

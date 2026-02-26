@@ -10,6 +10,7 @@ import {
   getSessionById,
   incrementTurnCount,
 } from './sessions.js';
+import { GRACE_TURNS } from '../config/constants.js';
 
 let _io: SocketServer | null = null;
 
@@ -140,7 +141,7 @@ function handleConnection(socket: Socket) {
     if (session.status !== 'active' && session.status !== 'accepted' && session.status !== 'wrapping_up') return;
 
     // Block messages if grace period is exhausted
-    if (session.turnCount >= session.maxTurns + 5) return;
+    if (session.turnCount >= session.maxTurns + GRACE_TURNS) return;
 
     const message = addMessage(data.sessionId, 'expert', auth.expertId, data.content);
     const turnInfo = incrementTurnCount(data.sessionId, 'expert');
@@ -149,8 +150,8 @@ function handleConnection(socket: Socket) {
     // Relay expert message to buyer agent via ACP memo (non-blocking)
     if (session.acpJobId) {
       import('./acp.js').then(({ relayExpertMessageToAcp }) => {
-        relayExpertMessageToAcp(data.sessionId, data.content).catch(() => {});
-      }).catch(() => {});
+        relayExpertMessageToAcp(data.sessionId, data.content).catch(err => console.error('[Socket] ACP relay failed:', err));
+      }).catch(err => console.error('[Socket] ACP import failed:', err));
     }
 
     // Always emit updated session so dashboard gets fresh turn count + status

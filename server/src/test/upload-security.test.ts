@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestDb } from './helpers.js';
+import { setupTestDb, testSession } from './helpers.js';
 import { getDb } from '../db/database.js';
 import {
   saveFile,
@@ -10,17 +10,7 @@ import {
   signUrl,
   MAX_FILE_SIZE,
 } from '../services/storage.js';
-import { createSession, getSessionById } from '../services/sessions.js';
-
-function testSession() {
-  return createSession({
-    offeringType: 'trust_evaluation',
-    tierId: 'quick',
-    description: 'Test',
-    buyerAgent: 'agent-1',
-    priceUsdc: 0.01,
-  });
-}
+import { getSessionById } from '../services/sessions.js';
 
 // Valid PNG
 const VALID_PNG = Buffer.from([

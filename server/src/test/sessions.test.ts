@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestDb } from './helpers.js';
+import { setupTestDb, createOnlineExpert, testSession, createActiveSession } from './helpers.js';
 import { getDb } from '../db/database.js';
-import { createExpert, updateExpert, setExpertPassword, acceptAgreement } from '../services/experts.js';
 import {
   createSession,
   getSessionById,
@@ -14,37 +13,6 @@ import {
   declineSession,
   incrementTurnCount,
 } from '../services/sessions.js';
-
-async function createOnlineExpert(name: string, email: string, domains: string[]) {
-  const expert = createExpert(name, email, domains as any);
-  await setExpertPassword(expert.id, 'password123');
-  acceptAgreement(expert.id);
-  updateExpert(expert.id, { availability: 'online' });
-  return expert;
-}
-
-function testSession() {
-  return createSession({
-    offeringType: 'trust_evaluation',
-    tierId: 'quick',
-    description: 'Test request',
-    buyerAgent: 'agent-1',
-    buyerAgentDisplay: 'TestAgent',
-    priceUsdc: 0.01,
-  });
-}
-
-/** Helper: create session, match, accept, then force to active status */
-async function createActiveSession() {
-  await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
-  const session = testSession();
-  matchSession(session.id);
-  const matched = getSessionById(session.id)!;
-  acceptSession(session.id, matched.expertId!);
-  // Force status to active (normally triggered by socket/timer)
-  getDb().prepare("UPDATE sessions SET status = 'active' WHERE id = ?").run(session.id);
-  return getSessionById(session.id)!;
-}
 
 describe('sessions', () => {
   beforeEach(() => {

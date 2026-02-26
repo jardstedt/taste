@@ -103,30 +103,6 @@ export function completeWithdrawal(id: string, txHash: string) {
   });
 }
 
-// ── Jobs ──
-
-export function getJobs() {
-  return request('/jobs');
-}
-
-export function getPendingJobs() {
-  return request('/jobs/pending');
-}
-
-export function getJob(id: string) {
-  return request(`/jobs/${id}`);
-}
-
-export function createTestJob(offeringType: string, requirements: Record<string, unknown>) {
-  return request('/jobs', { method: 'POST', body: JSON.stringify({ offeringType, requirements }) });
-}
-
-// ── Judgments ──
-
-export function submitJudgment(jobId: string, content: Record<string, unknown>) {
-  return request('/judgments', { method: 'POST', body: JSON.stringify({ jobId, content }) });
-}
-
 // ── Reputation ──
 
 export function getMyReputation() {

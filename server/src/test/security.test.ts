@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestDb } from './helpers.js';
+import { setupTestDb, createOnlineExpert, testSession as _testSession } from './helpers.js';
 import { getDb } from '../db/database.js';
-import { createExpert, updateExpert, setExpertPassword, acceptAgreement, getExpertById, deactivateExpert } from '../services/experts.js';
+import { getExpertById, deactivateExpert } from '../services/experts.js';
 import {
   createSession,
   getSessionById,
@@ -15,24 +15,7 @@ import {
 } from '../services/sessions.js';
 import { requestWithdrawal } from '../services/withdrawals.js';
 
-async function createOnlineExpert(name: string, email: string, domains: string[]) {
-  const expert = createExpert(name, email, domains as any);
-  await setExpertPassword(expert.id, 'Password1');
-  acceptAgreement(expert.id);
-  updateExpert(expert.id, { availability: 'online' });
-  return expert;
-}
-
-function testSession() {
-  return createSession({
-    offeringType: 'trust_evaluation',
-    tierId: 'quick',
-    description: 'Test request',
-    buyerAgent: 'agent-1',
-    buyerAgentDisplay: 'TestAgent',
-    priceUsdc: 100,
-  });
-}
+function testSession() { return _testSession('trust_evaluation', 100); }
 
 async function createActiveSession() {
   await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);

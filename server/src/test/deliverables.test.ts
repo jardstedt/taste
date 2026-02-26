@@ -1,12 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestDb } from './helpers.js';
+import { setupTestDb, createOnlineExpert, testSession, createActiveSession } from './helpers.js';
 import { getDb } from '../db/database.js';
-import { createExpert, updateExpert, setExpertPassword, acceptAgreement } from '../services/experts.js';
 import {
-  createSession,
-  getSessionById,
-  matchSession,
-  acceptSession,
   completeSession,
   addMessage,
   saveDeliverable,
@@ -15,35 +10,6 @@ import {
 } from '../services/sessions.js';
 import { buildZodSchema, getDeliverableFields } from '../config/deliverable-schemas.js';
 import { saveFile, saveAttachmentRecord } from '../services/storage.js';
-
-async function createOnlineExpert(name: string, email: string, domains: string[]) {
-  const expert = createExpert(name, email, domains as any);
-  await setExpertPassword(expert.id, 'password123');
-  acceptAgreement(expert.id);
-  updateExpert(expert.id, { availability: 'online' });
-  return expert;
-}
-
-function testSession(offeringType = 'trust_evaluation') {
-  return createSession({
-    offeringType,
-    tierId: 'quick',
-    description: 'Test request',
-    buyerAgent: 'agent-1',
-    buyerAgentDisplay: 'TestAgent',
-    priceUsdc: 0.01,
-  });
-}
-
-async function createActiveSession(offeringType = 'trust_evaluation') {
-  await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
-  const session = testSession(offeringType);
-  matchSession(session.id);
-  const matched = getSessionById(session.id)!;
-  acceptSession(session.id, matched.expertId!);
-  getDb().prepare("UPDATE sessions SET status = 'active' WHERE id = ?").run(session.id);
-  return getSessionById(session.id)!;
-}
 
 describe('deliverables', () => {
   beforeEach(() => {

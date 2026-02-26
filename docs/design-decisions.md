@@ -151,3 +151,38 @@ All `sendPushToExpert` calls (both ACP and dashboard routes) now have `.catch()`
 **Circular dependency avoidance:** `sessions.ts` → `acp.ts` uses dynamic `import('./acp.js')` to avoid circular import between the two modules.
 
 **Trade-off:** Evaluator jobs bypass the normal REQUEST→NEGOTIATION→TRANSACTION flow. The session is created with a fixed $0.01 internal price (evaluator compensation is handled separately from the ACP job's payment). No payment gate — the expert reviews and submits, then we call `job.evaluate()` immediately.
+
+---
+
+## Codebase Cleanup
+
+### 2026-02-26: v1.0 Job/Judgment code removal
+
+**Context:** The v1.0 architecture used a Job→Judgment model (one-shot expert reviews). v1.1 replaced this entirely with interactive Sessions. ~600 lines of dead code remained: `services/judgments.ts`, dashboard components (`JobHistory`, `JudgmentForm`, `useJobs`), legacy types (`Job`, `Judgment`, `JUDGMENT_DISCLAIMER`, `PROHIBITED_PHRASES`), and helper functions (`getOffering`, `getDomainsForOffering`, `selectBestExpert`) only called from the dead service.
+
+**Decision:** Delete all v1.0 code. SQL schema tables (`jobs`, `judgments`) left in place — they're historical and harmless. `KNOWN_TABLES` array in `database.ts` updated to remove them from the migration-helper allowlist.
+
+**Rationale:** Dead code is maintenance burden, confuses new contributors, and creates false positive search results. The v1.0 model is never coming back — sessions are strictly better.
+
+### 2026-02-26: Expert payout formula documented as named constants
+
+**Context:** The payout formula `session.priceUsdc * 0.8 * 0.75` was a magic number chain across `sessions.ts`. The `0.8` means "expert gets 80% of session price" and `0.75` means "platform takes 25% fee from expert's share". Same for grace turns (`+ 5`), description caps (`.slice(0, 500)`), memo caps (`.slice(0, 2000)`).
+
+**Decision:** All business-critical magic numbers extracted to `config/constants.ts`:
+- `EXPERT_SHARE = 0.80` — expert's share of session price
+- `PLATFORM_FEE = 0.25` — platform fee from expert's share
+- `GRACE_TURNS = 5` — extra turns after max
+- `MAX_DESCRIPTION_LENGTH = 500` — ACP description cap
+- `MAX_MEMO_LENGTH = 2000` — ACP memo cap
+- `MAX_VERDICT_REASON_LENGTH = 500` — evaluator verdict reason cap
+- `MEMO_BRIDGE_POLL_MS = 10_000` — memo polling interval
+
+Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of session price to expert.
+
+### 2026-02-26: ACP service boundary enforcement
+
+**Context:** `services/acp.ts` had 5 direct SQL calls (`getDb().prepare(...)`) that bypassed the session service layer, violating the service boundary pattern used everywhere else.
+
+**Decision:** Added 4 functions to `sessions.ts` — `getActiveAcpSessions()`, `markPaymentReceived()`, `cancelSessionFromAcp()`, `getStuckAcpSessions()` — and replaced all direct SQL in `acp.ts` with these wrappers.
+
+**Rationale:** Consistent service boundaries make the codebase easier to reason about, test, and refactor. All session state mutations now go through `sessions.ts`.

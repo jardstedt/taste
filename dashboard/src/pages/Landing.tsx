@@ -43,8 +43,8 @@ export function Landing() {
                 <div className="landing-stat-label">Verified Experts</div>
               </div>
               <div className="landing-stat">
-                <div className="landing-stat-value">{stats.totalJudgments}</div>
-                <div className="landing-stat-label">Judgments Delivered</div>
+                <div className="landing-stat-value">{stats.totalSessions}</div>
+                <div className="landing-stat-label">Sessions Completed</div>
               </div>
               <div className="landing-stat">
                 <div className="landing-stat-value">{stats.domains.length}</div>

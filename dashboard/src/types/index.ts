@@ -1,12 +1,8 @@
 export type Domain = 'crypto' | 'music' | 'art' | 'design' | 'narrative' | 'community' | 'general';
 
-export type OfferingType = 'vibes_check' | 'narrative' | 'creative_review' | 'community_sentiment' | 'general';
-
 export type ExpertRole = 'admin' | 'expert';
 
 export type Availability = 'online' | 'offline' | 'busy';
-
-export type JobStatus = 'pending' | 'assigned' | 'in_progress' | 'delivered' | 'rejected' | 'timeout';
 
 export interface ExpertCredentials {
   bio?: string;
@@ -20,7 +16,7 @@ export interface ExpertCredentials {
 
 export interface PublicStats {
   totalExperts: number;
-  totalJudgments: number;
+  totalSessions: number;
   domains: string[];
   avgResponseMins: number;
 }
@@ -43,35 +39,6 @@ export interface ExpertPublic {
   walletChain: WalletChain;
   deactivatedAt: string | null;
   reputationScores: Record<string, number>;
-}
-
-export interface Job {
-  id: string;
-  acpJobId: string | null;
-  offeringType: OfferingType;
-  status: JobStatus;
-  expertId: string | null;
-  requirements: Record<string, unknown>;
-  buyerAgent: string | null;
-  priceUsdc: number;
-  slaMinutes: number;
-  assignedAt: string | null;
-  deadlineAt: string | null;
-  deliveredAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Judgment {
-  id: string;
-  jobId: string;
-  expertId: string;
-  offeringType: OfferingType;
-  content: Record<string, unknown>;
-  disclaimer: string;
-  expertName: string;
-  expertPublicProfile: string | null;
-  submittedAt: string;
 }
 
 export interface ReputationEvent {
@@ -123,20 +90,6 @@ export interface ApiResponse<T = unknown> {
   error?: string;
   details?: string[];
 }
-
-export const OFFERING_LABELS: Record<OfferingType, string> = {
-  vibes_check: 'Project Vibes Check',
-  narrative: 'Narrative Assessment',
-  creative_review: 'Creative/Art Review',
-  community_sentiment: 'Community Sentiment',
-  general: 'General Human Judgment',
-};
-
-export const PROHIBITED_PHRASES = [
-  'buy', 'sell', 'invest in', 'financial advice', 'guaranteed returns',
-  'should purchase', 'should invest', 'price target', 'price prediction',
-  'allocation advice', 'not financial advice',
-];
 
 // ── v1.1 Session Types ──
 

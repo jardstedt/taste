@@ -1,17 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { setupTestDb } from './helpers.js';
+import { setupTestDb, createOnlineExpert } from './helpers.js';
 import { getDb } from '../db/database.js';
 import { createExpert, updateExpert, setExpertPassword, acceptAgreement } from '../services/experts.js';
 import { getResourceAvailability } from '../services/resource.js';
 import { createSession, matchSession, getSessionById, acceptSession } from '../services/sessions.js';
-
-async function createOnlineExpert(name: string, email: string, domains: string[]) {
-  const expert = createExpert(name, email, domains as any);
-  await setExpertPassword(expert.id, 'password123');
-  acceptAgreement(expert.id);
-  updateExpert(expert.id, { availability: 'online', consentToPublicProfile: true });
-  return expert;
-}
 
 describe('resource availability', () => {
   beforeEach(() => {
