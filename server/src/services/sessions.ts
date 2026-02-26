@@ -343,7 +343,7 @@ export function completeSession(sessionId: string): Session | null {
 
   // Atomic conditional update — prevents race between complete and timeout
   const result = db.prepare(
-    "UPDATE sessions SET status = 'completed', expert_payout_usdc = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status IN ('active', 'wrapping_up')",
+    "UPDATE sessions SET status = 'completed', expert_payout_usdc = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status IN ('active', 'wrapping_up', 'accepted')",
   ).run(expertPayout, sessionId);
 
   if (result.changes === 0) return null; // Already transitioned by another path

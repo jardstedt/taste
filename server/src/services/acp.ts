@@ -273,7 +273,7 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
           const session = createSession({
             offeringType,
             acpJobId: String(job.id),
-            buyerAgent: String(job.id),
+            buyerAgent: job.clientAddress ?? String(job.id),
             buyerAgentDisplay: job.name ?? `Agent ${job.id}`,
             description: JSON.stringify(requirements).slice(0, MAX_DESCRIPTION_LENGTH),
           });

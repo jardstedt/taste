@@ -86,10 +86,12 @@ function getFields(offeringType: string): DeliverableFieldDef[] {
 interface CompletionFormProps {
   session: Session;
   onComplete: () => void;
-  onCancel: () => void;
+  onCancel?: () => void;
+  inline?: boolean;
+  onDecline?: () => void;
 }
 
-export function CompletionForm({ session, onComplete, onCancel }: CompletionFormProps) {
+export function CompletionForm({ session, onComplete, onCancel, inline, onDecline }: CompletionFormProps) {
   const fields = getFields(session.offeringType);
   const [values, setValues] = useState<Record<string, string>>({});
   const [summaryText, setSummaryText] = useState('');
@@ -175,6 +177,191 @@ export function CompletionForm({ session, onComplete, onCancel }: CompletionForm
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   };
 
+  const formContent = (
+    <form onSubmit={handleSubmit} style={inline ? { padding: 0 } : { padding: 20 }}>
+      {error && (
+        <div style={{
+          background: '#FEF2F2', color: '#DC2626', padding: '8px 12px',
+          borderRadius: 6, fontSize: 13, marginBottom: 16,
+        }}>
+          {error}
+        </div>
+      )}
+
+      {/* Dynamic fields */}
+      {fields.map(field => (
+        <div key={field.key} style={{ marginBottom: 14 }}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+            {field.label} {field.required && <span style={{ color: '#DC2626' }}>*</span>}
+          </label>
+          {field.type === 'select' ? (
+            <select
+              value={values[field.key] ?? ''}
+              onChange={e => updateField(field.key, e.target.value)}
+              required={field.required}
+              className="input input-full"
+              style={{ fontSize: 13 }}
+            >
+              <option value="">Select...</option>
+              {field.options?.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          ) : field.type === 'textarea' ? (
+            <textarea
+              value={values[field.key] ?? ''}
+              onChange={e => updateField(field.key, e.target.value)}
+              required={field.required}
+              rows={3}
+              placeholder={field.placeholder}
+              className="input input-full"
+              style={{ fontSize: 13, resize: 'vertical' }}
+            />
+          ) : field.type === 'rating' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="range"
+                min={field.min ?? 1}
+                max={field.max ?? 10}
+                step={1}
+                value={values[field.key] ?? String(field.min ?? 1)}
+                onChange={e => updateField(field.key, e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <span style={{
+                minWidth: 28, textAlign: 'center', fontSize: 14, fontWeight: 700,
+                color: '#6B21A8', background: '#F3E8FF', borderRadius: 6, padding: '2px 6px',
+              }}>
+                {values[field.key] || field.min || 1}
+              </span>
+            </div>
+          ) : field.type === 'number' ? (
+            <input
+              type="number"
+              min={field.min}
+              max={field.max}
+              step="0.1"
+              value={values[field.key] ?? ''}
+              onChange={e => updateField(field.key, e.target.value)}
+              required={field.required}
+              placeholder={field.placeholder}
+              className="input input-full"
+              style={{ fontSize: 13 }}
+            />
+          ) : (
+            <input
+              type="text"
+              value={values[field.key] ?? ''}
+              onChange={e => updateField(field.key, e.target.value)}
+              required={field.required}
+              placeholder={field.placeholder}
+              className="input input-full"
+              style={{ fontSize: 13 }}
+            />
+          )}
+        </div>
+      ))}
+
+      {/* Summary */}
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+          Additional Notes
+        </label>
+        <textarea
+          value={summaryText}
+          onChange={e => setSummaryText(e.target.value)}
+          rows={2}
+          placeholder="Any additional context or notes (optional)"
+          className="input input-full"
+          style={{ fontSize: 13, resize: 'vertical' }}
+        />
+      </div>
+
+      {/* Attachments */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+          Evidence & Attachments
+        </label>
+
+        {attachments.length > 0 && (
+          <div style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {attachments.map(att => (
+              <div key={att.id} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '6px 10px', background: '#F9FAFB', borderRadius: 6,
+                border: '1px solid #E5E7EB', fontSize: 12,
+              }}>
+                <span style={{ color: '#6B7280' }}>
+                  {att.mimeType.startsWith('image/') ? '\uD83D\uDDBC\uFE0F' : '\uD83D\uDCC4'}
+                </span>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {att.originalFilename}
+                </span>
+                <span style={{ color: '#9CA3AF', flexShrink: 0 }}>{formatSize(att.fileSizeBytes)}</span>
+                <span style={{
+                  fontSize: 10, padding: '1px 5px', borderRadius: 4,
+                  background: att.uploadContext === 'chat' ? '#DBEAFE' : '#F3E8FF',
+                  color: att.uploadContext === 'chat' ? '#1D4ED8' : '#6B21A8',
+                }}>
+                  {att.uploadContext}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <label style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          padding: '10px 16px', border: '2px dashed #D1D5DB', borderRadius: 8,
+          cursor: uploading ? 'wait' : 'pointer', color: '#6B7280', fontSize: 13,
+          transition: 'border-color 0.15s',
+        }}>
+          <input
+            type="file"
+            multiple
+            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
+            onChange={handleFileUpload}
+            disabled={uploading}
+            style={{ display: 'none' }}
+          />
+          {uploading ? 'Uploading...' : '+ Add files (images, PDF, text)'}
+        </label>
+        <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>
+          Max 5MB per file, 20MB total per session
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div style={{
+        display: 'flex', gap: 8,
+        justifyContent: inline ? 'space-between' : 'flex-end',
+        borderTop: '1px solid #E5E7EB', paddingTop: 16,
+      }}>
+        {inline && onDecline ? (
+          <button type="button" onClick={onDecline} className="btn btn-ghost" style={{ fontSize: 13, color: 'var(--color-error, #DC2626)' }}>
+            Can't Fulfill
+          </button>
+        ) : !inline && onCancel ? (
+          <button type="button" onClick={onCancel} className="btn btn-ghost" style={{ fontSize: 13 }}>
+            Cancel
+          </button>
+        ) : null}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="btn btn-primary"
+          style={{ fontSize: 13 }}
+        >
+          {submitting ? 'Submitting...' : 'Submit Assessment'}
+        </button>
+      </div>
+    </form>
+  );
+
+  if (inline) {
+    return formContent;
+  }
+
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 1000,
@@ -197,180 +384,15 @@ export function CompletionForm({ session, onComplete, onCancel }: CompletionForm
               {session.offeringType.replace(/_/g, ' ')} &middot; ${session.priceUsdc.toFixed(0)} USDC
             </div>
           </div>
-          <button onClick={onCancel} style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 20, color: '#9CA3AF', padding: 4, lineHeight: 1,
-          }}>&times;</button>
+          {onCancel && (
+            <button onClick={onCancel} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 20, color: '#9CA3AF', padding: 4, lineHeight: 1,
+            }}>&times;</button>
+          )}
         </div>
 
-        <form onSubmit={handleSubmit} style={{ padding: 20 }}>
-          {error && (
-            <div style={{
-              background: '#FEF2F2', color: '#DC2626', padding: '8px 12px',
-              borderRadius: 6, fontSize: 13, marginBottom: 16,
-            }}>
-              {error}
-            </div>
-          )}
-
-          {/* Dynamic fields */}
-          {fields.map(field => (
-            <div key={field.key} style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-                {field.label} {field.required && <span style={{ color: '#DC2626' }}>*</span>}
-              </label>
-              {field.type === 'select' ? (
-                <select
-                  value={values[field.key] ?? ''}
-                  onChange={e => updateField(field.key, e.target.value)}
-                  required={field.required}
-                  className="input input-full"
-                  style={{ fontSize: 13 }}
-                >
-                  <option value="">Select...</option>
-                  {field.options?.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              ) : field.type === 'textarea' ? (
-                <textarea
-                  value={values[field.key] ?? ''}
-                  onChange={e => updateField(field.key, e.target.value)}
-                  required={field.required}
-                  rows={3}
-                  placeholder={field.placeholder}
-                  className="input input-full"
-                  style={{ fontSize: 13, resize: 'vertical' }}
-                />
-              ) : field.type === 'rating' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="range"
-                    min={field.min ?? 1}
-                    max={field.max ?? 10}
-                    step={1}
-                    value={values[field.key] ?? String(field.min ?? 1)}
-                    onChange={e => updateField(field.key, e.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                  <span style={{
-                    minWidth: 28, textAlign: 'center', fontSize: 14, fontWeight: 700,
-                    color: '#6B21A8', background: '#F3E8FF', borderRadius: 6, padding: '2px 6px',
-                  }}>
-                    {values[field.key] || field.min || 1}
-                  </span>
-                </div>
-              ) : field.type === 'number' ? (
-                <input
-                  type="number"
-                  min={field.min}
-                  max={field.max}
-                  step="0.1"
-                  value={values[field.key] ?? ''}
-                  onChange={e => updateField(field.key, e.target.value)}
-                  required={field.required}
-                  placeholder={field.placeholder}
-                  className="input input-full"
-                  style={{ fontSize: 13 }}
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={values[field.key] ?? ''}
-                  onChange={e => updateField(field.key, e.target.value)}
-                  required={field.required}
-                  placeholder={field.placeholder}
-                  className="input input-full"
-                  style={{ fontSize: 13 }}
-                />
-              )}
-            </div>
-          ))}
-
-          {/* Summary */}
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-              Additional Notes
-            </label>
-            <textarea
-              value={summaryText}
-              onChange={e => setSummaryText(e.target.value)}
-              rows={2}
-              placeholder="Any additional context or notes (optional)"
-              className="input input-full"
-              style={{ fontSize: 13, resize: 'vertical' }}
-            />
-          </div>
-
-          {/* Attachments */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-              Evidence & Attachments
-            </label>
-
-            {attachments.length > 0 && (
-              <div style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {attachments.map(att => (
-                  <div key={att.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '6px 10px', background: '#F9FAFB', borderRadius: 6,
-                    border: '1px solid #E5E7EB', fontSize: 12,
-                  }}>
-                    <span style={{ color: '#6B7280' }}>
-                      {att.mimeType.startsWith('image/') ? '\uD83D\uDDBC\uFE0F' : '\uD83D\uDCC4'}
-                    </span>
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {att.originalFilename}
-                    </span>
-                    <span style={{ color: '#9CA3AF', flexShrink: 0 }}>{formatSize(att.fileSizeBytes)}</span>
-                    <span style={{
-                      fontSize: 10, padding: '1px 5px', borderRadius: 4,
-                      background: att.uploadContext === 'chat' ? '#DBEAFE' : '#F3E8FF',
-                      color: att.uploadContext === 'chat' ? '#1D4ED8' : '#6B21A8',
-                    }}>
-                      {att.uploadContext}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <label style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '10px 16px', border: '2px dashed #D1D5DB', borderRadius: 8,
-              cursor: uploading ? 'wait' : 'pointer', color: '#6B7280', fontSize: 13,
-              transition: 'border-color 0.15s',
-            }}>
-              <input
-                type="file"
-                multiple
-                accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
-                onChange={handleFileUpload}
-                disabled={uploading}
-                style={{ display: 'none' }}
-              />
-              {uploading ? 'Uploading...' : '+ Add files (images, PDF, text)'}
-            </label>
-            <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>
-              Max 5MB per file, 20MB total per session
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', borderTop: '1px solid #E5E7EB', paddingTop: 16 }}>
-            <button type="button" onClick={onCancel} className="btn btn-ghost" style={{ fontSize: 13 }}>
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="btn btn-primary"
-              style={{ fontSize: 13 }}
-            >
-              {submitting ? 'Completing...' : 'Complete Session'}
-            </button>
-          </div>
-        </form>
+        {formContent}
       </div>
     </div>
   );

@@ -215,8 +215,8 @@ router.post('/:id/complete', validate(completeSessionSchema), (req, res) => {
     return;
   }
 
-  // Only active/wrapping_up sessions can be completed
-  if (!['active', 'wrapping_up'].includes(session.status)) {
+  // Only active/wrapping_up/accepted sessions can be completed
+  if (!['active', 'wrapping_up', 'accepted'].includes(session.status)) {
     res.status(400).json({ success: false, error: 'Cannot complete this session' });
     return;
   }

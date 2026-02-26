@@ -5,6 +5,18 @@ import { CompletionForm } from './CompletionForm.js';
 import * as api from '../api/client.js';
 import type { ChatMessage } from '../types/index.js';
 
+/** Format offering type: "trust_evaluation" → "Trust Evaluation" */
+function formatOffering(type: string): string {
+  return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Truncate address/ID: "0xAbCdEf123456" → "0xA...456" */
+function truncateAddress(addr: string | null): string {
+  if (!addr) return '???';
+  if (addr.length <= 8) return addr;
+  return `${addr.slice(0, 3)}...${addr.slice(-3)}`;
+}
+
 const OFFERING_CHECKLIST: Record<string, string[]> = {
   trust_evaluation: ['Assess project legitimacy', 'Check community authenticity', 'Review team/partnership claims', 'Provide trust verdict'],
   cultural_context: ['Provide cultural context', 'Assess trend authenticity', 'Share relevant domain insights'],
@@ -25,27 +37,49 @@ interface ChatViewProps {
   onBack?: () => void;
 }
 
+/** Try to parse a JSON string into key-value pairs for display */
+function parseDescription(desc: string | null): { isJson: boolean; pairs: [string, string][]; raw: string } {
+  if (!desc) return { isJson: false, pairs: [], raw: '' };
+  const trimmed = desc.trim();
+  if (trimmed.startsWith('{')) {
+    try {
+      const obj = JSON.parse(trimmed);
+      const pairs: [string, string][] = [];
+      for (const [k, v] of Object.entries(obj)) {
+        const label = k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim();
+        const value = typeof v === 'string' ? v : JSON.stringify(v);
+        pairs.push([label, value]);
+      }
+      return { isJson: true, pairs, raw: trimmed };
+    } catch {
+      // Not valid JSON, fall through
+    }
+  }
+  return { isJson: false, pairs: [], raw: trimmed };
+}
+
 export function ChatView({ sessionId, onBack }: ChatViewProps) {
   const { session, messages, addons, loading, sendMessage, acceptAddon } = useChat(sessionId);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [showRequirements, setShowRequirements] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
-  const [showCompletionForm, setShowCompletionForm] = useState(false);
-  const [uploadingFile, setUploadingFile] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset checklist when session changes
+  // Reset state when session changes
   useEffect(() => {
     setCheckedItems({});
     setShowRequirements(false);
+    setShowChat(false);
   }, [sessionId]);
 
-  // Auto-scroll
+  // Auto-scroll chat when expanded
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (showChat) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, showChat]);
 
   if (loading) return <div className="text-grey">Loading session...</div>;
   if (!session) return <div className="text-grey">Session not found.</div>;
@@ -59,23 +93,8 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
     setSending(false);
   };
 
-  const handleComplete = () => {
-    setShowCompletionForm(true);
-  };
-
   const handleDecline = async () => {
     await api.declineSession(sessionId, 'Expert unable to fulfill request');
-  };
-
-  const handleFileAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    setUploadingFile(true);
-    for (const file of Array.from(files)) {
-      await api.uploadAttachment(sessionId, file, 'chat');
-    }
-    setUploadingFile(false);
-    e.target.value = '';
   };
 
   // Timer
@@ -90,18 +109,21 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
   const isLocked = session.turnCount >= session.maxTurns + graceTurns;
   const pendingAddons = addons.filter(a => a.status === 'pending');
 
+  const checklistItems = OFFERING_CHECKLIST[session.offeringType] || OFFERING_CHECKLIST['trust_evaluation'] || [];
+  const checkedCount = Object.values(checkedItems).filter(Boolean).length;
+  const totalItems = checklistItems.length;
+
+  const desc = parseDescription(session.description);
+  const messageCount = messages.length;
+
   return (
     <div className="chat-container">
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="chat-header">
         <div className="chat-header-info">
-          <div className="chat-agent-avatar">
-            {(session.buyerAgentDisplay || session.buyerAgent || 'AI')
-              ?.split(/[_\s]+/).map(w => w[0]).join('').toUpperCase().slice(0, 2)}
-          </div>
           <div style={{ minWidth: 0 }}>
             <div className="text-bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {session.buyerAgentDisplay || session.buyerAgent || 'AI Agent'}
+              {formatOffering(session.offeringType)} for {truncateAddress(session.buyerAgent)}
             </div>
             <div style={{ fontSize: 11, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               {isActive ? (
@@ -150,56 +172,56 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
         )}
       </div>
 
-      {/* Toolbar: requirements toggle + turn count + end session */}
-      {(() => {
-        const checklistItems = OFFERING_CHECKLIST[session.offeringType] || OFFERING_CHECKLIST['trust_evaluation'] || [];
-        const checkedCount = Object.values(checkedItems).filter(Boolean).length;
-        const totalItems = checklistItems.length;
-        return (
-          <div style={{ borderBottom: '1px solid #E5E7EB', background: '#FAFAFA', flexShrink: 0 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '6px 16px', gap: 8,
-            }}>
+      {/* ── Scrollable body ── */}
+      <div className="session-body">
+        {/* ── Request section ── */}
+        {desc.raw && (
+          <div className="session-request">
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+              Request &middot; {session.offeringType.replace(/_/g, ' ')}
+            </div>
+            {desc.isJson ? (
+              <div className="session-request-details">
+                {desc.pairs.map(([label, value]) => (
+                  <div key={label}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 2, textTransform: 'capitalize' }}>{label}</div>
+                    <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.5 }}>
+                {desc.raw}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Pending addons (non-ACP only) ── */}
+        {!session.acpJobId && pendingAddons.map(addon => (
+          <AddonDetail
+            key={addon.id}
+            addon={addon}
+            onRespond={acceptAddon}
+          />
+        ))}
+
+        {/* ── Assessment form (inline, when active) ── */}
+        {isActive && !isLocked && (
+          <div className="session-assessment">
+            <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: '#1A1A2E' }}>Assessment</h3>
+
+            {/* Requirements checklist (collapsible) */}
+            <div style={{ marginBottom: 16 }}>
               <button
                 onClick={() => setShowRequirements(!showRequirements)}
-                style={{
-                  border: 'none', background: 'transparent', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  fontFamily: 'inherit', fontSize: 12, color: '#6B7280', padding: 0,
-                }}
+                className="chat-collapse-toggle"
               >
-                <span style={{ fontWeight: 600, color: '#6B21A8' }}>
-                  Requirements {checkedCount}/{totalItems}
-                </span>
+                <span>Requirements {checkedCount}/{totalItems}</span>
                 <span style={{ fontSize: 10, color: '#9CA3AF' }}>{showRequirements ? '\u25B2' : '\u25BC'}</span>
               </button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {isActive && (
-                  <span className="text-xs text-grey">
-                    Turn {session.turnCount}/{session.maxTurns}
-                    {session.turnCount >= session.maxTurns && ` +${session.turnCount - session.maxTurns}/${graceTurns}`}
-                  </span>
-                )}
-                {isActive && (
-                  <button onClick={handleDecline} className="btn btn-ghost btn-sm" style={{ fontSize: 12, padding: '3px 10px', height: 'auto', color: 'var(--color-error, #DC2626)' }}>
-                    Can't Fulfill
-                  </button>
-                )}
-                {isActive && session.turnCount >= session.maxTurns ? (
-                  <button onClick={handleComplete} className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: '3px 10px', height: 'auto' }}>
-                    Complete
-                  </button>
-                ) : isActive && (
-                  <button onClick={handleComplete} className="btn btn-ghost btn-sm" style={{ fontSize: 12, padding: '3px 10px', height: 'auto' }}>
-                    End Session
-                  </button>
-                )}
-              </div>
-            </div>
-            {showRequirements && (
-              <div style={{ padding: '0 16px 10px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {showRequirements && (
+                <div style={{ padding: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {checklistItems.map((item, i) => (
                     <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: checkedItems[i] ? '#9CA3AF' : '#1A1A2E', cursor: 'pointer' }}>
                       <input
@@ -212,96 +234,86 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
                     </label>
                   ))}
                 </div>
+              )}
+            </div>
+
+            <CompletionForm
+              session={session}
+              onComplete={() => {/* session will update via WebSocket */}}
+              inline
+              onDecline={handleDecline}
+            />
+          </div>
+        )}
+
+        {/* ── Locked state ── */}
+        {isActive && isLocked && (
+          <div className="chat-ended" style={{ color: 'var(--color-error, #DC2626)', margin: 16, borderRadius: 8 }}>
+            Grace period exhausted — please complete or decline the session.
+          </div>
+        )}
+
+        {/* ── End states ── */}
+        {session.status === 'completed' && (
+          <div className="chat-ended" style={{ margin: 16, borderRadius: 8 }}>
+            Session completed
+          </div>
+        )}
+        {session.status === 'cancelled' && (
+          <div className="chat-ended" style={{ margin: 16, borderRadius: 8 }}>
+            Session cancelled
+          </div>
+        )}
+        {session.status === 'timeout' && (
+          <div className="chat-ended" style={{ margin: 16, borderRadius: 8 }}>
+            Session timed out
+          </div>
+        )}
+
+        {/* ── Chat section (collapsible, at bottom) ── */}
+        {isActive && (
+          <div className="chat-collapse-section">
+            <button
+              onClick={() => setShowChat(!showChat)}
+              className="chat-collapse-toggle"
+              style={{ width: '100%' }}
+            >
+              <span>
+                Messages
+                {messageCount > 0 && (
+                  <span className="chat-collapse-badge">{messageCount}</span>
+                )}
+              </span>
+              <span style={{ fontSize: 10, color: '#9CA3AF' }}>{showChat ? '\u25B2' : '\u25BC'}</span>
+            </button>
+            {showChat && (
+              <div className="chat-collapse-body">
+                <div className="chat-messages" style={{ maxHeight: 300, flex: 'none' }}>
+                  {messages.map(msg => (
+                    <ChatBubble key={msg.id} message={msg} />
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+                {!isLocked && (
+                  <form onSubmit={handleSend} className="chat-input-area">
+                    <input
+                      type="text"
+                      className="chat-input"
+                      value={input}
+                      onChange={e => setInput(e.target.value)}
+                      placeholder="Type a message..."
+                      disabled={sending}
+                    />
+                    <button type="submit" disabled={sending || !input.trim()} className="btn btn-primary btn-sm chat-send-btn">
+                      {sending ? '...' : 'Send'}
+                    </button>
+                  </form>
+                )}
               </div>
             )}
           </div>
-        );
-      })()}
-
-      {/* Messages */}
-      <div className="chat-messages">
-        {messages.map(msg => (
-          <ChatBubble key={msg.id} message={msg} />
-        ))}
-        <div ref={messagesEndRef} />
+        )}
       </div>
-
-      {/* Pending addons (disabled for ACP sessions — no agent-side support) */}
-      {!session.acpJobId && pendingAddons.map(addon => (
-        <AddonDetail
-          key={addon.id}
-          addon={addon}
-          onRespond={acceptAddon}
-        />
-      ))}
-
-      {/* Input */}
-      {isActive && !isLocked && (
-        <form onSubmit={handleSend} className="chat-input-area">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain"
-            onChange={handleFileAttach}
-            style={{ display: 'none' }}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingFile}
-            title="Attach file"
-            style={{
-              background: 'none', border: 'none', cursor: uploadingFile ? 'wait' : 'pointer',
-              padding: '6px 8px', fontSize: 18, color: '#9CA3AF', flexShrink: 0,
-              lineHeight: 1,
-            }}
-          >
-            {uploadingFile ? '\u23F3' : '\uD83D\uDCCE'}
-          </button>
-          <input
-            type="text"
-            className="chat-input"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="Type your response..."
-            disabled={sending}
-          />
-          <button type="submit" disabled={sending || !input.trim()} className="btn btn-primary btn-sm chat-send-btn">
-            {sending ? '...' : 'Send'}
-          </button>
-        </form>
-      )}
-      {isActive && isLocked && (
-        <div className="chat-ended" style={{ color: 'var(--color-error, #DC2626)' }}>
-          Grace period exhausted — please complete or decline the session above.
-        </div>
-      )}
-
-      {session.status === 'completed' && (
-        <div className="chat-ended">
-          Session completed
-        </div>
-      )}
-      {session.status === 'cancelled' && (
-        <div className="chat-ended">
-          Session cancelled
-        </div>
-      )}
-      {session.status === 'timeout' && (
-        <div className="chat-ended">
-          Session timed out
-        </div>
-      )}
-
-      {/* Completion Form Modal */}
-      {showCompletionForm && session && (
-        <CompletionForm
-          session={session}
-          onComplete={() => setShowCompletionForm(false)}
-          onCancel={() => setShowCompletionForm(false)}
-        />
-      )}
     </div>
   );
 }
