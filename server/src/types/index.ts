@@ -139,7 +139,9 @@ export type SessionOfferingType =
   | 'expert_brainstorming'
   | 'content_quality_gate'
   | 'audience_reaction_poll'
-  | 'creative_direction_check';
+  | 'creative_direction_check'
+  | 'fact_check_verification'
+  | 'dispute_arbitration';
 
 export type SessionStatus = 'pending' | 'matching' | 'accepted' | 'active' | 'wrapping_up' | 'completed' | 'cancelled' | 'timeout';
 

@@ -42,6 +42,10 @@ const OFFERING_NAME_MAP: Record<string, string> = {
   'legitimacy review': 'trust_evaluation',
   'due diligence': 'trust_evaluation',
   'is this legit': 'trust_evaluation',
+  'scam': 'trust_evaluation',
+  'legitimacy check': 'trust_evaluation',
+  'rug pull': 'trust_evaluation',
+  'project check': 'trust_evaluation',
   // cultural_context
   'cultural context': 'cultural_context',
   'trend check': 'cultural_context',
@@ -53,12 +57,18 @@ const OFFERING_NAME_MAP: Record<string, string> = {
   'quality check': 'output_quality_gate',
   'human qa': 'output_quality_gate',
   'review my output': 'output_quality_gate',
+  'human review': 'output_quality_gate',
+  'ai review': 'output_quality_gate',
+  'review ai output': 'output_quality_gate',
   // option_ranking
   'option ranking': 'option_ranking',
   'a/b test': 'option_ranking',
   'compare options': 'option_ranking',
   'pick the best': 'option_ranking',
   'which is better': 'option_ranking',
+  'human a/b': 'option_ranking',
+  'rank options': 'option_ranking',
+  'human comparison': 'option_ranking',
   // blind_spot_check
   'blind spot check': 'blind_spot_check',
   'ai sanity check': 'blind_spot_check',
@@ -79,17 +89,34 @@ const OFFERING_NAME_MAP: Record<string, string> = {
   'pre-publish review': 'content_quality_gate',
   'content review': 'content_quality_gate',
   'brand safety check': 'content_quality_gate',
+  'pre-publish': 'content_quality_gate',
+  'publish review': 'content_quality_gate',
   // audience_reaction_poll
   'audience reaction poll': 'audience_reaction_poll',
   'quick poll': 'audience_reaction_poll',
   'rate my content': 'audience_reaction_poll',
   'thumbnail test': 'audience_reaction_poll',
+  'human poll': 'audience_reaction_poll',
+  'human feedback': 'audience_reaction_poll',
+  'get feedback': 'audience_reaction_poll',
   // creative_direction_check
   'creative direction check': 'creative_direction_check',
   'creative review': 'creative_direction_check',
   'concept check': 'creative_direction_check',
   'pre-production review': 'creative_direction_check',
   'creative brief': 'creative_direction_check',
+  'concept review': 'creative_direction_check',
+  'creative concept': 'creative_direction_check',
+  'direction check': 'creative_direction_check',
+  // fact_check_verification
+  'fact check': 'fact_check_verification',
+  'source verification': 'fact_check_verification',
+  'verify facts': 'fact_check_verification',
+  'check accuracy': 'fact_check_verification',
+  // dispute_arbitration (evaluator jobs come via onEvaluate, not keyword — added for completeness)
+  'dispute': 'dispute_arbitration',
+  'arbitration': 'dispute_arbitration',
+  'evaluate delivery': 'dispute_arbitration',
 };
 
 function resolveOfferingType(jobName: string): string {
@@ -293,6 +320,13 @@ async function handleEvaluate(job: AcpJob): Promise<void> {
   try {
     console.log(`[ACP] Evaluation event for job ${job.id}, phase: ${job.phase}`);
 
+    // Check if this is a third-party evaluator assignment (not our own provider job)
+    const existingSession = getSessionByAcpId(String(job.id));
+    if (!existingSession && job.deliverable) {
+      await handleEvaluatorAssignment(job);
+      return;
+    }
+
     if (job.phase === AcpJobPhases.COMPLETED) {
       console.log(`[ACP] Job ${job.id} completed successfully`);
 
@@ -361,6 +395,85 @@ async function handleEvaluate(job: AcpJob): Promise<void> {
     }
   } catch (err) {
     console.error(`[ACP] Error in evaluation for job ${job.id}`);
+  }
+}
+
+// ── Evaluator Assignment ──
+
+async function handleEvaluatorAssignment(job: AcpJob): Promise<void> {
+  let deliverable: unknown;
+  try { deliverable = JSON.parse(job.deliverable!); } catch { deliverable = job.deliverable; }
+
+  const description = [
+    `**Dispute Evaluation Request** (ACP Job #${job.id})`,
+    ``,
+    `**Provider:** ${job.providerAddress}`,
+    `**Buyer:** ${job.clientAddress}`,
+    ``,
+    `**Original Job Name:** ${job.name ?? 'Unknown'}`,
+    `**Original Requirement:**`,
+    JSON.stringify(job.requirement ?? 'Not provided', null, 2),
+    ``,
+    `**Provider's Deliverable:**`,
+    JSON.stringify(deliverable, null, 2),
+    ``,
+    `Please review whether the provider's deliverable satisfactorily fulfills the original requirement. Submit your verdict using the structured form.`,
+  ].join('\n');
+
+  const session = createSession({
+    offeringType: 'dispute_arbitration',
+    tierId: 'quick',
+    description,
+    tags: ['evaluator', 'dispute'],
+    buyerAgent: job.clientAddress,
+    acpJobId: String(job.id),
+    priceUsdc: 0.01,
+  });
+
+  addMessage(session.id, 'system', null, description, 'system_notice');
+
+  const matched = matchSession(session.id);
+  if (matched?.expertId) {
+    notifyExpert(matched.expertId, 'session:new', matched);
+    sendPushToExpert(matched.expertId, {
+      title: 'Dispute Evaluation',
+      body: `Review delivery for ACP Job #${job.id}`,
+      tag: `session-${matched.id}`,
+      data: { url: `/dashboard/session/${matched.id}`, sessionId: matched.id, type: 'session_request' },
+    }).catch(err => console.error('[ACP] Push failed for evaluator session:', err));
+  }
+
+  console.log(`[ACP] Created evaluator session ${session.id} for job ${job.id}`);
+}
+
+export async function submitEvaluatorVerdict(sessionId: string): Promise<void> {
+  if (!_acpClient) return;
+
+  const session = getSessionById(sessionId);
+  if (!session || session.offeringType !== 'dispute_arbitration' || !session.acpJobId) return;
+
+  const deliverable = formatSessionDeliverable(sessionId);
+  if (!deliverable) return;
+
+  const structuredAssessment = deliverable.structuredAssessment as Record<string, unknown> | null;
+  const verdict = structuredAssessment?.verdict;
+  const approved = verdict === 'approve';
+  const reason = String(
+    structuredAssessment?.summary
+    || deliverable.summary
+    || (approved ? 'Deliverable meets requirements' : 'Deliverable does not meet requirements'),
+  ).slice(0, 500);
+
+  try {
+    const job = await _acpClient.getJobById(Number(session.acpJobId));
+    if (!job) {
+      console.error(`[ACP] Evaluator: job ${session.acpJobId} not found`);
+      return;
+    }
+    await job.evaluate(approved, reason);
+    console.log(`[ACP] Evaluator verdict submitted for job ${session.acpJobId}: ${approved ? 'APPROVED' : 'REJECTED'}`);
+  } catch (err) {
+    console.error(`[ACP] Failed to submit evaluator verdict for job ${session.acpJobId}:`, err);
   }
 }
 

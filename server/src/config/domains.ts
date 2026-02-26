@@ -108,6 +108,22 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     relevantDomains: ['art', 'music', 'design', 'narrative'],
     enabled: true,
   },
+  {
+    type: 'fact_check_verification',
+    name: 'Fact-Check & Source Verification',
+    description: 'Human expert verifies factual claims, checks sources, and flags inaccuracies in AI-generated or user-submitted content',
+    defaultTier: 'quick',
+    relevantDomains: ['general', 'crypto', 'narrative'],
+    enabled: true,
+  },
+  {
+    type: 'dispute_arbitration',
+    name: 'Dispute Evaluation',
+    description: 'Third-party human evaluation of an ACP job delivery. Expert reviews whether the provider fulfilled the original contract and submits an approve/reject verdict',
+    defaultTier: 'quick',
+    relevantDomains: ['general', 'crypto'],
+    enabled: true,
+  },
 ];
 
 export interface SessionTierDefinition {
@@ -129,21 +145,21 @@ export const SESSION_TIERS: SessionTierDefinition[] = [
   {
     id: 'quick',
     name: 'Quick Consult',
-    priceRange: [0.5, 2],
+    priceRange: [0.01, 0.01],
     durationMinutes: [5, 15],
     maxTurns: 10,
   },
   {
     id: 'full',
     name: 'Full Session',
-    priceRange: [2, 5],
+    priceRange: [0.01, 0.01],
     durationMinutes: [15, 45],
     maxTurns: 20,
   },
   {
     id: 'deep',
     name: 'Deep Dive',
-    priceRange: [5, 15],
+    priceRange: [0.01, 0.01],
     durationMinutes: [30, 90],
     maxTurns: 40,
   },

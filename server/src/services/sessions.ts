@@ -356,6 +356,14 @@ export function completeSession(sessionId: string): Session | null {
     confirmSessionPayout(sessionId);
   }
 
+  // For evaluator (dispute_arbitration) sessions, submit verdict to ACP
+  if (session.offeringType === 'dispute_arbitration' && session.acpJobId) {
+    import('./acp.js').then(({ submitEvaluatorVerdict }) => {
+      submitEvaluatorVerdict(sessionId).catch(err =>
+        console.error('[ACP] Failed to submit evaluator verdict:', err));
+    });
+  }
+
   return getSessionById(sessionId);
 }
 
@@ -753,6 +761,8 @@ const OFFERING_REQUIREMENTS: Record<string, string[]> = {
   content_quality_gate: ['Review for cultural sensitivity', 'Check for derivative elements', 'Assess brand safety', 'Evaluate emotional resonance'],
   audience_reaction_poll: ['Rate content quality', 'Score against criteria', 'Provide comparison notes'],
   creative_direction_check: ['Review concept viability', 'Flag cultural red flags', 'Assess tonal alignment'],
+  fact_check_verification: ['Verify factual claims', 'Check sources', 'Flag inaccuracies', 'Provide corrections'],
+  dispute_arbitration: ['Review original requirement', 'Assess deliverable quality', 'Determine contract fulfillment', 'Submit verdict'],
 };
 
 export function formatSessionDeliverable(sessionId: string): Record<string, unknown> {
