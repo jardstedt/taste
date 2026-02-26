@@ -3,6 +3,10 @@ import { precacheAndRoute } from 'workbox-precaching';
 
 declare const self: ServiceWorkerGlobalScope;
 
+// Activate new SW immediately on update (no waiting for tabs to close)
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+
 precacheAndRoute(self.__WB_MANIFEST);
 
 interface PushPayload {
