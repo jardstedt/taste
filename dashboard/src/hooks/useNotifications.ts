@@ -23,12 +23,16 @@ export function useNotifications() {
   });
   const [isSubscribed, setIsSubscribed] = useState(false);
 
-  // Check existing subscription on mount
+  // Check existing subscription on mount — re-sync with server in case DB was reset
   useEffect(() => {
     if (permission === 'unsupported') return;
 
     navigator.serviceWorker.ready.then(async (registration) => {
       const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        // Re-send to server on every mount (idempotent upsert)
+        api.subscribePush(subscription.toJSON()).catch(() => {});
+      }
       setIsSubscribed(!!subscription);
     }).catch(() => {
       // SW not ready yet
