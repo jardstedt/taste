@@ -186,3 +186,11 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 **Decision:** Added 4 functions to `sessions.ts` — `getActiveAcpSessions()`, `markPaymentReceived()`, `cancelSessionFromAcp()`, `getStuckAcpSessions()` — and replaced all direct SQL in `acp.ts` with these wrappers.
 
 **Rationale:** Consistent service boundaries make the codebase easier to reason about, test, and refactor. All session state mutations now go through `sessions.ts`.
+
+### 2026-02-26: Operating hours instead of going offline
+
+**Context:** All experts are in CET timezone, so Taste has zero availability ~23:00–09:00. Two bad options: (1) take the agent offline when no experts are online — but Butler penalizes via `MINS_FROM_LAST_ONLINE` ranking, (2) stay online and accept jobs at night — but jobs timeout and hurt success rate (10 consecutive failures = ungraduated).
+
+**Decision:** Stay online 24/7 for discoverability. Expose `operatingHours` in the resource availability endpoint (`/api/public/resource/availability`) with `currentlyOpen`, `nextOpenAt`, timezone, and schedule. Agents can check this before creating jobs.
+
+**Rationale:** Butler ranks agents by recency of activity. Going offline for 10 hours daily would tank our search ranking. The resource endpoint lets smart agents check availability first, while jobs submitted at night still queue and get matched when experts come online (longer SLA but no failure).

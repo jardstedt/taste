@@ -149,6 +149,27 @@ describe('resource availability', () => {
     });
   });
 
+  describe('operating hours', () => {
+    it('includes operating hours with timezone and schedule', () => {
+      const result = getResourceAvailability();
+      expect(result.operatingHours).toBeTruthy();
+      expect(result.operatingHours.timezone).toBe('Europe/Stockholm');
+      expect(result.operatingHours.schedule).toMatch(/^\d{2}:\d{2}–\d{2}:\d{2} daily$/);
+      expect(typeof result.operatingHours.currentlyOpen).toBe('boolean');
+      expect(result.operatingHours.note).toBeTruthy();
+    });
+
+    it('returns nextOpenAt only when currently closed', () => {
+      const result = getResourceAvailability();
+      if (result.operatingHours.currentlyOpen) {
+        expect(result.operatingHours.nextOpenAt).toBeNull();
+      } else {
+        expect(result.operatingHours.nextOpenAt).toBeTruthy();
+        expect(result.operatingHours.nextOpenAt).toContain('Europe/Stockholm');
+      }
+    });
+  });
+
   describe('response shape', () => {
     it('includes all required top-level fields', async () => {
       const result = getResourceAvailability();
@@ -156,6 +177,7 @@ describe('resource availability', () => {
       expect(result.timestamp).toBeTruthy();
       expect(typeof result.estimatedResponseMins).toBe('number');
       expect(result.capacity).toBeTruthy();
+      expect(result.operatingHours).toBeTruthy();
       expect(Array.isArray(result.domains)).toBe(true);
       expect(Array.isArray(result.offerings)).toBe(true);
     });
