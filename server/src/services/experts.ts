@@ -269,18 +269,17 @@ export function findExpertsForDomain(domain: Domain): Expert[] {
 
 export function incrementCompletedJobs(expertId: string, responseTimeMins: number, earningsUsdc: number): void {
   const db = getDb();
-  const expert = getExpertById(expertId);
-  if (!expert) return;
 
-  const newCount = expert.completedJobs + 1;
-  const newAvg = ((expert.avgResponseTimeMins * expert.completedJobs) + responseTimeMins) / newCount;
-  const newEarnings = expert.earningsUsdc + earningsUsdc;
-
+  // Atomic SQL arithmetic prevents race conditions from concurrent payout confirmations.
+  // avg_response_time_mins uses running-average formula: ((old_avg * old_count) + new_value) / (old_count + 1)
   db.prepare(
     `UPDATE experts
-     SET completed_jobs = ?, avg_response_time_mins = ?, earnings_usdc = ?, updated_at = datetime('now')
+     SET completed_jobs = completed_jobs + 1,
+         avg_response_time_mins = ((avg_response_time_mins * completed_jobs) + ?) / (completed_jobs + 1),
+         earnings_usdc = earnings_usdc + ?,
+         updated_at = datetime('now')
      WHERE id = ?`,
-  ).run(newCount, newAvg, newEarnings, expertId);
+  ).run(responseTimeMins, earningsUsdc, expertId);
 }
 
 // ── Admin Seeding ──

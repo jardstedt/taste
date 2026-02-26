@@ -8,6 +8,7 @@ import {
   createAddonSchema,
   respondAddonSchema,
   completeSessionSchema,
+  declineSessionSchema,
 } from '../middleware/validation.js';
 import {
   createSession,
@@ -249,7 +250,7 @@ router.post('/:id/complete', validate(completeSessionSchema), (req, res) => {
 });
 
 // POST /sessions/:id/decline — expert can't fulfill, triggers refund
-router.post('/:id/decline', (req, res) => {
+router.post('/:id/decline', validate(declineSessionSchema), (req, res) => {
   const session = getSessionById(param(req.params.id));
   if (!session) {
     res.status(404).json({ success: false, error: 'Session not found' });
@@ -260,7 +261,7 @@ router.post('/:id/decline', (req, res) => {
     return;
   }
 
-  const reason = (req.body as { reason?: string })?.reason;
+  const reason = req.body.reason as string | undefined;
   const declined = declineSession(session.id, reason);
   if (!declined) {
     res.status(400).json({ success: false, error: 'Cannot decline this session' });

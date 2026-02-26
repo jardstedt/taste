@@ -46,6 +46,10 @@ const OFFERING_NAME_MAP: Record<string, string> = {
   'legitimacy check': 'trust_evaluation',
   'rug pull': 'trust_evaluation',
   'project check': 'trust_evaluation',
+  'token audit': 'trust_evaluation',
+  'verify token': 'trust_evaluation',
+  'token review': 'trust_evaluation',
+  'project review': 'trust_evaluation',
   // cultural_context
   'cultural context': 'cultural_context',
   'trend check': 'cultural_context',
@@ -60,6 +64,13 @@ const OFFERING_NAME_MAP: Record<string, string> = {
   'human review': 'output_quality_gate',
   'ai review': 'output_quality_gate',
   'review ai output': 'output_quality_gate',
+  'second opinion': 'output_quality_gate',
+  'verify analysis': 'output_quality_gate',
+  'validate output': 'output_quality_gate',
+  'review report': 'output_quality_gate',
+  'review analysis': 'output_quality_gate',
+  'sanity check': 'output_quality_gate',
+  'check output': 'output_quality_gate',
   // option_ranking
   'option ranking': 'option_ranking',
   'a/b test': 'option_ranking',
@@ -69,6 +80,7 @@ const OFFERING_NAME_MAP: Record<string, string> = {
   'human a/b': 'option_ranking',
   'rank options': 'option_ranking',
   'human comparison': 'option_ranking',
+  'compare content': 'option_ranking',
   // blind_spot_check
   'blind spot check': 'blind_spot_check',
   'ai sanity check': 'blind_spot_check',
@@ -91,6 +103,12 @@ const OFFERING_NAME_MAP: Record<string, string> = {
   'brand safety check': 'content_quality_gate',
   'pre-publish': 'content_quality_gate',
   'publish review': 'content_quality_gate',
+  'video review': 'content_quality_gate',
+  'image review': 'content_quality_gate',
+  'meme review': 'content_quality_gate',
+  'review video': 'content_quality_gate',
+  'review image': 'content_quality_gate',
+  'check content': 'content_quality_gate',
   // audience_reaction_poll
   'audience reaction poll': 'audience_reaction_poll',
   'quick poll': 'audience_reaction_poll',
@@ -99,6 +117,9 @@ const OFFERING_NAME_MAP: Record<string, string> = {
   'human poll': 'audience_reaction_poll',
   'human feedback': 'audience_reaction_poll',
   'get feedback': 'audience_reaction_poll',
+  'rate this': 'audience_reaction_poll',
+  'human rating': 'audience_reaction_poll',
+  'score content': 'audience_reaction_poll',
   // creative_direction_check
   'creative direction check': 'creative_direction_check',
   'creative review': 'creative_direction_check',
@@ -108,6 +129,7 @@ const OFFERING_NAME_MAP: Record<string, string> = {
   'concept review': 'creative_direction_check',
   'creative concept': 'creative_direction_check',
   'direction check': 'creative_direction_check',
+  'creative check': 'creative_direction_check',
   // fact_check_verification
   'fact check': 'fact_check_verification',
   'source verification': 'fact_check_verification',
@@ -117,6 +139,9 @@ const OFFERING_NAME_MAP: Record<string, string> = {
   'hallucination check': 'fact_check_verification',
   'verify claims': 'fact_check_verification',
   'check sources': 'fact_check_verification',
+  'verify research': 'fact_check_verification',
+  'verify report': 'fact_check_verification',
+  'human verification': 'fact_check_verification',
   // dispute_arbitration (evaluator jobs come via onEvaluate, not keyword — added for completeness)
   'dispute': 'dispute_arbitration',
   'arbitration': 'dispute_arbitration',

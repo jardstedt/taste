@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { setupTestDb, createOnlineExpert } from './helpers.js';
 import { getDb } from '../db/database.js';
 import { createExpert, updateExpert, setExpertPassword, acceptAgreement } from '../services/experts.js';
-import { getResourceAvailability } from '../services/resource.js';
+import { getResourceAvailability, getOfferingCatalog, getSampleDeliverables } from '../services/resource.js';
 import { createSession, matchSession, getSessionById, acceptSession } from '../services/sessions.js';
 
 describe('resource availability', () => {
@@ -195,6 +195,58 @@ describe('resource availability', () => {
       expect(json).not.toContain('emailEncrypted');
       // Expert IDs are UUIDs — check there's no uuid-like pattern outside of what's expected
       expect(json).not.toMatch(/"id"\s*:\s*"[a-f0-9-]{20,}"/);
+    });
+  });
+
+  describe('offering catalog resource', () => {
+    it('returns all enabled offerings with deliverable field schemas', () => {
+      const result = getOfferingCatalog();
+      expect(result.service).toBe('Taste: Human Expert Consultation');
+      expect(result.offerings.length).toBeGreaterThan(0);
+
+      const trust = result.offerings.find(o => o.type === 'trust_evaluation');
+      expect(trust).toBeTruthy();
+      expect(trust!.deliverableFields.length).toBeGreaterThan(0);
+      expect(trust!.requirementFields.length).toBeGreaterThan(0);
+      expect(trust!.priceRange[0]).toBeGreaterThan(0);
+    });
+
+    it('includes deliverable field details with types and options', () => {
+      const result = getOfferingCatalog();
+      const trust = result.offerings.find(o => o.type === 'trust_evaluation')!;
+      const verdictField = trust.deliverableFields.find(f => f.key === 'verdict');
+      expect(verdictField).toBeTruthy();
+      expect(verdictField!.type).toBe('select');
+      expect(verdictField!.options).toContain('legitimate');
+      expect(verdictField!.options).toContain('scam');
+    });
+
+    it('does not include disabled offerings', () => {
+      const result = getOfferingCatalog();
+      const cultural = result.offerings.find(o => o.type === 'cultural_context');
+      expect(cultural).toBeUndefined();
+    });
+  });
+
+  describe('sample deliverables resource', () => {
+    it('returns samples for all enabled offering types', () => {
+      const result = getSampleDeliverables();
+      expect(result.service).toBe('Taste: Human Expert Consultation');
+      expect(result.samples.length).toBe(8); // 8 enabled offerings
+
+      const types = result.samples.map(s => s.offeringType);
+      expect(types).toContain('trust_evaluation');
+      expect(types).toContain('output_quality_gate');
+      expect(types).toContain('fact_check_verification');
+      expect(types).toContain('dispute_arbitration');
+    });
+
+    it('each sample has structuredAssessment and disclaimer', () => {
+      const result = getSampleDeliverables();
+      for (const sample of result.samples) {
+        expect(sample.sampleDeliverable.structuredAssessment).toBeTruthy();
+        expect(sample.sampleDeliverable.disclaimer).toBeTruthy();
+      }
     });
   });
 });

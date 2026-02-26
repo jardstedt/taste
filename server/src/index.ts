@@ -26,7 +26,7 @@ import apiRoutes from './routes/api.js';
 import { initPush } from './services/push.js';
 import { getExpertPublic, getAllExpertsPublic, getAllExperts } from './services/experts.js';
 import { getAllSessions } from './services/sessions.js';
-import { getResourceAvailability } from './services/resource.js';
+import { getResourceAvailability, getOfferingCatalog, getSampleDeliverables } from './services/resource.js';
 import { getAttachmentById, readFile, verifySignedUrl, sanitizeFilename } from './services/storage.js';
 
 async function main() {
@@ -107,9 +107,15 @@ async function main() {
     res.json({ success: true, data });
   });
 
-  // ACP Resource endpoint — exposes expert availability for agent discovery
+  // ACP Resource endpoints — exposes data for agent discovery
   app.get('/api/public/resource/availability', (_req, res) => {
     res.json(getResourceAvailability());
+  });
+  app.get('/api/public/resource/offerings', (_req, res) => {
+    res.json(getOfferingCatalog());
+  });
+  app.get('/api/public/resource/samples', (_req, res) => {
+    res.json(getSampleDeliverables());
   });
 
   // Public signed URL file access (no auth — HMAC-signed)
@@ -171,6 +177,12 @@ async function main() {
 
   // Protected API routes
   app.use('/api', apiRoutes);
+
+  // Global error handler — prevents stack traces and internal details from leaking to clients
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error('[Server] Unhandled error:', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  });
 
   // Serve dashboard static files in production
   const dashboardDist = resolve(__dirname, '../../dashboard/dist');

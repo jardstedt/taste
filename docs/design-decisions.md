@@ -194,3 +194,55 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 **Decision:** Stay online 24/7 for discoverability. Expose `operatingHours` in the resource availability endpoint (`/api/public/resource/availability`) with `currentlyOpen`, `nextOpenAt`, timezone, and schedule. Agents can check this before creating jobs.
 
 **Rationale:** Butler ranks agents by recency of activity. Going offline for 10 hours daily would tank our search ranking. The resource endpoint lets smart agents check availability first, while jobs submitted at night still queue and get matched when experts come online (longer SLA but no failure).
+
+### 2026-02-26: Resource expansion (1 → 3 resources)
+
+**Context:** Top ACP agents have 3-9 resources. Taste had only 1 (`expert_availability`). Resources don't directly affect Butler discovery but help buying agents make informed pre-purchase decisions, increasing conversion.
+
+**Decision:** Added 2 new resources:
+1. `offering_catalog` (`/api/public/resource/offerings`) — Full offering catalog with requirement schemas, deliverable field schemas, pricing, and SLA. Helps agents choose the right offering and format their request correctly.
+2. `sample_deliverables` (`/api/public/resource/samples`) — Example completed deliverables per offering type. Shows agents exactly what they'll receive, reducing purchase uncertainty.
+
+**Rationale:** Maps to a three-step decision funnel: When (availability) → Which (catalog) → What (samples). Each resource adds semantic surface for Butler discovery. The offering catalog includes machine-readable deliverable field schemas (key, type, options) so agents can programmatically validate responses.
+
+### 2026-02-26: Ecosystem-informed keyword expansion (60 → 82 keywords)
+
+**Context:** Live API analysis of 34 ACP agents revealed specific language patterns: agents search for "token audit", "video review", "second opinion", "sanity check", etc. These terms weren't in our `OFFERING_NAME_MAP`.
+
+**Decision:** Added 22 new keywords to `OFFERING_NAME_MAP` based on actual ecosystem language. Examples: "token audit" → trust_evaluation, "video review" → content_quality_gate, "second opinion" → output_quality_gate, "verify research" → fact_check_verification.
+
+**Trade-off:** More keywords = more routing surface but higher collision risk. Mitigated by using specific multi-word phrases rather than single generic words. Substring matching order matters — new keywords are appended after existing ones per offering section.
+
+### 2026-02-26: Conversation framed as optional, not default
+
+**Context:** Taste's memo bridge enables real-time back-and-forth between expert and buying agent during job execution. However, live API analysis of 34 ACP agents revealed that zero agents implement a "check memos and respond" loop. Every agent uses a one-shot submit→deliver model. This means Taste's conversational capability, while technically working, produces unanswered messages in practice — the expert asks a clarifying question and gets silence.
+
+**Decision:** Reframed all offering descriptions from "through a live conversation" to a one-shot model with optional conversation:
+- Default flow: agent sends request → expert reviews → expert delivers structured assessment
+- Optional flow: if the buying agent implements memo handling, the expert can ask clarifying questions and receive answers, producing a richer assessment with a chat transcript
+- Deliverable descriptions changed from "Includes chat transcript when expert discussed X with the requesting agent" to "Includes chat transcript if back-and-forth conversation occurred"
+- trust_evaluation and option_ranking descriptions now include "Supports optional back-and-forth conversation via ACP memos"
+
+**Rationale:** Describing a feature that no buying agent can currently use as the primary interaction model is misleading and sets wrong expectations. The one-shot review is what actually happens today. Keeping the functionality intact means Taste is ready when agents evolve to support conversational patterns — we just don't promise it as the default experience. The memo bridge remains valuable for: (1) dashboard sessions with human buyers, (2) testing via agent simulator, (3) future agents that implement memo handling.
+
+**What we kept:** All memo bridge code, push notifications for incoming memos, transcript inclusion when conversation did occur. No code was removed — only descriptions were updated.
+
+### 2026-02-26: Pre-release security hardening
+
+**Context:** Comprehensive security audit before production release with real funds. Two-pass audit covering all HTTP routes, WebSocket events, file uploads, ACP data flow, auth, CORS, CSP, and production hardening.
+
+**Fixes applied:**
+
+1. **`incrementCompletedJobs()` race condition** — Changed from read-modify-write (`getExpertById` → calculate → `UPDATE`) to atomic SQL arithmetic (`earnings_usdc = earnings_usdc + ?`). Prevents double-credit if concurrent payout confirmations arrive.
+
+2. **Global Express error handler** — Added `(err, req, res, next)` middleware to prevent stack traces and internal error messages from leaking to clients. Previously relied on Express default handler which varies by `NODE_ENV`.
+
+3. **CSP `connectSrc` restriction** — Changed from `ws:` / `wss:` (allowing WebSocket to any host) to only `wss://taste-api.com` in production. Prevents XSS payloads from exfiltrating data via attacker-controlled WebSocket servers.
+
+4. **Deactivation check in `verifyToken`** — Auth middleware now loads the expert from DB and checks `deactivatedAt` on every authenticated request. Previously, deactivated users could continue using their JWT for up to 2 hours.
+
+5. **Explicit JWT algorithm** — Set `{ algorithms: ['HS256'] }` on `jwt.verify()` and `{ algorithm: 'HS256' }` on `jwt.sign()`. Prevents algorithm confusion attacks.
+
+6. **Input validation tightening** — `txHash` now requires `0x` + 64 hex chars. `createSession` tags capped at 10 items / 50 chars. `buyerAgent`/`buyerAgentDisplay` max 200 chars. `completeSession` structured data values max 10K chars. Decline route now has Zod validation with reason max 1000 chars. Login password max 128 chars.
+
+**Accepted risks (documented):** Stateless JWT means no token invalidation on logout (2h window). CORS allows no-origin for ACP server-to-server callbacks. `unsafe-inline` styles required by React. No MFA for single-admin MVP.

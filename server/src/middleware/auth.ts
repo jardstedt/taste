@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { getEnv } from '../config/env.js';
+import { getExpertById } from '../services/experts.js';
 import type { AuthPayload, ExpertRole } from '../types/index.js';
 
 declare global {
@@ -21,7 +22,15 @@ export function verifyToken(req: Request, res: Response, next: NextFunction): vo
 
   try {
     const env = getEnv();
-    const payload = jwt.verify(token, env.JWT_SECRET) as AuthPayload;
+    const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as AuthPayload;
+
+    // Check if user has been deactivated since token was issued
+    const expert = getExpertById(payload.expertId);
+    if (!expert || expert.deactivatedAt) {
+      res.status(401).json({ success: false, error: 'Account deactivated' });
+      return;
+    }
+
     req.auth = payload;
     next();
   } catch {
@@ -47,5 +56,5 @@ export function requireRole(...roles: ExpertRole[]) {
 
 export function signToken(payload: AuthPayload): string {
   const env = getEnv();
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: '2h' });
+  return jwt.sign(payload, env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '2h' });
 }

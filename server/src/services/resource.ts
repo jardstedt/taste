@@ -9,6 +9,7 @@
 import { getAllExperts } from './experts.js';
 import { getExpertReputationScores } from './reputation.js';
 import { getEnabledSessionOfferings, SESSION_TIERS, DOMAINS } from '../config/domains.js';
+import { getDeliverableFields } from '../config/deliverable-schemas.js';
 import { getDb } from '../db/database.js';
 import type { Domain } from '../types/index.js';
 
@@ -194,4 +195,179 @@ function getOperatingHours(): OperatingHours {
     nextOpenAt,
     note: description,
   };
+}
+
+// ── Offering Catalog Resource ──
+
+interface OfferingCatalogEntry {
+  type: string;
+  name: string;
+  description: string;
+  tier: string;
+  priceRange: [number, number];
+  slaMinutes: [number, number];
+  maxTurns: number;
+  domains: Domain[];
+  requirementFields: string[];
+  deliverableFields: Array<{ key: string; label: string; type: string; required: boolean; options?: string[] }>;
+}
+
+export function getOfferingCatalog(): { service: string; offerings: OfferingCatalogEntry[] } {
+  const offerings = getEnabledSessionOfferings().map(o => {
+    const tier = SESSION_TIERS.find(t => t.id === o.defaultTier);
+    const fields = getDeliverableFields(o.type);
+
+    return {
+      type: o.type,
+      name: o.name,
+      description: o.description,
+      tier: o.defaultTier,
+      priceRange: tier?.priceRange ?? [0, 0] as [number, number],
+      slaMinutes: tier?.durationMinutes ?? [0, 0] as [number, number],
+      maxTurns: tier?.maxTurns ?? 0,
+      domains: o.relevantDomains,
+      requirementFields: OFFERING_REQUIREMENTS[o.type] ?? [],
+      deliverableFields: fields.map(f => ({
+        key: f.key,
+        label: f.label,
+        type: f.type,
+        required: f.required,
+        ...(f.options ? { options: f.options } : {}),
+      })),
+    };
+  });
+
+  return { service: 'Taste: Human Expert Consultation', offerings };
+}
+
+/** Requirement field names per offering type (for catalog) */
+const OFFERING_REQUIREMENTS: Record<string, string[]> = {
+  trust_evaluation: ['projectName (string, required)', 'tokenAddress (string, optional)', 'socialLinks (array, optional)', 'specificQuestion (string, optional)'],
+  output_quality_gate: ['aiOutput (string, required)', 'outputType (string, required)', 'intendedUse (string, required)', 'knownConstraints (string, optional)'],
+  option_ranking: ['options (array of {id, description}, required)', 'evaluationCriteria (string, required)', 'context (string, optional)'],
+  content_quality_gate: ['content (string or URL, required)', 'contentType (string, required)', 'targetAudience (string, required)', 'brandGuidelines (string, optional)'],
+  audience_reaction_poll: ['content (string or URL, required)', 'contentType (string, required)', 'targetAudience (string, required)', 'question (string, optional)'],
+  creative_direction_check: ['brief (string, required)', 'style (string, optional)', 'targetAudience (string, required)', 'medium (string, optional)'],
+  fact_check_verification: ['content (string, required)', 'contentType (string, required)', 'focusAreas (string, optional)', 'sourceLinks (array, optional)'],
+  dispute_arbitration: ['originalContract (string, required)', 'deliverable (string, required)', 'evaluatorContext (string, optional)'],
+};
+
+// ── Sample Deliverables Resource ──
+
+export function getSampleDeliverables(): { service: string; samples: Array<{ offeringType: string; offeringName: string; sampleDeliverable: Record<string, unknown> }> } {
+  const samples = [
+    {
+      offeringType: 'trust_evaluation',
+      offeringName: 'Trust Evaluation',
+      sampleDeliverable: {
+        structuredAssessment: {
+          verdict: 'legitimate',
+          confidenceScore: 8,
+          summary: 'Community growth correlates with IP licensing deals and retail partnerships. Engagement shows organic discussion with substantive content rather than bot activity.',
+          keyFindings: 'Active long-term holders in Discord. Organic meme creation. Developer activity on GitHub.',
+          redFlags: 'Some repetitive shill posts from low-follower accounts',
+          positiveSignals: 'Active long-term holders in Discord. Organic meme creation. Developer activity on GitHub.',
+        },
+        disclaimer: 'This is a qualitative human opinion, not financial or investment advice.',
+      },
+    },
+    {
+      offeringType: 'output_quality_gate',
+      offeringName: 'Output Quality Gate',
+      sampleDeliverable: {
+        structuredAssessment: {
+          qualityVerdict: 'needs_revision',
+          qualityScore: 7,
+          summary: 'Core explanation is accurate but contains a missing fee tier and an unqualified theoretical claim.',
+          issuesFound: 'Missing the 1% fee tier added for volatile pairs (medium severity). 4000x efficiency claim is a theoretical maximum, not typical in practice (low severity).',
+          suggestedImprovements: 'Add fourth fee tier: 0.01%, 0.05%, 0.30%, and 1.00%. Qualify 4000x with \'up to\' or cite typical ranges of 10-50x.',
+        },
+        disclaimer: 'This is a qualitative human opinion, not financial or investment advice.',
+      },
+    },
+    {
+      offeringType: 'option_ranking',
+      offeringName: 'Option Ranking',
+      sampleDeliverable: {
+        structuredAssessment: {
+          topPick: 'A',
+          summary: 'Clean wordmark communicates professionalism and trust expected by institutional clients.',
+          rankings: '1. Option A — Professional, versatile, institutional trust. 2. Option B — Eye-catching but less versatile. 3. Option C — Distinctive but wrong tone.',
+          tradeoffs: 'Option A sacrifices visual distinctiveness for reliability. Option B is more eye-catching but less versatile.',
+        },
+        disclaimer: 'This is a qualitative human opinion, not financial or investment advice.',
+      },
+    },
+    {
+      offeringType: 'content_quality_gate',
+      offeringName: 'Content Quality Gate',
+      sampleDeliverable: {
+        structuredAssessment: {
+          verdict: 'needs_changes',
+          culturalSensitivityScore: 5,
+          brandSafetyScore: 3,
+          summary: 'Strong concept but needs revision on urgency language and cultural framing before publishing.',
+          flaggedIssues: 'BRAND_SAFETY (high): Urgency-based language implying financial opportunity. CULTURAL (medium): Cultural reference used without attribution.',
+        },
+        disclaimer: 'This is a qualitative human opinion, not financial or investment advice.',
+      },
+    },
+    {
+      offeringType: 'audience_reaction_poll',
+      offeringName: 'Audience Reaction Poll',
+      sampleDeliverable: {
+        structuredAssessment: {
+          overallRating: 6,
+          summary: 'Clean layout but headline blends into background. Token logo too small at thumbnail size.',
+          criteriaScores: 'Visual appeal: 6/10. Clarity: 5/10. Click-worthiness: 5/10.',
+          comparisonNotes: 'Compared to trending crypto thumbnails, lacks a visual hook.',
+        },
+        disclaimer: 'This is a qualitative human opinion, not financial or investment advice.',
+      },
+    },
+    {
+      offeringType: 'creative_direction_check',
+      offeringName: 'Creative Direction Check',
+      sampleDeliverable: {
+        structuredAssessment: {
+          verdict: 'revise',
+          viabilityScore: 5,
+          summary: 'Competent concept but indistinguishable from existing cyberpunk AI art. Needs strong differentiators.',
+          culturalFlags: 'Cyberpunk cityscape with neon is oversaturated in Web3 and AI art.',
+          tonalAlignment: 'Tone matches genre expectations but offers nothing distinctive.',
+        },
+        disclaimer: 'This is a qualitative human opinion, not financial or investment advice.',
+      },
+    },
+    {
+      offeringType: 'fact_check_verification',
+      offeringName: 'Fact-Check & Source Verification',
+      sampleDeliverable: {
+        structuredAssessment: {
+          overallAccuracy: 'low',
+          claimsChecked: 2,
+          summary: 'Both claims contain hallucinated sources.',
+          flaggedClaims: 'CLAIM 1: Fabricated Stanford study — FALSE. CLAIM 2: Non-existent blog post — PARTIALLY TRUE (real opinion, wrong source).',
+          corrections: 'Replace claim 1 with Chainalysis 2023 data. Attribute claim 2 to January 2021 blog post.',
+        },
+        disclaimer: 'This is a qualitative human opinion, not financial or investment advice.',
+      },
+    },
+    {
+      offeringType: 'dispute_arbitration',
+      offeringName: 'Dispute Evaluation',
+      sampleDeliverable: {
+        structuredAssessment: {
+          verdict: 'reject',
+          reasoning: 'Deliverable provides only basic token metrics. Original contract required holder distribution, whale activity, and BTC correlation — none delivered.',
+          deliverableQuality: 'poor',
+          contractAlignment: 'not_met',
+          summary: 'Provider delivered basic stats but omitted all substantive requirements.',
+        },
+        disclaimer: 'This is a qualitative human opinion, not financial or investment advice.',
+      },
+    },
+  ];
+
+  return { service: 'Taste: Human Expert Consultation', samples };
 }

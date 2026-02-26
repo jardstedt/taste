@@ -20,6 +20,10 @@ Sources: Virtuals Protocol documentation, ACP whitepapers, X/Twitter social inte
 11. [Gap Analysis Validation](#11-gap-analysis-validation)
 12. [Strategic Recommendations](#12-strategic-recommendations)
 13. [Appendix: X/Twitter Raw Signals](#13-appendix-xtwitter-raw-signals)
+14. [Live API Deep Dive — Agent Profiles & Deliverables](#14-live-api-deep-dive--agent-profiles--deliverables)
+15. [Cross-Reference: Agent Outputs → Taste Services](#15-cross-reference-agent-outputs--taste-services)
+16. [Resource Expansion Strategy](#16-resource-expansion-strategy)
+17. [Offering Description Optimization](#17-offering-description-optimization)
 
 ---
 
@@ -312,16 +316,22 @@ From X/Twitter analysis, the strongest demand signals are:
 
 ### Taste Production Pricing Targets
 
-| Offering | Test | Production | Basis |
-|----------|------|------------|-------|
-| trust_evaluation | $0.01 | $2.00-5.00 | Full session, highest value |
-| output_quality_gate | $0.01 | $0.50-1.50 | Quick review, high volume |
-| option_ranking | $0.01 | $2.00-4.00 | Full session, nuanced |
-| content_quality_gate | $0.01 | $2.00-4.00 | Full session, pre-publish |
-| audience_reaction_poll | $0.01 | $0.50-1.50 | Quick poll |
-| creative_direction_check | $0.01 | $0.50-2.00 | Quick review |
-| fact_check_verification | $0.01 | $1.00-3.00 | Quick, high demand |
-| dispute_arbitration | $0.01 | $1.00-3.00 | Quick, unique |
+Current: all offerings at $0.01 for testing. Production pricing below is informed by live API data from 34 agents (Section 14).
+
+| Offering | Tier | Production Target | Ecosystem Comparable | Rationale |
+|----------|------|-------------------|---------------------|-----------|
+| trust_evaluation | full | $2.00–3.00 | Cybercentry $1, WachAI $0.10–5 | High-value 15-45 min session. Human premium over automated verification |
+| output_quality_gate | quick | $0.75–1.50 | aixbt $1–2, Caesar $0.60–0.75 | Must be cheaper than the analysis it reviews. 5-15 min effort |
+| option_ranking | full | $1.50–2.50 | No automated equivalent | Full session with nuanced comparison. Unique offering |
+| content_quality_gate | full | $2.00–3.00 | Luna $4–40, Maya $0.10–10 | Quality insurance = 5-50% of content production cost |
+| audience_reaction_poll | quick | $0.50–1.00 | OOPZ (surveys, 42K jobs) | Fast turnaround, low effort. Needs to be impulse-buy cheap for A/B testing |
+| creative_direction_check | quick | $0.75–1.50 | Luna $4–40 generation cost | Quick review that saves $4-40 in wasted generation. Clear ROI |
+| fact_check_verification | quick | $1.00–2.00 | ArAIstotle $0.10–0.50 (AI) | Human premium = 2-4x over automated fact-checking |
+| dispute_arbitration | quick | $1.00–2.00 | No equivalent exists | Value proportional to disputed job's price. Unique service |
+
+**Recommended launch strategy:** Start at the lower end of each range ($1.00 flat for quick-tier, $2.00 flat for full-tier) to build volume and success rate metrics. Butler ranking and Revenue Network rewards both reward completed job count. Increase prices after 100+ completed jobs with high success rate.
+
+**Expert payout at production pricing:** At $1.00 job price, expert receives $0.60 (EXPERT_SHARE 80% × (1 - PLATFORM_FEE 25%) = 60%). At $2.00, expert receives $1.20. Minimum viable for 5-15 min quick reviews.
 
 Human expertise commands a premium as the only offering of its kind. Current automated services range $0.03-$1.00.
 
@@ -497,5 +507,166 @@ Note: This is a competing marketplace to ACP itself, not a HITL competitor.
 
 ---
 
+---
+
+## 14. Live API Deep Dive — Agent Profiles & Deliverables
+
+Data collected February 26, 2026 via `scripts/acp-research.ts` (21 search queries, 34 unique agents) and `scripts/fetch-agent.js` (detailed agent profiles with full offering schemas). Source: `https://acpx.virtuals.io/api/agents/v4/search`.
+
+### Top Agents by On-Chain Metrics
+
+| Agent | Total Jobs | Success% | Key Output | Price Range | Deliverable Type |
+|-------|-----------|----------|------------|-------------|-----------------|
+| Ethy AI | 1,130,000 | 99.6% | Token analysis JSON | $0.01–10 | Structured JSON |
+| Axelrod | 126,000 | — | Trading signals | — | Text/signals |
+| OOPZ | 42,800 | 99.9% | Survey data | — | Structured JSON |
+| Luna | 40,500 | 50.9% | AI video (TikTok/Reels) | $4–40 | URL to video |
+| aixbt | 17,200 | 84.9% | Market intelligence | $1–2 | Text reports |
+| Maya | 14,500 | 80.95% | AI images/video | $0.1–10 | URL to media |
+| Ask Caesar | 9,400 | 71.2% | Research reports | $0.6–0.75 | Long-form text |
+| Johnny Suede | 6,500 | 61% | Music/video | $2–20 | URL to audio/video |
+| ArAIstotle | 5,100 | 97.7% | AI fact-check results | $0.1–0.5 | Structured JSON |
+| WachAI | 2,400 | 70.1% | Token verification | $0.1–5 | Structured JSON |
+
+**Key insight: Content agents have the worst success rates.** Luna (50.9%), Johnny Suede (61%), WachAI (70.1%), Ask Caesar (71.2%). These are the agents most likely to benefit from human quality review before delivery.
+
+### Deliverable Format Distribution
+
+Three patterns dominate ACP deliverables:
+
+1. **URL-based** (content agents): Luna, Maya, Otto, Johnny Suede deliver URLs to generated media. Format: `{"type": "url", "value": "https://..."}`. These agents are primary targets for `content_quality_gate` and `audience_reaction_poll`.
+
+2. **JSON-based** (analysis agents): Ethy AI, ArAIstotle, HiveFury, BigBug deliver structured JSON with typed fields. These benefit from `output_quality_gate` and `fact_check_verification`.
+
+3. **Text-based** (research agents): aixbt, Ask Caesar, WhaleIntel deliver long-form text reports. These benefit from `output_quality_gate` and `fact_check_verification`.
+
+### Pricing Distribution
+
+From 34 agents with fixed-price offerings:
+- **Min:** $0.01 (testing/token-info endpoints)
+- **Median:** ~$0.50
+- **Mean:** ~$1.50
+- **Max:** $40.00 (Luna premium video)
+
+Taste's production targets ($0.50–$5.00) sit in the premium range — justified by unique human expertise.
+
+---
+
+## 15. Cross-Reference: Agent Outputs → Taste Services
+
+The core strategic matrix — what ACP agents produce, where quality fails, and which Taste offering addresses it.
+
+| Source Agent | What They Produce | Quality Failure Modes | Taste Offering | Value Proposition |
+|-------------|-------------------|----------------------|----------------|-------------------|
+| **Luna** (40K jobs, 50.9% success) | AI video for TikTok/Reels | Derivative content, cultural insensitivity, low engagement | content_quality_gate | Human catches cultural red flags, brand safety issues |
+| **Luna** (multiple variants) | Video options for A/B testing | Agent can't assess subjective quality | option_ranking | Human picks variant with best audience appeal |
+| **Maya** (14.5K jobs, 80.95%) | AI-generated social images | Template aesthetics, oversaturated styles | content_quality_gate, audience_reaction_poll | Human rates visual impact, identifies derivative patterns |
+| **Otto AI Tools** | Token analysis, research reports | Hallucinated data, stale sources | output_quality_gate, fact_check_verification | Human verifies facts, catches AI hallucinations |
+| **Johnny Suede** (6.5K jobs, 61%) | AI music + video content | Tonal mismatches, plagiarism risk | creative_direction_check, content_quality_gate | Human assesses musical quality, copyright risk |
+| **ArAIstotle** (5.1K jobs, 97.7%) | AI fact-checking results | AI checking AI = blind spots | fact_check_verification | Human catches what AI fact-checkers miss — meta-verification |
+| **aixbt** (17.2K jobs, 84.9%) | Market intelligence text | Unverified claims, stale data | output_quality_gate, fact_check_verification | Human validates intelligence before trading decisions |
+| **Ask Caesar** (9.4K jobs, 71.2%) | Long-form research reports | Hallucinated citations, bias | output_quality_gate, fact_check_verification | Human reviews before publishing or acting |
+| **Ethy AI** (1.13M jobs, 99.6%) | Token analysis JSON | Incomplete analysis, missed risks | trust_evaluation | Human due diligence on token legitimacy |
+| **WhaleIntel** | On-chain intelligence reports | Misidentified wallets, stale data | output_quality_gate | Human validates whale tracking accuracy |
+| **WachAI** (2.4K jobs, 70.1%) | Token verification results | False positives/negatives | trust_evaluation | Human confirms automated verification |
+| **HiveFury Sentinel** | Security audit results | Can't assess business logic | trust_evaluation, dispute_arbitration | Human reviews security findings |
+| **OOPZ** (42.8K jobs) | Survey/poll data | Methodology issues, bias | audience_reaction_poll | Human validates survey quality |
+| **Any agent** (disputes) | Disputed deliverables | Evaluator agent can't judge subjective quality | dispute_arbitration | Human arbiter for contract fulfillment |
+
+### Highest-Impact Integrations
+
+1. **Luna pipeline** (AMH cluster): 40K jobs, only 50.9% success. Inserting `content_quality_gate` as evaluator could significantly improve quality. A 10% improvement in success rate across 40K jobs = 4,000 additional successful deliveries.
+
+2. **ArAIstotle meta-verification**: AI fact-checking has 97.7% success but can't catch the 2.3% of errors that are contextual, outdated, or subtly wrong. `fact_check_verification` provides the human layer that makes AI fact-checks trustworthy.
+
+3. **Research pipeline** (aixbt + Caesar): Combined 26.6K jobs producing market intelligence and research. `output_quality_gate` validates before these reports influence trading decisions.
+
+---
+
+## 16. Resource Expansion Strategy
+
+### Current State: 1 Resource
+
+Taste has a single resource: `expert_availability` at `/api/public/resource/availability`.
+
+### Ecosystem Benchmark
+
+Top agents by resource count:
+- **ButlerLiquid**: 8 resources (portfolio, positions, market data)
+- **Otto AI Tools**: 9 resources (capabilities, market, token info)
+- **DegenAI**: 8 resources (portfolio, balances, strategies)
+
+Common patterns across successful agents:
+1. **Capability listing** — what the agent can do (helps Butler match queries)
+2. **Live status** — availability, queue depth (helps agents time requests)
+3. **Data feeds** — market data, portfolio data (often with `{{clientAddress}}` personalization)
+4. **Sample outputs** — what deliverables look like (reduces buyer uncertainty)
+
+### Expanded Resources (Implemented)
+
+| # | Resource | URL | Purpose | Status |
+|---|----------|-----|---------|--------|
+| 1 | `expert_availability` | `/api/public/resource/availability` | When to use Taste (hours, capacity, domains) | LIVE |
+| 2 | `offering_catalog` | `/api/public/resource/offerings` | Which offering to use (schemas, pricing, SLA) | LIVE |
+| 3 | `sample_deliverables` | `/api/public/resource/samples` | What you'll receive (example deliverables per type) | LIVE |
+
+**Three resources maps to a decision funnel:**
+1. `expert_availability` → "Is Taste available right now?" (timing decision)
+2. `offering_catalog` → "Which offering should I use?" (selection decision)
+3. `sample_deliverables` → "What will I get back?" (confidence decision)
+
+Each resource adds semantic surface for Butler discovery while serving a distinct agent decision point.
+
+---
+
+## 17. Offering Description Optimization
+
+### Changes Applied (February 26, 2026)
+
+Descriptions in `agent-offerings.json` were updated based on the cross-reference analysis. Changes focus on three principles:
+
+1. **Reference actual ecosystem outputs** — use the language agents use for what they produce
+2. **Differentiate from automated alternatives** — emphasize what human review catches that AI misses
+3. **Match Butler search semantics** — include terms agents actually search for
+
+#### trust_evaluation
+- Added: "validate automated token analysis", "token scanners"
+- Rationale: Ethy AI, WachAI, BigBug all produce automated token analysis. Taste validates these outputs.
+
+#### output_quality_gate
+- Added: "research reports", "market intelligence", "market signals", "stale sources"
+- Rationale: aixbt and Ask Caesar produce market reports. "Stale sources" is a specific failure mode.
+
+#### option_ranking
+- Added: "AI-generated content variants"
+- Rationale: Luna/Maya generate multiple options. Agents need human comparison.
+
+#### content_quality_gate
+- Added: "memes", "TikTok, Twitter, or YouTube", "audience appeal"
+- Rationale: References actual platforms where Luna/Maya content is distributed.
+
+#### fact_check_verification
+- Added: "Unlike automated fact-checkers", "contextual errors, outdated sources, subtle misrepresentations"
+- Rationale: Differentiates from ArAIstotle (AI fact-checking, 97.7% success). Emphasizes human advantage.
+
+### Keyword Routing Expansion
+
+`OFFERING_NAME_MAP` in `services/acp.ts` expanded with 22 new keywords based on ecosystem language:
+
+| Offering | New Keywords |
+|----------|-------------|
+| trust_evaluation | token audit, verify token, token review, project review |
+| output_quality_gate | second opinion, verify analysis, validate output, review report, review analysis, sanity check, check output |
+| option_ranking | compare content |
+| content_quality_gate | video review, image review, meme review, review video, review image, check content |
+| audience_reaction_poll | rate this, human rating, score content |
+| creative_direction_check | creative check |
+| fact_check_verification | verify research, verify report, human verification |
+
+Total keyword coverage: 60 → 82 keywords (+37%).
+
+---
+
 *This document supersedes: `feedback/service_gaps_for_taste.md`, `docs/offerings-and-resources-implementation.md`*
-*Related documents: `docs/offerings.md` (offering specs), `agent-offerings.json` (Virtuals GUI config)*
+*Related documents: `docs/offerings.md` (offering specs), `agent-offerings.json` (Virtuals GUI config), `agent-resources.json` (Virtuals GUI resources config)*
+*Research tools: `scripts/acp-research.ts` (ecosystem search), `scripts/fetch-agent.js` (agent detail fetcher)*

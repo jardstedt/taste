@@ -12,7 +12,10 @@ export function createHelmet(): RequestHandler {
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", 'data:'],
-        connectSrc: ["'self'", "ws:", "wss:"],
+        connectSrc: ["'self'",
+          ...(process.env.NODE_ENV === 'production'
+            ? ["wss://taste-api.com"]
+            : ["ws://localhost:3001", "wss://localhost:3001", "ws://127.0.0.1:3001", "wss://127.0.0.1:3001"])],
       },
     },
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },

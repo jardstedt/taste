@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { setupTestDb, createOnlineExpert, testSession as _testSession } from './helpers.js';
 import { getDb } from '../db/database.js';
-import { getExpertById, deactivateExpert } from '../services/experts.js';
+import { getExpertById, deactivateExpert, incrementCompletedJobs } from '../services/experts.js';
 import {
   createSession,
   getSessionById,
@@ -14,6 +14,13 @@ import {
   confirmSessionPayout,
 } from '../services/sessions.js';
 import { requestWithdrawal } from '../services/withdrawals.js';
+import {
+  completeWithdrawalSchema,
+  createSessionSchema,
+  completeSessionSchema,
+  declineSessionSchema,
+  loginSchema,
+} from '../middleware/validation.js';
 
 function testSession() { return _testSession('trust_evaluation', 100); }
 
@@ -224,6 +231,96 @@ describe('security', () => {
       const final = getSessionById(session.id)!;
       expect(final.status).toBe('completed');
       expect(final.paymentReceivedAt).toBeTruthy(); // Not cleared by completion
+    });
+  });
+
+  describe('incrementCompletedJobs atomicity', () => {
+    it('uses atomic SQL to update earnings', async () => {
+      const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+
+      // First job: $10 payout, 5 min response
+      incrementCompletedJobs(expert.id, 5, 10);
+      let updated = getExpertById(expert.id)!;
+      expect(updated.completedJobs).toBe(1);
+      expect(updated.earningsUsdc).toBe(10);
+      expect(updated.avgResponseTimeMins).toBe(5);
+
+      // Second job: $20 payout, 15 min response → avg should be (5+15)/2 = 10
+      incrementCompletedJobs(expert.id, 15, 20);
+      updated = getExpertById(expert.id)!;
+      expect(updated.completedJobs).toBe(2);
+      expect(updated.earningsUsdc).toBe(30);
+      expect(updated.avgResponseTimeMins).toBe(10);
+    });
+
+    it('handles zero earnings gracefully', async () => {
+      const expert = await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
+      incrementCompletedJobs(expert.id, 3, 0);
+      const updated = getExpertById(expert.id)!;
+      expect(updated.completedJobs).toBe(1);
+      expect(updated.earningsUsdc).toBe(0);
+    });
+  });
+
+  describe('input validation hardening', () => {
+    it('rejects invalid transaction hashes', () => {
+      expect(completeWithdrawalSchema.safeParse({ txHash: 'not-a-hash' }).success).toBe(false);
+      expect(completeWithdrawalSchema.safeParse({ txHash: '0x' + 'a'.repeat(64) }).success).toBe(true);
+      expect(completeWithdrawalSchema.safeParse({ txHash: '0x' + 'g'.repeat(64) }).success).toBe(false);
+    });
+
+    it('limits createSession field lengths', () => {
+      // Tags should be capped at 10 items with 50 char max per tag
+      const tooManyTags = createSessionSchema.safeParse({
+        offeringType: 'test',
+        tags: Array(11).fill('tag'),
+      });
+      expect(tooManyTags.success).toBe(false);
+
+      // Long tag should fail
+      const longTag = createSessionSchema.safeParse({
+        offeringType: 'test',
+        tags: ['a'.repeat(51)],
+      });
+      expect(longTag.success).toBe(false);
+
+      // buyerAgent should be bounded
+      const longAgent = createSessionSchema.safeParse({
+        offeringType: 'test',
+        buyerAgent: 'a'.repeat(201),
+      });
+      expect(longAgent.success).toBe(false);
+    });
+
+    it('limits structured data value lengths', () => {
+      const tooLong = completeSessionSchema.safeParse({
+        structuredData: { key: 'a'.repeat(10001) },
+      });
+      expect(tooLong.success).toBe(false);
+
+      const ok = completeSessionSchema.safeParse({
+        structuredData: { key: 'a'.repeat(10000) },
+      });
+      expect(ok.success).toBe(true);
+    });
+
+    it('decline reason is bounded', () => {
+      const tooLong = declineSessionSchema.safeParse({ reason: 'a'.repeat(1001) });
+      expect(tooLong.success).toBe(false);
+
+      const ok = declineSessionSchema.safeParse({ reason: 'Valid reason' });
+      expect(ok.success).toBe(true);
+
+      const empty = declineSessionSchema.safeParse({});
+      expect(empty.success).toBe(true); // reason is optional
+    });
+
+    it('login password is bounded', () => {
+      const tooLong = loginSchema.safeParse({ email: 'a@b.com', password: 'a'.repeat(129) });
+      expect(tooLong.success).toBe(false);
+
+      const ok = loginSchema.safeParse({ email: 'a@b.com', password: 'valid' });
+      expect(ok.success).toBe(true);
     });
   });
 

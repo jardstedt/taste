@@ -31,7 +31,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
   {
     type: 'trust_evaluation',
     name: 'Trust Evaluation',
-    description: 'Evaluate the trustworthiness and legitimacy of a project, token, or entity through live expert conversation',
+    description: 'Evaluate the trustworthiness and legitimacy of a project, token, or entity. Supports optional back-and-forth conversation via memos',
     defaultTier: 'full',
     relevantDomains: ['crypto', 'community'],
     enabled: true,
@@ -55,7 +55,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
   {
     type: 'option_ranking',
     name: 'Option Ranking',
-    description: 'Expert ranks and compares multiple options with live reasoning',
+    description: 'Expert ranks and compares multiple options with qualitative reasoning',
     defaultTier: 'full',
     relevantDomains: ['general', 'crypto', 'design', 'art', 'music'],
     enabled: true,

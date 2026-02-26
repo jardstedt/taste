@@ -5,7 +5,7 @@ import type { Request, Response, NextFunction } from 'express';
 
 export const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
+  password: z.string().min(1).max(128),
 });
 
 const credentialsSchema = z.object({
@@ -45,7 +45,7 @@ export const acceptAgreementSchema = z.object({
 
 export const setPasswordSchema = z.object({
   password: passwordSchema,
-  currentPassword: z.string().min(1).optional(),
+  currentPassword: z.string().min(1).max(128).optional(),
 });
 
 // ── Wallet & Withdrawal Schemas (v1.3) ──
@@ -60,7 +60,7 @@ export const requestWithdrawalSchema = z.object({
 });
 
 export const completeWithdrawalSchema = z.object({
-  txHash: z.string().min(1, 'Transaction hash is required'),
+  txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid transaction hash (must be 0x + 64 hex chars)'),
 });
 
 export const rejectWithdrawalSchema = z.object({
@@ -70,13 +70,17 @@ export const rejectWithdrawalSchema = z.object({
 // ── Session Schemas (v1.1) ──
 
 export const createSessionSchema = z.object({
-  offeringType: z.string().min(1),
+  offeringType: z.string().min(1).max(100),
   tierId: z.enum(['quick', 'full', 'deep']).optional(),
   description: z.string().max(2000).optional(),
-  tags: z.array(z.string()).optional(),
-  buyerAgent: z.string().optional(),
-  buyerAgentDisplay: z.string().optional(),
+  tags: z.array(z.string().max(50)).max(10).optional(),
+  buyerAgent: z.string().max(200).optional(),
+  buyerAgentDisplay: z.string().max(200).optional(),
   priceUsdc: z.number().min(0).optional(),
+});
+
+export const declineSessionSchema = z.object({
+  reason: z.string().max(1000).optional(),
 });
 
 export const sendMessageSchema = z.object({
@@ -95,7 +99,7 @@ export const respondAddonSchema = z.object({
 });
 
 export const completeSessionSchema = z.object({
-  structuredData: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+  structuredData: z.record(z.string().max(100), z.union([z.string().max(10000), z.number(), z.boolean(), z.null()])).optional(),
   summary: z.string().max(5000).optional(),
 });
 
