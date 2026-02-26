@@ -74,6 +74,27 @@ describe('sessions', () => {
       expect(completed!.status).toBe('completed');
       expect(completed!.expertPayoutUsdc).toBeGreaterThan(0);
     });
+
+    it('completes from accepted status (form-first flow)', async () => {
+      await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
+      const session = testSession();
+      matchSession(session.id);
+      const matched = getSessionById(session.id)!;
+      acceptSession(session.id, matched.expertId!);
+
+      // Session is in 'accepted' — expert submits form without sending a message
+      expect(getSessionById(session.id)!.status).toBe('accepted');
+      const completed = completeSession(session.id);
+      expect(completed).toBeTruthy();
+      expect(completed!.status).toBe('completed');
+      expect(completed!.expertPayoutUsdc).toBeGreaterThan(0);
+    });
+
+    it('rejects completion from pending status', () => {
+      const session = testSession();
+      const result = completeSession(session.id);
+      expect(result).toBeNull();
+    });
   });
 
   describe('timeoutSession', () => {

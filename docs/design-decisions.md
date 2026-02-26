@@ -172,7 +172,7 @@ All `sendPushToExpert` calls (both ACP and dashboard routes) now have `.catch()`
 - `EXPERT_SHARE = 0.80` — expert's share of session price
 - `PLATFORM_FEE = 0.25` — platform fee from expert's share
 - `GRACE_TURNS = 5` — extra turns after max
-- `MAX_DESCRIPTION_LENGTH = 500` — ACP description cap
+- `MAX_DESCRIPTION_LENGTH = 2000` — ACP description cap
 - `MAX_MEMO_LENGTH = 2000` — ACP memo cap
 - `MAX_VERDICT_REASON_LENGTH = 500` — evaluator verdict reason cap
 - `MEMO_BRIDGE_POLL_MS = 10_000` — memo polling interval
@@ -246,3 +246,47 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 6. **Input validation tightening** — `txHash` now requires `0x` + 64 hex chars. `createSession` tags capped at 10 items / 50 chars. `buyerAgent`/`buyerAgentDisplay` max 200 chars. `completeSession` structured data values max 10K chars. Decline route now has Zod validation with reason max 1000 chars. Login password max 128 chars.
 
 **Accepted risks (documented):** Stateless JWT means no token invalidation on logout (2h window). CORS allows no-origin for ACP server-to-server callbacks. `unsafe-inline` styles required by React. No MFA for single-admin MVP.
+
+---
+
+## Dashboard UX
+
+### 2026-02-26: Form-first session layout (chat-first → form-first)
+
+**Context:** The original session view was chat-first: expert sees messages, types responses, then clicks "End Session" to open a modal completion form. But no ACP agents respond to messages — they use a one-shot submit→deliver model. The chat area was dead space for every real session.
+
+**Decision:** Invert the layout. Top to bottom: header → request card → inline assessment form → collapsible chat section (collapsed by default). The CompletionForm now supports `inline` mode (no modal overlay), and the chat section shows a badge with message count.
+
+**Rationale:** The UI should reflect the actual workflow: read the request, fill in the structured form, submit. Chat is preserved for when agents eventually support memos, but it's not the primary interface. This eliminated the empty "waiting for messages" experience that confused experts.
+
+### 2026-02-26: Allow session completion from `accepted` status
+
+**Context:** The form-first layout lets experts submit the assessment without ever sending a message. Previously, the first expert message triggered the `accepted` → `active` transition, and `completeSession()` only accepted `active` or `wrapping_up` status. Experts clicking "Submit Assessment" on a fresh session got "Cannot complete this session".
+
+**Decision:** Added `accepted` to the allowed completion statuses in both the route guard (`routes/sessions.ts`) and the atomic SQL WHERE clause (`sessions.ts`). The status flow now allows: `accepted` → `completed` (form-first, no chat) alongside the existing `active` → `completed` (chat-then-form).
+
+**Rationale:** The status machine should reflect valid workflows, not force experts through an artificial "send a message first" step. Tests added for both the happy path (`accepted` → `completed`) and the guard (pending sessions still can't complete).
+
+### 2026-02-26: Domain model update — `narrative` → `culture`, add `business`
+
+**Context:** Preparing for 3-expert launch roster. The `narrative` domain ("Storytelling & Narrative") was too niche. The team's actual expertise maps better to "culture" (broader). Additionally, business/economics expertise was missing from the domain model entirely.
+
+**Decision:** Renamed `narrative` to `culture` ("Writing & Culture") and added `business` ("Business & Economics"). Updated all references: types, validation schemas, domain configs, offering relevantDomains, seed data, tests. Added `business` to offerings where relevant (trust_evaluation, option_ranking, fact_check_verification, dispute_arbitration).
+
+**Rationale:** Domains should match the actual expertise available at launch. "Culture" better describes the breadth of the expert's capabilities than "narrative". The `business` domain opens up financial analysis, market evaluation, and business strategy requests.
+
+### 2026-02-26: Description length increase (500 → 2000 chars)
+
+**Context:** ACP agents send structured JSON as session descriptions. These often contain full deliverables, contract terms, and context that exceed 500 characters. Dispute arbitration descriptions were being truncated, losing critical context for the expert.
+
+**Decision:** Increased `MAX_DESCRIPTION_LENGTH` from 500 to 2000 characters. Matches the existing `MAX_MEMO_LENGTH` of 2000.
+
+**Rationale:** Truncating the request that the expert needs to evaluate defeats the purpose. 2000 chars accommodates the longest observed agent submissions while still providing a reasonable cap.
+
+### 2026-02-26: CompletionForm schemas synced with server
+
+**Context:** The dashboard's CompletionForm had its own hardcoded field definitions for each offering type. When `fact_check_verification` and `dispute_arbitration` were added to the server's `deliverable-schemas.ts`, the dashboard wasn't updated. It fell back to generic fields (summary, verdict, keyFindings) that didn't match the server's Zod validation, causing "Invalid structured data" errors.
+
+**Decision:** Added explicit field definitions for `fact_check_verification` and `dispute_arbitration` to the CompletionForm's `DELIVERABLE_SCHEMAS` map, matching the server's expected fields exactly.
+
+**Trade-off:** Field definitions are duplicated between server (`deliverable-schemas.ts`) and dashboard (`CompletionForm.tsx`). A shared schema package would eliminate drift, but is over-engineering for the current offering count. The test suite catches mismatches.
