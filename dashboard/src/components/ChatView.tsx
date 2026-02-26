@@ -5,6 +5,7 @@ import { CompletionForm } from './CompletionForm.js';
 import * as api from '../api/client.js';
 import type { ChatMessage } from '../types/index.js';
 import { formatOffering, truncateAddress, parseDescription } from '../utils/format.js';
+import { LinkifyText } from './LinkifyText.js';
 
 const OFFERING_CHECKLIST: Record<string, string[]> = {
   trust_evaluation: ['Assess project legitimacy', 'Check community authenticity', 'Review team/partnership claims', 'Provide trust verdict'],
@@ -153,13 +154,13 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
                 {desc.pairs.map(([label, value]) => (
                   <div key={label}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 2, textTransform: 'capitalize' }}>{label}</div>
-                    <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{value}</div>
+                    <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}><LinkifyText text={value} /></div>
                   </div>
                 ))}
               </div>
             ) : (
               <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.5 }}>
-                {desc.raw}
+                <LinkifyText text={desc.raw} />
               </div>
             )}
           </div>
@@ -358,7 +359,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
 
   return (
     <div className={`chat-bubble ${isAgent ? 'chat-bubble-agent' : ''} ${isExpert ? 'chat-bubble-expert' : ''}`}>
-      <div className="chat-bubble-content">{sanitizeContent(message.content)}</div>
+      <div className="chat-bubble-content"><LinkifyText text={sanitizeContent(message.content)} /></div>
       <div className="chat-bubble-time">
         {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </div>

@@ -1,5 +1,6 @@
 import type { Session } from '../types/index.js';
 import { formatOffering, truncateAddress, parseDescription } from '../utils/format.js';
+import { LinkifyText } from './LinkifyText.js';
 
 interface SessionRequestProps {
   session: Session;
@@ -38,12 +39,12 @@ export function SessionRequest({ session, onAccept, onDecline }: SessionRequestP
             {desc.pairs.map(([label, value]) => (
               <div key={label}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 2, textTransform: 'capitalize' }}>{label}</div>
-                <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{value}</div>
+                <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}><LinkifyText text={value} /></div>
               </div>
             ))}
           </div>
         ) : (
-          <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.6, marginBottom: 16 }}>{desc.raw}</p>
+          <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.6, marginBottom: 16 }}><LinkifyText text={desc.raw} /></p>
         )
       )}
 

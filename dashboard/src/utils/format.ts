@@ -10,6 +10,31 @@ export function truncateAddress(addr: string | null): string {
   return `${addr.slice(0, 3)}...${addr.slice(-3)}`;
 }
 
+/**
+ * Split text into segments of plain text and https/http URLs.
+ * Only http(s) URLs are linkified — no javascript:, data:, or other protocols.
+ */
+export function linkify(text: string): { type: 'text' | 'link'; value: string }[] {
+  const urlRegex = /https?:\/\/[^\s<>"')\]},]+/g;
+  const segments: { type: 'text' | 'link'; value: string }[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = urlRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ type: 'text', value: text.slice(lastIndex, match.index) });
+    }
+    segments.push({ type: 'link', value: match[0] });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    segments.push({ type: 'text', value: text.slice(lastIndex) });
+  }
+
+  return segments;
+}
+
 /** Parse a JSON description string into key-value pairs for display */
 export function parseDescription(desc: string | null): { isJson: boolean; pairs: [string, string][]; raw: string } {
   if (!desc) return { isJson: false, pairs: [], raw: '' };
