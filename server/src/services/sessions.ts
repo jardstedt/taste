@@ -357,12 +357,21 @@ export function completeSession(sessionId: string): Session | null {
     confirmSessionPayout(sessionId);
   }
 
-  // For evaluator (dispute_arbitration) sessions, submit verdict to ACP
-  if (session.offeringType === 'dispute_arbitration' && session.acpJobId) {
-    import('./acp.js').then(({ submitEvaluatorVerdict }) => {
-      submitEvaluatorVerdict(sessionId).catch(err =>
-        console.error('[ACP] Failed to submit evaluator verdict:', err));
-    });
+  // Deliver to ACP immediately on session completion
+  if (session.acpJobId) {
+    if (session.offeringType === 'dispute_arbitration') {
+      // Evaluator sessions submit a verdict instead of a deliverable
+      import('./acp.js').then(({ submitEvaluatorVerdict }) => {
+        submitEvaluatorVerdict(sessionId).catch(err =>
+          console.error('[ACP] Failed to submit evaluator verdict:', err));
+      });
+    } else {
+      // Regular sessions deliver the structured deliverable
+      import('./acp.js').then(({ deliverSessionToAcp }) => {
+        deliverSessionToAcp(sessionId).catch(err =>
+          console.error('[ACP] Failed to deliver session to ACP:', err));
+      });
+    }
   }
 
   return getSessionById(sessionId);
