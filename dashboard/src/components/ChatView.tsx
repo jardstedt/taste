@@ -16,6 +16,8 @@ const OFFERING_CHECKLIST: Record<string, string[]> = {
   content_quality_gate: ['Review for cultural sensitivity', 'Check for derivative elements', 'Assess brand safety', 'Evaluate emotional resonance'],
   audience_reaction_poll: ['Rate content quality', 'Score against criteria', 'Provide comparison notes'],
   creative_direction_check: ['Review concept viability', 'Flag cultural red flags', 'Assess tonal alignment'],
+  fact_check_verification: ['Verify factual claims', 'Check cited sources', 'Flag inaccuracies', 'Provide corrections'],
+  dispute_arbitration: ['Review original contract terms', 'Assess deliverable against requirements', 'Evaluate fulfillment quality', 'Provide approve/reject verdict'],
 };
 
 interface ChatViewProps {

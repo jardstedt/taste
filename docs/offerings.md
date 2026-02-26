@@ -15,7 +15,7 @@ Expert payout = price × 0.8 × 0.75 = **60% of session price**
 
 ## Enabled Offerings (v1 Launch)
 
-These 6 offerings are active and accepting ACP jobs. All have low rejection risk and structured deliverables.
+These 8 offerings are active and accepting ACP jobs. All have low rejection risk and structured deliverables.
 
 ### 1. Trust Evaluation
 - **Type:** `trust_evaluation`
@@ -103,6 +103,38 @@ These 6 offerings are active and accepting ACP jobs. All have low rejection risk
 - **Rejection risk:** LOW — Early-stage feedback is inherently advisory.
 - **ACP keywords:** "creative direction check", "creative review", "concept check", "pre-production review", "creative brief"
 - **Target agents:** Creative production agents, storyboard agents, campaign planning agents, music production agents
+
+### 7. Fact-Check & Source Verification
+- **Type:** `fact_check_verification`
+- **Status:** ENABLED
+- **Default tier:** quick
+- **Domains:** general, crypto, narrative
+- **Description:** Human expert verifies factual claims, checks sources, and flags inaccuracies in AI-generated or user-submitted content
+- **Checklist:**
+  1. Verify factual claims
+  2. Check cited sources
+  3. Flag inaccuracies
+  4. Provide corrections
+- **Deliverable format:** Structured assessment with overallAccuracy (high/medium/low), claimsChecked, summary, flaggedClaims, corrections
+- **Rejection risk:** LOW — Structured per-claim verification. Objectively verifiable.
+- **ACP keywords:** "fact check", "source verification", "verify facts", "check accuracy", "human fact check", "hallucination check", "verify claims", "check sources"
+- **Target agents:** Research agents, content generators, analysis agents, any agent producing factual claims that need human verification. Addresses the core AI hallucination problem.
+
+### 8. Dispute Evaluation
+- **Type:** `dispute_arbitration`
+- **Status:** ENABLED
+- **Default tier:** quick
+- **Domains:** general, crypto
+- **Description:** Third-party human evaluation of an ACP job delivery. Expert reviews whether the provider fulfilled the original contract and submits an approve/reject verdict
+- **Checklist:**
+  1. Review original contract terms
+  2. Assess deliverable against requirements
+  3. Evaluate fulfillment quality
+  4. Provide approve/reject verdict
+- **Deliverable format:** Structured assessment with verdict (approve/reject), reasoning, deliverableQuality, contractAlignment, summary
+- **Rejection risk:** LOW — Binary approve/reject with structured reasoning. Clear criteria.
+- **ACP keywords:** "dispute", "arbitration", "evaluate delivery", "dispute resolution", "delivery review", "contract dispute"
+- **Target agents:** Any ACP agent needing third-party evaluation. Evaluator jobs arrive via onEvaluate callback. The only human arbitration service on ACP.
 
 ---
 
@@ -203,7 +235,9 @@ The `OFFERING_NAME_MAP` in `acp.ts` resolves agent job names to offering types. 
 | "option ranking", "a/b test", "compare options", "pick the best", "which is better" | `option_ranking` |
 | "content quality gate", "pre-publish review", "content review", "brand safety check" | `content_quality_gate` |
 | "audience reaction poll", "quick poll", "rate my content", "thumbnail test" | `audience_reaction_poll` |
-| "creative direction check", "creative review", "concept check", "pre-production review", "creative brief" | `creative_direction_check` |
+| "creative direction check", "creative review", "concept check", "pre-production review", "creative brief", "concept review", "creative concept", "direction check" | `creative_direction_check` |
+| "fact check", "source verification", "verify facts", "check accuracy", "human fact check", "hallucination check", "verify claims", "check sources" | `fact_check_verification` |
+| "dispute", "arbitration", "evaluate delivery", "dispute resolution", "delivery review", "contract dispute" | `dispute_arbitration` |
 | "cultural context", "trend check", "cultural insight", "vibe check on trends" | `cultural_context` (disabled) |
 | "blind spot check", "ai sanity check", "what am i missing", "gap analysis" | `blind_spot_check` (disabled) |
 | "human reaction prediction", "audience reaction", "will people like this", "sentiment prediction" | `human_reaction_prediction` (disabled) |
@@ -233,7 +267,9 @@ Taste is the **human-in-the-loop layer** for AI agents. Agents are good at data 
 | **Creative production agents** | Creative Direction Check | "Validate your creative brief before burning compute on generation" |
 | **Social media / marketing agents** | Content Quality Gate, Audience Reaction Poll | "Brand safety check before posting, audience gut-check on content" |
 | **Trading / portfolio agents** | Trust Evaluation | "Human due diligence on projects before allocation decisions" |
+| **Research / analysis agents** (Caesar, Otto AI) | Fact-Check & Source Verification | "Human verifies your research output for hallucinated citations and fabricated stats" |
 | **Multi-agent orchestrators** | Any offering | "Add a human expert node to your agent pipeline" |
+| **Any ACP agent (evaluator role)** | Dispute Evaluation | "Human arbiter for contract disputes — reviews deliverable vs requirements" |
 
 ### Key Differentiators for Agent Developers
 

@@ -113,10 +113,17 @@ const OFFERING_NAME_MAP: Record<string, string> = {
   'source verification': 'fact_check_verification',
   'verify facts': 'fact_check_verification',
   'check accuracy': 'fact_check_verification',
+  'human fact check': 'fact_check_verification',
+  'hallucination check': 'fact_check_verification',
+  'verify claims': 'fact_check_verification',
+  'check sources': 'fact_check_verification',
   // dispute_arbitration (evaluator jobs come via onEvaluate, not keyword — added for completeness)
   'dispute': 'dispute_arbitration',
   'arbitration': 'dispute_arbitration',
   'evaluate delivery': 'dispute_arbitration',
+  'dispute resolution': 'dispute_arbitration',
+  'delivery review': 'dispute_arbitration',
+  'contract dispute': 'dispute_arbitration',
 };
 
 function resolveOfferingType(jobName: string): string {
