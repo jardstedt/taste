@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth.js';
 import { LoginForm } from './components/LoginForm.js';
 import { Layout } from './components/Layout.js';
@@ -11,7 +11,6 @@ import { SessionHistory } from './pages/SessionHistory.js';
 import { Terms } from './pages/Terms.js';
 import { Privacy } from './pages/Privacy.js';
 import { ExpertAgreement } from './pages/ExpertAgreement.js';
-import { Landing } from './pages/Landing.js';
 import { ExpertDirectory } from './pages/ExpertDirectory.js';
 import { ExpertProfile } from './pages/ExpertProfile.js';
 import { AcpDemo } from './pages/AcpDemo.js';
@@ -25,7 +24,7 @@ function AppContent() {
 
   if (authLoading) {
     return (
-      <div className="login-page" style={{ color: 'var(--color-primary-light)' }}>
+      <div className="login-page" style={{ color: '#A855F7' }}>
         Loading...
       </div>
     );
@@ -333,8 +332,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<Landing />} />
+        {/* Redirect root to dashboard */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/experts" element={<ExpertDirectory />} />
         <Route path="/expert/:id" element={<ExpertProfile />} />
         <Route path="/terms" element={<Terms />} />

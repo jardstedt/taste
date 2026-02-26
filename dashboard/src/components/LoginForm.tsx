@@ -23,9 +23,6 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   return (
     <div className="login-page">
       <form onSubmit={handleSubmit} className="login-card">
-        <div className="login-brand">Taste</div>
-        <p className="login-subtitle">Human Judgment Oracle — Expert Dashboard</p>
-
         {error && <div className="alert alert-error">{error}</div>}
 
         <div className="form-group">
