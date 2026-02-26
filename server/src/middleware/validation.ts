@@ -26,14 +26,14 @@ const passwordSchema = z.string().min(8).max(128)
 export const createExpertSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
-  domains: z.array(z.enum(['crypto', 'music', 'art', 'design', 'narrative', 'community', 'general'])).min(1),
+  domains: z.array(z.enum(['crypto', 'music', 'art', 'design', 'culture', 'community', 'business', 'general'])).min(1),
   password: passwordSchema,
   credentials: credentialsSchema,
 });
 
 export const updateExpertSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  domains: z.array(z.enum(['crypto', 'music', 'art', 'design', 'narrative', 'community', 'general'])).min(1).optional(),
+  domains: z.array(z.enum(['crypto', 'music', 'art', 'design', 'culture', 'community', 'business', 'general'])).min(1).optional(),
   credentials: credentialsSchema,
   availability: z.enum(['online', 'offline', 'busy']).optional(),
   consentToPublicProfile: z.boolean().optional(),

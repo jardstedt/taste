@@ -1,6 +1,6 @@
 // ── Domain Types ──
 
-export type Domain = 'crypto' | 'music' | 'art' | 'design' | 'narrative' | 'community' | 'general';
+export type Domain = 'crypto' | 'music' | 'art' | 'design' | 'culture' | 'community' | 'business' | 'general';
 
 export type ExpertRole = 'admin' | 'expert';
 

@@ -7,12 +7,13 @@ export interface DomainDefinition {
 }
 
 export const DOMAINS: DomainDefinition[] = [
-  { id: 'crypto', label: 'Crypto/Web3', description: 'Blockchain projects, tokens, DeFi, on-chain activity analysis' },
+  { id: 'crypto', label: 'Crypto & Web3', description: 'Blockchain projects, tokens, DeFi, on-chain activity analysis' },
   { id: 'music', label: 'Music', description: 'Music production, composition, artist authenticity, audio quality' },
   { id: 'art', label: 'Visual Art', description: 'Digital art, NFT art, illustration, graphic design quality' },
   { id: 'design', label: 'Design', description: 'UX/UI design, branding, visual communication' },
-  { id: 'narrative', label: 'Narrative/Culture', description: 'Market narratives, cultural trends, meme analysis, zeitgeist' },
+  { id: 'culture', label: 'Writing & Culture', description: 'Written content, cultural trends, narrative analysis, memes' },
   { id: 'community', label: 'Community', description: 'Community health, engagement authenticity, social dynamics' },
+  { id: 'business', label: 'Business & Economics', description: 'Market analysis, financial strategy, business evaluation' },
   { id: 'general', label: 'General', description: 'Catch-all for questions not fitting other domains' },
 ];
 
@@ -33,7 +34,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     name: 'Trust Evaluation',
     description: 'Evaluate the trustworthiness and legitimacy of a project, token, or entity. Supports optional back-and-forth conversation via memos',
     defaultTier: 'full',
-    relevantDomains: ['crypto', 'community'],
+    relevantDomains: ['crypto', 'community', 'business'],
     enabled: true,
   },
   {
@@ -41,7 +42,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     name: 'Cultural Context',
     description: 'Get real-time cultural and contextual insight on trends, narratives, or creative works',
     defaultTier: 'quick',
-    relevantDomains: ['narrative', 'community', 'art', 'music'],
+    relevantDomains: ['culture', 'community', 'art', 'music'],
     enabled: false, // v1 cut: medium rejection risk, moderate discoverability
   },
   {
@@ -49,7 +50,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     name: 'Output Quality Gate',
     description: 'Have an expert review and validate AI-generated outputs in real-time',
     defaultTier: 'quick',
-    relevantDomains: ['design', 'art', 'narrative', 'general'],
+    relevantDomains: ['design', 'art', 'culture', 'general'],
     enabled: true,
   },
   {
@@ -57,7 +58,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     name: 'Option Ranking',
     description: 'Expert ranks and compares multiple options with qualitative reasoning',
     defaultTier: 'full',
-    relevantDomains: ['general', 'crypto', 'design', 'art', 'music'],
+    relevantDomains: ['general', 'crypto', 'business', 'design', 'art', 'music'],
     enabled: true,
   },
   {
@@ -65,7 +66,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     name: 'Blind Spot Check',
     description: 'Expert identifies what an AI might be missing or getting wrong',
     defaultTier: 'quick',
-    relevantDomains: ['general', 'crypto', 'narrative', 'community'],
+    relevantDomains: ['general', 'crypto', 'culture', 'community'],
     enabled: false, // v1 cut: medium rejection risk, moderate discoverability
   },
   {
@@ -73,7 +74,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     name: 'Human Reaction Prediction',
     description: 'Expert predicts how humans will react to content, products, or strategies',
     defaultTier: 'full',
-    relevantDomains: ['community', 'narrative', 'design', 'art', 'music'],
+    relevantDomains: ['community', 'culture', 'design', 'art', 'music'],
     enabled: false, // v1 cut: high rejection risk, predictions unverifiable
   },
   {
@@ -81,7 +82,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     name: 'Expert Brainstorming',
     description: 'Deep collaborative session where expert and AI brainstorm together',
     defaultTier: 'deep',
-    relevantDomains: ['general', 'crypto', 'narrative', 'community', 'design', 'art', 'music'],
+    relevantDomains: ['general', 'crypto', 'culture', 'community', 'design', 'art', 'music'],
     enabled: false, // v1 cut: medium rejection risk, open-ended, hard to quantify value
   },
   {
@@ -89,7 +90,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     name: 'Content Quality Gate',
     description: 'Pre-publish review of AI-generated content (video, image, audio) for cultural sensitivity, derivative elements, brand safety, and emotional resonance before distribution',
     defaultTier: 'full',
-    relevantDomains: ['art', 'music', 'design', 'narrative', 'community'],
+    relevantDomains: ['art', 'music', 'design', 'culture', 'community'],
     enabled: true,
   },
   {
@@ -105,7 +106,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     name: 'Creative Direction Check',
     description: 'Early-stage review of a creative brief, concept, or storyboard before expensive generation runs. Catch cultural red flags, derivative risks, or tonal mismatches before committing compute',
     defaultTier: 'quick',
-    relevantDomains: ['art', 'music', 'design', 'narrative'],
+    relevantDomains: ['art', 'music', 'design', 'culture'],
     enabled: true,
   },
   {
@@ -113,7 +114,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     name: 'Fact-Check & Source Verification',
     description: 'Human expert verifies factual claims, checks sources, and flags inaccuracies in AI-generated or user-submitted content',
     defaultTier: 'quick',
-    relevantDomains: ['general', 'crypto', 'narrative'],
+    relevantDomains: ['general', 'crypto', 'culture', 'business'],
     enabled: true,
   },
   {
@@ -121,7 +122,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     name: 'Dispute Evaluation',
     description: 'Third-party human evaluation of an ACP job delivery. Expert reviews whether the provider fulfilled the original contract and submits an approve/reject verdict',
     defaultTier: 'quick',
-    relevantDomains: ['general', 'crypto'],
+    relevantDomains: ['general', 'crypto', 'business'],
     enabled: true,
   },
 ];

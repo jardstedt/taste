@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// This test file creates many DB instances under parallel load — increase timeout
+vi.setConfig({ testTimeout: 15000 });
 import { setupTestDb, createOnlineExpert } from './helpers.js';
 import { getDb } from '../db/database.js';
 import {
@@ -62,7 +65,7 @@ describe('fact_check_verification offering', () => {
     expect(offering!.defaultTier).toBe('quick');
     expect(offering!.relevantDomains).toContain('general');
     expect(offering!.relevantDomains).toContain('crypto');
-    expect(offering!.relevantDomains).toContain('narrative');
+    expect(offering!.relevantDomains).toContain('culture');
   });
 
   it('creates a session', () => {

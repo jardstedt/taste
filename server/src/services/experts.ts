@@ -291,7 +291,7 @@ export async function seedAdminExpert(email: string, password: string): Promise<
   const admin = createExpert(
     'Admin',
     email,
-    ['crypto', 'narrative', 'community', 'general'],
+    ['crypto', 'design', 'culture', 'community', 'general'],
     'admin',
     { bio: 'Platform administrator' },
   );
