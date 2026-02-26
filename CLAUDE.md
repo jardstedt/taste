@@ -9,6 +9,18 @@
 - NEVER include `.env` file contents in any context, summary, or output
 - If you need to know what env vars exist, reference `.env.example` instead
 
+## Git Style
+- Prefer focused commits. If changes span distinct concerns (e.g. feature work + security fixes), commit them separately
+- Each commit should be reviewable on its own — one logical change per commit
+
+## Docs Maintenance
+- Update `docs/INDEX.md` when adding new docs, scripts, or config files
+- Update `docs/design-decisions.md` for any non-obvious choice (Context → Decision → Rationale)
+
+## ACP Ecosystem
+- Before optimizing offerings, keywords, or descriptions, run `scripts/acp-research.ts` to check current ecosystem state
+- Validate features against what agents actually do, not what they could theoretically do
+
 ## Pre-Commit Checklist (MANDATORY)
 Before EVERY commit and push, complete ALL of these steps:
 
