@@ -80,7 +80,7 @@ function SessionView() {
 function AdminPanel() {
   const [experts, setExperts] = useState<Array<{ id: string; name: string; role: string; domains: string[]; availability: string; completedJobs: number; deactivatedAt: string | null; reputationScores: Record<string, number> }>>([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', domains: '', password: '' });
+  const [form, setForm] = useState({ name: '', email: '', domains: [] as string[], password: '' });
   const [creating, setCreating] = useState(false);
 
   // Withdrawals
@@ -111,14 +111,14 @@ function AdminPanel() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.domains.length === 0) return;
     setCreating(true);
-    const domains = form.domains.split(',').map(d => d.trim()).filter(Boolean);
-    await api.createExpert({ name: form.name, email: form.email, domains, password: form.password });
+    await api.createExpert({ name: form.name, email: form.email, domains: form.domains, password: form.password });
     const res = await api.getExperts();
     if (res.success && res.data) {
       setExperts(res.data as typeof experts);
     }
-    setForm({ name: '', email: '', domains: '', password: '' });
+    setForm({ name: '', email: '', domains: [], password: '' });
     setShowCreate(false);
     setCreating(false);
   };
@@ -257,8 +257,24 @@ function AdminPanel() {
             <input type="email" value={form.email} onChange={e => setForm(prev => ({ ...prev, email: e.target.value }))} required className="input input-full" />
           </div>
           <div className="form-group">
-            <label className="form-label">Domains (comma-separated)</label>
-            <input type="text" value={form.domains} onChange={e => setForm(prev => ({ ...prev, domains: e.target.value }))} placeholder="crypto, music, art" required className="input input-full" />
+            <label className="form-label">Domains</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {(['crypto', 'music', 'art', 'design', 'culture', 'community', 'business', 'general'] as const).map(d => (
+                <label key={d} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.domains.includes(d)}
+                    onChange={e => setForm(prev => ({
+                      ...prev,
+                      domains: e.target.checked ? [...prev.domains, d] : prev.domains.filter(x => x !== d),
+                    }))}
+                    style={{ accentColor: '#6B21A8' }}
+                  />
+                  {d.charAt(0).toUpperCase() + d.slice(1)}
+                </label>
+              ))}
+            </div>
+            {form.domains.length === 0 && <div style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>Select at least one domain</div>}
           </div>
           <div className="form-group">
             <label className="form-label">Password</label>

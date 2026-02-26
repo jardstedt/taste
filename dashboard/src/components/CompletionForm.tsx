@@ -62,6 +62,22 @@ const creativeDirectionCheckFields: DeliverableFieldDef[] = [
   { key: 'tonalAlignment', label: 'Tonal Alignment', type: 'textarea', required: false, placeholder: 'How well does the tone match the target?' },
 ];
 
+const factCheckVerificationFields: DeliverableFieldDef[] = [
+  { key: 'overallAccuracy', label: 'Overall Accuracy', type: 'select', required: true, options: ['high', 'medium', 'low'] },
+  { key: 'claimsChecked', label: 'Claims Checked', type: 'number', required: false, min: 0, max: 100 },
+  { key: 'summary', label: 'Summary', type: 'textarea', required: true, placeholder: 'Summary of fact-check findings' },
+  { key: 'flaggedClaims', label: 'Flagged Claims', type: 'textarea', required: false, placeholder: 'Claims that are inaccurate or misleading, one per line' },
+  { key: 'corrections', label: 'Corrections', type: 'textarea', required: false, placeholder: 'Suggested corrections, one per line' },
+];
+
+const disputeArbitrationFields: DeliverableFieldDef[] = [
+  { key: 'verdict', label: 'Verdict', type: 'select', required: true, options: ['approve', 'reject'] },
+  { key: 'reasoning', label: 'Reasoning', type: 'textarea', required: true, placeholder: 'Detailed justification for your verdict' },
+  { key: 'deliverableQuality', label: 'Deliverable Quality', type: 'select', required: false, options: ['excellent', 'adequate', 'poor', 'unacceptable'] },
+  { key: 'contractAlignment', label: 'Contract Alignment', type: 'select', required: false, options: ['fully_met', 'partially_met', 'not_met'] },
+  { key: 'summary', label: 'Summary', type: 'textarea', required: true, placeholder: 'Concise verdict summary for on-chain reason' },
+];
+
 const fallbackFields: DeliverableFieldDef[] = [
   { key: 'summary', label: 'Summary', type: 'textarea', required: true, placeholder: 'Summarize your assessment' },
   { key: 'verdict', label: 'Verdict', type: 'text', required: false, placeholder: 'Your overall verdict (optional)' },
@@ -75,6 +91,8 @@ const DELIVERABLE_SCHEMAS: Record<string, DeliverableFieldDef[]> = {
   content_quality_gate: contentQualityGateFields,
   audience_reaction_poll: audienceReactionPollFields,
   creative_direction_check: creativeDirectionCheckFields,
+  fact_check_verification: factCheckVerificationFields,
+  dispute_arbitration: disputeArbitrationFields,
 };
 
 function getFields(offeringType: string): DeliverableFieldDef[] {
