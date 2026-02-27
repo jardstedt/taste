@@ -14,7 +14,7 @@ export function createHelmet(): RequestHandler {
         imgSrc: ["'self'", 'data:'],
         connectSrc: ["'self'",
           ...(process.env.NODE_ENV === 'production'
-            ? ["wss://taste-api.com"]
+            ? ["wss://humantaste.app"]
             : ["ws://localhost:3001", "wss://localhost:3001", "ws://127.0.0.1:3001", "wss://127.0.0.1:3001"])],
       },
     },

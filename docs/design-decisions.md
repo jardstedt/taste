@@ -237,7 +237,7 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 
 2. **Global Express error handler** — Added `(err, req, res, next)` middleware to prevent stack traces and internal error messages from leaking to clients. Previously relied on Express default handler which varies by `NODE_ENV`.
 
-3. **CSP `connectSrc` restriction** — Changed from `ws:` / `wss:` (allowing WebSocket to any host) to only `wss://taste-api.com` in production. Prevents XSS payloads from exfiltrating data via attacker-controlled WebSocket servers.
+3. **CSP `connectSrc` restriction** — Changed from `ws:` / `wss:` (allowing WebSocket to any host) to only `wss://humantaste.app` in production. Prevents XSS payloads from exfiltrating data via attacker-controlled WebSocket servers.
 
 4. **Deactivation check in `verifyToken`** — Auth middleware now loads the expert from DB and checks `deactivatedAt` on every authenticated request. Previously, deactivated users could continue using their JWT for up to 2 hours.
 

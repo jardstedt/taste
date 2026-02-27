@@ -1,9 +1,9 @@
-# VPS Setup — taste-api.com
+# VPS Setup — humantaste.app
 
 ## Server Info
 
 - **IP:** 107.173.236.164
-- **Domain:** taste-api.com
+- **Domain:** humantaste.app
 - **DNS/CDN:** Cloudflare (proxy ON, Full Strict SSL)
 - **OS:** Ubuntu (RackNerd VPS, hostname: racknerd-19f4019)
 - **RAM:** 2.9GB (Aethir uses ~24MB, ~2.6GB available)
@@ -66,12 +66,12 @@ ADMIN_EMAIL=              # Initial admin expert email
 ADMIN_PASSWORD=           # Min 8 chars (hashed on first run, can remove after)
 DB_PATH=./data/taste.db
 EMAIL_ENCRYPTION_KEY=     # Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-CORS_ORIGIN=https://taste-api.com
+CORS_ORIGIN=https://humantaste.app
 
 # Push Notifications — generate with: npx web-push generate-vapid-keys
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
-VAPID_EMAIL=mailto:admin@taste-api.com
+VAPID_EMAIL=mailto:admin@humantaste.app
 
 # ACP (add when ready)
 ACP_WALLET_PRIVATE_KEY=
@@ -85,9 +85,9 @@ Cloudflare handles public-facing SSL. Origin cert encrypts Cloudflare ↔ VPS tr
 
 ```bash
 mkdir -p /etc/ssl/cloudflare
-nano /etc/ssl/cloudflare/taste-api.com.pem    # Origin Certificate
-nano /etc/ssl/cloudflare/taste-api.com.key    # Private Key
-chmod 600 /etc/ssl/cloudflare/taste-api.com.key
+nano /etc/ssl/cloudflare/humantaste.app.pem    # Origin Certificate
+nano /etc/ssl/cloudflare/humantaste.app.key    # Private Key
+chmod 600 /etc/ssl/cloudflare/humantaste.app.key
 ```
 
 Cloudflare dashboard settings:
@@ -103,8 +103,8 @@ nano /etc/nginx/sites-available/taste
 
 See `scripts/nginx-taste.conf` for the config template.
 After editing, replace YOURDOMAIN and cert paths to match Cloudflare setup:
-- `ssl_certificate /etc/ssl/cloudflare/taste-api.com.pem`
-- `ssl_certificate_key /etc/ssl/cloudflare/taste-api.com.key`
+- `ssl_certificate /etc/ssl/cloudflare/humantaste.app.pem`
+- `ssl_certificate_key /etc/ssl/cloudflare/humantaste.app.key`
 
 ```bash
 ln -sf /etc/nginx/sites-available/taste /etc/nginx/sites-enabled/taste
@@ -122,7 +122,7 @@ pm2 startup    # run the command it outputs to enable boot persistence
 
 ### Verify
 ```bash
-curl https://taste-api.com/api/health
+curl https://humantaste.app/api/health
 pm2 logs taste --lines 20
 ```
 

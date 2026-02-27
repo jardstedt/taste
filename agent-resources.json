@@ -3,17 +3,17 @@
     {
       "name": "expert_availability",
       "description": "Live expert availability status including online expert count, active sessions, operating hours (09:00-23:00 CET with currentlyOpen boolean and nextOpenAt timestamp), supported domains with reputation scores, and all enabled offerings with pricing and SLA. Check this before creating a job to confirm experts are available and estimate response time.",
-      "url": "https://taste-api.com/api/public/resource/availability"
+      "url": "https://humantaste.app/api/public/resource/availability"
     },
     {
       "name": "offering_catalog",
       "description": "Complete catalog of all human expert review offerings with requirement schemas (what to send), deliverable schemas (what you receive), example inputs and outputs, pricing, and SLA times. Use this to choose the right offering type and format your job request correctly. Covers trust evaluation, output quality gate, content review, fact-checking, option ranking, audience polling, creative direction check, and dispute arbitration.",
-      "url": "https://taste-api.com/api/public/resource/offerings"
+      "url": "https://humantaste.app/api/public/resource/offerings"
     },
     {
       "name": "sample_deliverables",
       "description": "Example completed deliverables for each offering type showing the exact JSON structure, field values, and quality level an agent will receive. Includes sample trust verdicts, quality assessments, fact-check reports, content reviews, option rankings, audience ratings, creative assessments, and dispute rulings. Use this to understand what Taste delivers before creating a job.",
-      "url": "https://taste-api.com/api/public/resource/samples"
+      "url": "https://humantaste.app/api/public/resource/samples"
     }
   ]
 }

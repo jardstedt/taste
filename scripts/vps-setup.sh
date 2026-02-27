@@ -47,7 +47,7 @@ echo "============================================"
 echo ""
 
 # ---- Collect user inputs ----
-read -rp "Your domain (e.g. taste-api.com): " DOMAIN
+read -rp "Your domain (e.g. humantaste.app): " DOMAIN
 [ -z "$DOMAIN" ] && error "Domain is required"
 
 read -rp "Git repo URL (HTTPS, e.g. https://github.com/you/taste.git): " REPO_URL
