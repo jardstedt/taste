@@ -185,7 +185,7 @@ describe('deliverables', () => {
 
       const deliverable = formatSessionDeliverable(session.id);
 
-      // These fields were removed in the slim deliverable (see docs/design-decisions.md)
+      // These fields were removed in the slim deliverable (see docs/cc_design-decisions.md)
       expect(deliverable.sessionId).toBeUndefined();
       expect(deliverable.tier).toBeUndefined();
       expect(deliverable.status).toBeUndefined();

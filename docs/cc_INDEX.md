@@ -8,13 +8,13 @@ Quick reference for all project documents, scripts, and config files.
 
 | Document | Summary |
 |----------|---------|
-| [acp-ecosystem-analysis.md](acp-ecosystem-analysis.md) | Comprehensive ACP marketplace analysis: agent profiles, pricing, live API data, cross-reference matrix mapping ecosystem outputs to Taste offerings, resource strategy, and keyword optimization. The primary strategy document. |
-| [acp-session-lifecycle.md](acp-session-lifecycle.md) | Technical flow of ACP sessions from job creation through memo bridging, expert chat, delivery, and evaluation. Reference for understanding the request-response pipeline. |
-| [agent-targeting.md](agent-targeting.md) | Scoring rubric for evaluating which ACP agents are the best integration targets. Rates agents by judgment need, decision frequency, budget fit, and content risk. |
-| [design-decisions.md](design-decisions.md) | Log of non-obvious technical decisions with context and rationale. Covers deliverable format, offering schemas, file attachments, ACP integration, operating hours, resource expansion, and keyword routing. **Check before changing core behavior.** |
-| [offerings.md](offerings.md) | Session tier definitions (test/quick/full/deep) with pricing and duration. Lists all 8 enabled and 4 disabled offerings. Expert payout structure. |
-| [use-cases.md](use-cases.md) | Platform use cases with feature availability matrix (API vs Dashboard vs not implemented). Covers ACP transaction flow, session lifecycle, expert lifecycle, withdrawals, reputation, and admin capabilities. |
-| [vps-setup.md](vps-setup.md) | Production VPS reference: server specs (107.173.236.164), ports, paths, deployment deps (Node 20, nginx, PM2), co-located Aethir Checker Node. |
+| [cc_acp-ecosystem-analysis.md](cc_acp-ecosystem-analysis.md) | Comprehensive ACP marketplace analysis: agent profiles, pricing, live API data, cross-reference matrix mapping ecosystem outputs to Taste offerings, resource strategy, and keyword optimization. The primary strategy document. |
+| [cc_acp-session-lifecycle.md](cc_acp-session-lifecycle.md) | Technical flow of ACP sessions from job creation through memo bridging, expert chat, delivery, and evaluation. Reference for understanding the request-response pipeline. |
+| [cc_agent-targeting.md](cc_agent-targeting.md) | Scoring rubric for evaluating which ACP agents are the best integration targets. Rates agents by judgment need, decision frequency, budget fit, and content risk. |
+| [cc_design-decisions.md](cc_design-decisions.md) | Log of non-obvious technical decisions with context and rationale. Covers deliverable format, offering schemas, file attachments, ACP integration, operating hours, resource expansion, and keyword routing. **Check before changing core behavior.** |
+| [cc_offerings.md](cc_offerings.md) | Session tier definitions (test/quick/full/deep) with pricing and duration. Lists all 8 enabled and 4 disabled offerings. Expert payout structure. |
+| [cc_use-cases.md](cc_use-cases.md) | Platform use cases with feature availability matrix (API vs Dashboard vs not implemented). Covers ACP transaction flow, session lifecycle, expert lifecycle, withdrawals, reputation, and admin capabilities. |
+| [cc_vps-setup.md](cc_vps-setup.md) | Production VPS reference: server specs (107.173.236.164), ports, paths, deployment deps (Node 20, nginx, PM2), co-located Aethir Checker Node. |
 | [x-research/](x-research/) | Ecosystem research: Virtuals agent builders, influencers, and a prioritized outreach list of 6 KOLs. |
 
 ## Config Files (project root)

@@ -14,8 +14,8 @@
 - Each commit should be reviewable on its own — one logical change per commit
 
 ## Docs Maintenance
-- Update `docs/INDEX.md` when adding new docs, scripts, or config files
-- Update `docs/design-decisions.md` for any non-obvious choice (Context → Decision → Rationale)
+- Update `docs/cc_INDEX.md` when adding new docs, scripts, or config files
+- Update `docs/cc_design-decisions.md` for any non-obvious choice (Context → Decision → Rationale)
 
 ## ACP Ecosystem
 - Before optimizing offerings, keywords, or descriptions, run `scripts/acp-research.ts` to check current ecosystem state
@@ -27,8 +27,8 @@ Before EVERY commit and push, complete ALL of these steps:
 1. **Security review** — Review all changes for injection, auth bypass, exposed secrets, missing validation, and other OWASP top 10 issues. Fix anything found before committing.
 2. **Tests** — Write tests for new functionality (happy-path + edge cases). Run the full test suite (`npx vitest run`) and confirm all pass.
 3. **Build check** — Run `npx tsc --noEmit` to verify the build compiles clean.
-4. **Design decisions** — Check if `docs/design-decisions.md` needs updating. Any non-obvious choice or tuning decision should be documented with context and rationale.
-5. **Docs sync** — Check if other docs (e.g. `docs/acp-session-lifecycle.md`, `docs/offerings.md`) need updating to stay in sync with code changes.
+4. **Design decisions** — Check if `docs/cc_design-decisions.md` needs updating. Any non-obvious choice or tuning decision should be documented with context and rationale.
+5. **Docs sync** — Check if other docs (e.g. `docs/cc_acp-session-lifecycle.md`, `docs/cc_offerings.md`) need updating to stay in sync with code changes.
 6. **PR-style review** — Re-read the diff (`git diff --staged`) for correctness, missing edge cases, and unintended side effects. If issues are found, fix them before committing.
 
 Do NOT skip steps. Do NOT commit and then review after.

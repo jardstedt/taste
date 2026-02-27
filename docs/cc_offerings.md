@@ -179,7 +179,7 @@ These 4 offerings are fully implemented but disabled via `enabled: false` in `co
 ## Session Deliverable Format
 
 When a session completes, `formatSessionDeliverable()` produces a slim deliverable
-focused on what buying agents can actually use. See `docs/design-decisions.md` for rationale.
+focused on what buying agents can actually use. See `docs/cc_design-decisions.md` for rationale.
 
 ```json
 {

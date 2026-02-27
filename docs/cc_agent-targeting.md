@@ -1,6 +1,6 @@
 # Agent Targeting Analysis — Virtuals Ecosystem
 
-This document provides a framework for evaluating which agents in the Virtuals ecosystem are the best fit for Taste integration. Use it alongside `offerings.md` for offering details and `use-cases.md` for flow context.
+This document provides a framework for evaluating which agents in the Virtuals ecosystem are the best fit for Taste integration. Use it alongside `cc_offerings.md` for offering details and `cc_use-cases.md` for flow context.
 
 ---
 

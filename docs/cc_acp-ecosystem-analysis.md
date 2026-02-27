@@ -668,5 +668,5 @@ Total keyword coverage: 60 → 82 keywords (+37%).
 ---
 
 *This document supersedes: `feedback/service_gaps_for_taste.md`, `docs/offerings-and-resources-implementation.md`*
-*Related documents: `docs/offerings.md` (offering specs), `agent-offerings.json` (Virtuals GUI config), `agent-resources.json` (Virtuals GUI resources config)*
+*Related documents: `docs/cc_offerings.md` (offering specs), `agent-offerings.json` (Virtuals GUI config), `agent-resources.json` (Virtuals GUI resources config)*
 *Research tools: `scripts/acp-research.ts` (ecosystem search), `scripts/fetch-agent.js` (agent detail fetcher)*
