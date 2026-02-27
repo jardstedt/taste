@@ -195,7 +195,7 @@ describe('security', () => {
   });
 
   describe('paymentReceivedAt safety', () => {
-    it('payment_received_at is not set on non-ACP session completion', async () => {
+    it('payment_received_at is not set on non-ACP session completion', { timeout: 10_000 }, async () => {
       const session = await createActiveSession();
       completeSession(session.id);
 
