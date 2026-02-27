@@ -166,9 +166,9 @@ export function AcpDemo() {
       if (res.success && res.data) {
         const loaded = res.data as Offering[];
         setOfferings(loaded);
-        // Pre-fill with first offering's example
+        // Pre-fill with first offering's example (use on-chain index, not array position)
         if (loaded.length > 0 && loaded[0].exampleInput) {
-          setSelectedOffering(0);
+          setSelectedOffering(loaded[0].index);
           try {
             setRequirementJson(JSON.stringify(JSON.parse(loaded[0].exampleInput), null, 2));
           } catch {
@@ -264,7 +264,7 @@ export function AcpDemo() {
   // Auto-fill requirement JSON from offering's example data when selection changes
   const handleOfferingChange = useCallback((idx: number) => {
     setSelectedOffering(idx);
-    const offering = offerings[idx];
+    const offering = offerings.find(o => o.index === idx);
     if (offering?.exampleInput) {
       try {
         // Pretty-print the example JSON
@@ -440,12 +440,12 @@ export function AcpDemo() {
                   </div>
 
                   {/* Requirement field descriptions from Virtuals registration */}
-                  {offerings[selectedOffering]?.requirementFields && (
+                  {offerings.find(o => o.index === selectedOffering)?.requirementFields && (
                     <div style={{
                       marginBottom: 8, padding: '8px 10px', background: '#F0FDF4', borderRadius: 6,
                       fontSize: 11, color: '#065F46', lineHeight: 1.5,
                     }}>
-                      <strong>Fields:</strong> {offerings[selectedOffering].requirementFields}
+                      <strong>Fields:</strong> {offerings.find(o => o.index === selectedOffering)!.requirementFields}
                     </div>
                   )}
 

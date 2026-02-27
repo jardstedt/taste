@@ -18,6 +18,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getEnv } from '../config/env.js';
+import { isOfferingEnabled } from '../config/domains.js';
 
 // Handle double-nested default export
 const AcpClient = (acpModule as unknown as { default: typeof acpModule }).default ?? acpModule;
@@ -206,17 +207,20 @@ export async function discoverOfferings(): Promise<Array<{
 
   const specs = loadOfferingSpecs();
 
-  return tasteAgent.jobOfferings.map((o: { name: string; price: number }, i: number) => {
-    // Match by name to get the Virtuals-registered example data
-    const spec = specs.find(s => s.name === o.name);
-    return {
-      index: i,
-      name: o.name,
-      price: o.price,
-      requirementFields: spec?.requirement ?? '',
-      exampleInput: spec?.jobInput ?? '{}',
-    };
-  });
+  return tasteAgent.jobOfferings
+    .map((o: { name: string; price: number }, i: number) => {
+      // Match by name to get the Virtuals-registered example data
+      const spec = specs.find(s => s.name === o.name);
+      return {
+        index: i,
+        name: o.name,
+        price: o.price,
+        requirementFields: spec?.requirement ?? '',
+        exampleInput: spec?.jobInput ?? '{}',
+        enabled: isOfferingEnabled(o.name),
+      };
+    })
+    .filter(o => o.enabled);
 }
 
 export async function createBuyerJob(

@@ -148,25 +148,26 @@ describe('agent-sim service', () => {
       await expect(discoverOfferings()).rejects.toThrow(/not initialized/);
     });
 
-    it('returns offerings from Taste agent', async () => {
+    it('returns only enabled offerings from Taste agent', async () => {
       await initBuyerClient();
       mockGetAgent.mockResolvedValue({
         name: 'Taste',
         jobOfferings: [
-          { name: 'Vibes Check', price: 0.005 },
-          { name: 'Narrative', price: 0.01 },
+          { name: 'trust_evaluation', price: 0.01 },
+          { name: 'human_reaction_prediction', price: 0.01 }, // disabled
+          { name: 'option_ranking', price: 0.01 },
         ],
       });
 
       const offerings = await discoverOfferings();
-      expect(offerings).toHaveLength(2);
+      expect(offerings).toHaveLength(2); // disabled one filtered out
       expect(offerings[0].index).toBe(0);
-      expect(offerings[0].name).toBe('Vibes Check');
-      expect(offerings[0].price).toBe(0.005);
+      expect(offerings[0].name).toBe('trust_evaluation');
+      expect(offerings[0].price).toBe(0.01);
       expect(offerings[0]).toHaveProperty('requirementFields');
       expect(offerings[0]).toHaveProperty('exampleInput');
-      expect(offerings[1].index).toBe(1);
-      expect(offerings[1].name).toBe('Narrative');
+      expect(offerings[1].index).toBe(2); // on-chain index preserved (skips 1)
+      expect(offerings[1].name).toBe('option_ranking');
     });
 
     it('throws when Taste agent not found', async () => {
