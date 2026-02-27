@@ -21,6 +21,19 @@ import { sendPushToExpert } from './push.js';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
+/** Format a requirement value for human-readable display in chat messages */
+function formatRequirementValue(v: unknown): string {
+  if (Array.isArray(v)) {
+    if (v.length > 0 && typeof v[0] === 'object' && v[0] !== null && 'id' in v[0] && 'description' in v[0]) {
+      return '\n' + v.map((item: Record<string, unknown>) => `  ${item.id}: ${item.description}`).join('\n');
+    }
+    if (v.every(item => typeof item === 'string' || typeof item === 'number')) {
+      return v.join(', ');
+    }
+  }
+  return JSON.stringify(v);
+}
+
 /**
  * After delivering, check if the evaluator is the zero address.
  * If so, no evaluator will ever approve — confirm payout immediately.
@@ -294,7 +307,7 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
           // Seed chat with the buyer's requirement as the first message
           if (Object.keys(requirements).length > 0) {
             const reqText = Object.entries(requirements)
-              .map(([k, v]) => `**${k}:** ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+              .map(([k, v]) => `**${k}:** ${typeof v === 'string' ? v : formatRequirementValue(v)}`)
               .join('\n');
             addMessage(session.id, 'agent', null, reqText);
           }
@@ -704,7 +717,7 @@ export async function relayExpertMessageToAcp(
   }
 }
 
-export async function rejectSessionOnAcp(internalSessionId: string): Promise<boolean> {
+export async function rejectSessionOnAcp(internalSessionId: string, reason?: string): Promise<boolean> {
   if (!_acpClient) {
     console.log('[ACP] Not connected — rejection stored locally only');
     return false;
@@ -713,10 +726,14 @@ export async function rejectSessionOnAcp(internalSessionId: string): Promise<boo
   const session = getSessionById(internalSessionId);
   if (!session?.acpJobId) return false;
 
+  const message = reason
+    ? `Expert declined: ${reason}. You have been fully refunded. Please try again and a new expert will be assigned.`
+    : `Session ${session.status} — expert did not complete the task. You have been fully refunded. Please try again and a new expert will be assigned.`;
+
   try {
     const acpJob = await _acpClient.getJobById(Number(session.acpJobId));
     if (acpJob && acpJob.phase === AcpJobPhases.TRANSACTION) {
-      await acpJob.reject(`Session ${session.status} — expert did not complete the task. You have been fully refunded. Please try again and a new expert will be assigned.`);
+      await acpJob.reject(message);
       console.log(`[ACP] Rejected session ${internalSessionId} (${session.status}) — agent refunded`);
       return true;
     }

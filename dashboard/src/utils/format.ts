@@ -35,6 +35,21 @@ export function linkify(text: string): { type: 'text' | 'link'; value: string }[
   return segments;
 }
 
+/** Format a non-string JSON value for human-readable display */
+function formatJsonValue(v: unknown): string {
+  if (Array.isArray(v)) {
+    // Array of objects with id+description (e.g. option_ranking options)
+    if (v.length > 0 && typeof v[0] === 'object' && v[0] !== null && 'id' in v[0] && 'description' in v[0]) {
+      return v.map((item: Record<string, unknown>) => `${item.id}: ${item.description}`).join('\n');
+    }
+    // Array of primitives
+    if (v.every(item => typeof item === 'string' || typeof item === 'number')) {
+      return v.join(', ');
+    }
+  }
+  return JSON.stringify(v);
+}
+
 /** Parse a JSON description string into key-value pairs for display */
 export function parseDescription(desc: string | null): { isJson: boolean; pairs: [string, string][]; raw: string } {
   if (!desc) return { isJson: false, pairs: [], raw: '' };
@@ -45,7 +60,7 @@ export function parseDescription(desc: string | null): { isJson: boolean; pairs:
       const pairs: [string, string][] = [];
       for (const [k, v] of Object.entries(obj)) {
         const label = k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim();
-        const value = typeof v === 'string' ? v : JSON.stringify(v);
+        const value = typeof v === 'string' ? v : formatJsonValue(v);
         pairs.push([label, value]);
       }
       return { isJson: true, pairs, raw: trimmed };

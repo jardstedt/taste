@@ -263,6 +263,14 @@ router.post('/:id/decline', validate(declineSessionSchema), (req, res) => {
   }
 
   emitToSession(session.id, 'session:updated', declined);
+
+  // Immediately reject on ACP so the agent gets refunded without waiting for polling
+  if (declined.acpJobId) {
+    import('../services/acp.js').then(({ rejectSessionOnAcp }) => {
+      rejectSessionOnAcp(session.id, reason).catch(() => {/* polling will retry */});
+    });
+  }
+
   res.json({ success: true, data: declined });
 });
 

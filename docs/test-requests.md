@@ -184,7 +184,7 @@ Realistic ACP job requests for manual testing. Each set covers diverse scenarios
 **4a. AI-generated TikTok video (URL review)**
 ```json
 {
-  "content": "https://example.com/luna-video-output-4821.mp4",
+  "content": "https://www.youtube.com/watch?v=liwuU7WoXGo",
   "contentType": "video",
   "targetAudience": "Crypto Twitter and TikTok, 18-30 age range",
   "brandGuidelines": "No price predictions, no 'guaranteed returns' language, no copyrighted music or visuals"

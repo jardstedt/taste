@@ -34,6 +34,9 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
   const [showRequirements, setShowRequirements] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
   const [showChat, setShowChat] = useState(false);
+  const [showDeclineDialog, setShowDeclineDialog] = useState(false);
+  const [declineReason, setDeclineReason] = useState('');
+  const [declining, setDeclining] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Reset state when session changes
@@ -41,6 +44,8 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
     setCheckedItems({});
     setShowRequirements(false);
     setShowChat(false);
+    setShowDeclineDialog(false);
+    setDeclineReason('');
   }, [sessionId]);
 
   // Auto-scroll chat when expanded
@@ -63,7 +68,14 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
   };
 
   const handleDecline = async () => {
-    await api.declineSession(sessionId, 'Expert unable to fulfill request');
+    if (!showDeclineDialog) {
+      setShowDeclineDialog(true);
+      return;
+    }
+    setDeclining(true);
+    await api.declineSession(sessionId, declineReason.trim() || 'Expert unable to fulfill request');
+    setDeclining(false);
+    setShowDeclineDialog(false);
   };
 
   // Timer
@@ -206,12 +218,51 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
               )}
             </div>
 
-            <CompletionForm
-              session={session}
-              onComplete={() => {/* session will update via WebSocket */}}
-              inline
-              onDecline={handleDecline}
-            />
+            {showDeclineDialog ? (
+              <div style={{
+                background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8,
+                padding: 16,
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#991B1B', marginBottom: 8 }}>
+                  Why can't you fulfill this request?
+                </div>
+                <textarea
+                  value={declineReason}
+                  onChange={e => setDeclineReason(e.target.value)}
+                  rows={3}
+                  placeholder="Briefly explain why (e.g. outside expertise, unclear requirements, insufficient context)..."
+                  className="input input-full"
+                  style={{ fontSize: 13, resize: 'vertical', marginBottom: 12 }}
+                  maxLength={1000}
+                />
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setShowDeclineDialog(false); setDeclineReason(''); }}
+                    className="btn btn-ghost"
+                    style={{ fontSize: 13 }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDecline}
+                    disabled={declining}
+                    className="btn"
+                    style={{ fontSize: 13, background: '#DC2626', color: '#fff', border: 'none' }}
+                  >
+                    {declining ? 'Declining...' : 'Confirm Decline'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <CompletionForm
+                session={session}
+                onComplete={() => {/* session will update via WebSocket */}}
+                inline
+                onDecline={handleDecline}
+              />
+            )}
           </div>
         )}
 
