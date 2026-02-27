@@ -51,6 +51,7 @@ interface OperatingHours {
 export interface ResourceAvailability {
   service: string;
   status: 'available' | 'limited' | 'offline';
+  qualityPolicy: string;
   timestamp: string;
   operatingHours: OperatingHours;
   capacity: {
@@ -130,6 +131,7 @@ export function getResourceAvailability(): ResourceAvailability {
   return {
     service: 'Taste: Human Expert Consultation',
     status,
+    qualityPolicy: 'Vetted domain experts. Requests that cannot be fulfilled with quality are declined with explanation and full refund.',
     timestamp: new Date().toISOString(),
     operatingHours: getOperatingHours(),
     capacity: {
@@ -212,7 +214,7 @@ interface OfferingCatalogEntry {
   deliverableFields: Array<{ key: string; label: string; type: string; required: boolean; options?: string[] }>;
 }
 
-export function getOfferingCatalog(): { service: string; offerings: OfferingCatalogEntry[] } {
+export function getOfferingCatalog(): { service: string; qualityPolicy: string; offerings: OfferingCatalogEntry[] } {
   const offerings = getEnabledSessionOfferings().map(o => {
     const tier = SESSION_TIERS.find(t => t.id === o.defaultTier);
     const fields = getDeliverableFields(o.type);
@@ -237,7 +239,11 @@ export function getOfferingCatalog(): { service: string; offerings: OfferingCata
     };
   });
 
-  return { service: 'Taste: Human Expert Consultation', offerings };
+  return {
+    service: 'Taste: Human Expert Consultation',
+    qualityPolicy: 'All experts are vetted for domain expertise before activation. Experts will decline requests they cannot fulfill with quality — you are fully refunded if this happens. Every completed deliverable is backed by genuine human judgment.',
+    offerings,
+  };
 }
 
 /** Requirement field names per offering type (for catalog) */
