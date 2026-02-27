@@ -19,6 +19,19 @@ import {
 import { notifyExpert, emitToSession } from './socket.js';
 import { sendPushToExpert } from './push.js';
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+/**
+ * After delivering, check if the evaluator is the zero address.
+ * If so, no evaluator will ever approve — confirm payout immediately.
+ */
+function autoConfirmIfNoEvaluator(job: AcpJob, sessionId: string): void {
+  if (job.evaluatorAddress === ZERO_ADDRESS) {
+    const confirmed = confirmSessionPayout(sessionId);
+    console.log(`[ACP] No evaluator (zero address) for job ${job.id} — auto-confirmed payout: ${confirmed}`);
+  }
+}
+
 let _acpClient: InstanceType<typeof AcpClient> | null = null;
 let _pollInterval: ReturnType<typeof setInterval> | null = null;
 let _memoBridgeInterval: ReturnType<typeof setInterval> | null = null;
@@ -320,6 +333,7 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
           const sessionDeliverable = formatSessionDeliverable(session.id);
           await job.deliver(JSON.stringify(sessionDeliverable));
           console.log(`[ACP] Job ${job.id} delivered via session ${session.id}`);
+          autoConfirmIfNoEvaluator(job, session.id);
         } else if (session.status === 'timeout' || session.status === 'cancelled') {
           await job.reject(`Session ${session.status} — expert did not complete the task. You have been fully refunded. Please try again and a new expert will be assigned.`);
           console.log(`[ACP] Job ${job.id} rejected (session ${session.status}) — agent refunded`);
@@ -517,6 +531,7 @@ async function pollJobs(): Promise<void> {
           const deliverable = formatSessionDeliverable(session.id);
           await job.deliver(JSON.stringify(deliverable));
           console.log(`[ACP] Delivered session for job ${job.id} via polling`);
+          autoConfirmIfNoEvaluator(job, session.id);
         } else if (session.status === 'timeout' || session.status === 'cancelled') {
           await job.reject(`Session ${session.status} — expert did not complete the task. You have been fully refunded. Please try again and a new expert will be assigned.`);
           console.log(`[ACP] Rejected job ${job.id} via polling (session ${session.status}) — agent refunded`);
@@ -640,6 +655,7 @@ export async function deliverSessionToAcp(internalSessionId: string): Promise<bo
       const deliverable = formatSessionDeliverable(internalSessionId);
       await acpJob.deliver(JSON.stringify(deliverable));
       console.log(`[ACP] Delivered session ${internalSessionId}`);
+      autoConfirmIfNoEvaluator(acpJob, internalSessionId);
       return true;
     }
   } catch (err) {
@@ -731,6 +747,7 @@ async function reconcileStuckSessions(): Promise<void> {
         const deliverable = formatSessionDeliverable(row.id);
         await acpJob.deliver(JSON.stringify(deliverable));
         console.log(`[ACP] Reconciled: delivered stuck session ${row.id}`);
+        autoConfirmIfNoEvaluator(acpJob, row.id);
       } else {
         await acpJob.reject(`Session ${row.status} — expert did not complete the task. Agent refunded.`);
         console.log(`[ACP] Reconciled: rejected stuck session ${row.id} (${row.status})`);
