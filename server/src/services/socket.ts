@@ -163,18 +163,19 @@ function handleConnection(socket: Socket) {
     }
   });
 
-  // Respond to addon
-  socket.on('addon:respond', (data: { addonId: string; accepted: boolean }) => {
-    if (isRateLimited(socket)) return;
-    if (!data || typeof data.addonId !== 'string' || typeof data.accepted !== 'boolean') return;
-    const addon = respondToAddon(data.addonId, data.accepted, auth.expertId);
-    if (addon) {
-      emitToSession(addon.sessionId, 'addon:updated', addon);
-      const session = getSessionById(addon.sessionId);
-      if (session) {
-        emitToSession(addon.sessionId, 'session:updated', session);
-      }
-    }
+  // Respond to addon (DISABLED — add-ons not currently active)
+  // To re-enable: uncomment the handler body below
+  socket.on('addon:respond', (_data: { addonId: string; accepted: boolean }) => {
+    // if (isRateLimited(socket)) return;
+    // if (!_data || typeof _data.addonId !== 'string' || typeof _data.accepted !== 'boolean') return;
+    // const addon = respondToAddon(_data.addonId, _data.accepted, auth.expertId);
+    // if (addon) {
+    //   emitToSession(addon.sessionId, 'addon:updated', addon);
+    //   const session = getSessionById(addon.sessionId);
+    //   if (session) {
+    //     emitToSession(addon.sessionId, 'session:updated', session);
+    //   }
+    // }
   });
 
   socket.on('disconnect', () => {

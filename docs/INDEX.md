@@ -13,7 +13,7 @@ Quick reference for all project documents, scripts, and config files.
 | [agent-targeting.md](agent-targeting.md) | Scoring rubric for evaluating which ACP agents are the best integration targets. Rates agents by judgment need, decision frequency, budget fit, and content risk. |
 | [design-decisions.md](design-decisions.md) | Log of non-obvious technical decisions with context and rationale. Covers deliverable format, offering schemas, file attachments, ACP integration, operating hours, resource expansion, and keyword routing. **Check before changing core behavior.** |
 | [offerings.md](offerings.md) | Session tier definitions (test/quick/full/deep) with pricing and duration. Lists all 8 enabled and 4 disabled offerings. Expert payout structure. |
-| [use-cases.md](use-cases.md) | Platform overview describing Taste as an expert marketplace for AI agents. Covers ACP on-chain transaction flow and the real-time timed chat session model. |
+| [use-cases.md](use-cases.md) | Platform use cases with feature availability matrix (API vs Dashboard vs not implemented). Covers ACP transaction flow, session lifecycle, expert lifecycle, withdrawals, reputation, and admin capabilities. |
 | [vps-setup.md](vps-setup.md) | Production VPS reference: server specs (107.173.236.164), ports, paths, deployment deps (Node 20, nginx, PM2), co-located Aethir Checker Node. |
 | [x-research/](x-research/) | Ecosystem research: Virtuals agent builders, influencers, and a prioritized outreach list of 6 KOLs. |
 
@@ -21,6 +21,7 @@ Quick reference for all project documents, scripts, and config files.
 
 | File | Summary |
 |------|---------|
+| `agent-description.md` | Business description for the Virtuals GAME console agent profile. Copy-paste into the agent bio field. |
 | `agent-offerings.json` | Complete JSON for uploading to Virtuals GAME console. All 8 offerings with descriptions, example inputs/outputs, requirement schemas, and deliverable schemas. **Upload this to register offerings.** |
 | `agent-resources.json` | Resource definitions for Virtuals GAME console. 3 resources: expert_availability, offering_catalog, sample_deliverables. **Upload this to register resources.** |
 

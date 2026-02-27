@@ -65,6 +65,12 @@ function param(val: string | string[] | undefined): string {
   return Array.isArray(val) ? val[0] : val ?? '';
 }
 
+/** Gate for features that are implemented but intentionally disabled. Remove guard to re-enable. */
+function featureDisabled(res: import('express').Response): true {
+  res.status(403).json({ success: false, error: 'This feature is currently disabled' });
+  return true;
+}
+
 const router = Router();
 
 // Note: verifyToken is already applied by the parent api router
@@ -143,33 +149,21 @@ router.post('/:id/messages', messageLimiter, validate(sendMessageSchema), (req, 
     return;
   }
 
-  const { content, senderType } = req.body as { content: string; senderType?: string };
+  const { content } = req.body as { content: string; senderType?: string };
 
-  // Determine sender type and ID
-  let type: 'agent' | 'expert' = 'expert';
-  let senderId = req.auth!.expertId;
-
-  // Admin can send as agent (for testing or on behalf of ACP agent)
-  if (senderType === 'agent' && req.auth!.role === 'admin') {
-    type = 'agent';
-    senderId = session.buyerAgent ?? 'agent';
-  }
+  // Sender is always expert — admin send-as-agent disabled
+  // To re-enable: uncomment the block below and the agent push notification block
+  // if (senderType === 'agent' && req.auth!.role === 'admin') {
+  //   type = 'agent';
+  //   senderId = session.buyerAgent ?? 'agent';
+  // }
+  const type = 'expert' as const;
+  const senderId = req.auth!.expertId;
 
   const message = addMessage(session.id, type, senderId, content);
   const turnInfo = incrementTurnCount(session.id, type);
 
   emitToSession(session.id, 'message:new', message);
-
-  // Push notification for agent messages to expert
-  if (type === 'agent' && session.expertId) {
-    const preview = content.length > 100 ? content.slice(0, 100) + '...' : content;
-    sendPushToExpert(session.expertId, {
-      title: 'New Message',
-      body: preview,
-      tag: `chat-${session.id}`,
-      data: { url: `/dashboard/session/${session.id}`, sessionId: session.id, type: 'message' },
-    }).catch(err => console.error('[Push] Failed:', err));
-  }
 
   // Relay expert message to buyer agent via ACP memo (non-blocking)
   if (type === 'expert' && session.acpJobId) {
@@ -272,8 +266,9 @@ router.post('/:id/decline', validate(declineSessionSchema), (req, res) => {
   res.json({ success: true, data: declined });
 });
 
-// POST /sessions/:id/addons — create addon request
+// POST /sessions/:id/addons — create addon request (DISABLED — no GUI, no agents use this)
 router.post('/:id/addons', validate(createAddonSchema), (req, res) => {
+  if (featureDisabled(res)) return;
   const session = getSessionById(param(req.params.id));
   if (!session) {
     res.status(404).json({ success: false, error: 'Session not found' });
@@ -300,8 +295,9 @@ router.post('/:id/addons', validate(createAddonSchema), (req, res) => {
   res.status(201).json({ success: true, data: addon });
 });
 
-// POST /sessions/:id/addons/:addonId/respond
+// POST /sessions/:id/addons/:addonId/respond (DISABLED — add-ons not active)
 router.post('/:id/addons/:addonId/respond', validate(respondAddonSchema), (req, res) => {
+  if (featureDisabled(res)) return;
   const { accepted } = req.body as { accepted: boolean };
   const addon = respondToAddon(param(req.params.addonId), accepted, req.auth!.expertId);
   if (!addon) {
@@ -318,8 +314,9 @@ router.post('/:id/addons/:addonId/respond', validate(respondAddonSchema), (req, 
   res.json({ success: true, data: addon });
 });
 
-// POST /sessions/:id/attachments — upload file
+// POST /sessions/:id/attachments — upload file (DISABLED — removed from dashboard UI)
 router.post('/:id/attachments', uploadLimiter, (req, res, next) => {
+  if (featureDisabled(res)) return;
   upload.single('file')(req, res, (err) => {
     if (err) {
       const message = err instanceof Error ? err.message : 'Upload failed';
@@ -438,8 +435,9 @@ router.get('/:id/attachments/:attachmentId/download', (req, res) => {
   res.send(buffer);
 });
 
-// POST /sessions — create session manually (admin/testing)
+// POST /sessions — create session manually (DISABLED — no dashboard UI)
 router.post('/', sessionCreateLimiter, requireRole('admin'), validate(createSessionSchema), (req, res) => {
+  if (featureDisabled(res)) return;
   let session;
   try {
     session = createSession(req.body);
