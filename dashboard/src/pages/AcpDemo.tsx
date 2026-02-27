@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChatView } from '../components/ChatView.js';
 import * as api from '../api/client.js';
 import type { Session } from '../types/index.js';
+import { formatOffering } from '../utils/format.js';
 
 interface BuyerStatus {
   connected: boolean;
@@ -311,7 +312,7 @@ export function AcpDemo() {
                 <option value="">Select a session...</option>
                 {sessions.map(s => (
                   <option key={s.id} value={s.id}>
-                    {s.offeringType} — {s.status} {s.acpJobId ? `(ACP #${s.acpJobId})` : ''}
+                    {formatOffering(s.offeringType)} — {s.status} {s.acpJobId ? `(ACP #${s.acpJobId})` : ''}
                   </option>
                 ))}
               </select>
@@ -433,7 +434,7 @@ export function AcpDemo() {
                     >
                       {offerings.map(o => (
                         <option key={o.index} value={o.index}>
-                          [{o.index}] {o.name} — {o.price} USDC
+                          {formatOffering(o.name)} — {o.price} USDC
                         </option>
                       ))}
                     </select>
@@ -556,7 +557,7 @@ export function AcpDemo() {
                   {/* Linked session */}
                   {linkedSession && (
                     <div style={{ marginBottom: 12, padding: '6px 10px', background: '#EEF2FF', borderRadius: 6, fontSize: 12 }}>
-                      Session: <strong>{linkedSession.offeringType}</strong> ({linkedSession.status})
+                      Job: <strong>{formatOffering(linkedSession.offeringType)}</strong> ({linkedSession.status})
                       {selectedSessionId !== linkedSession.id && (
                         <button
                           onClick={() => setSelectedSessionId(linkedSession.id)}
