@@ -21,7 +21,7 @@ These 8 offerings are active and accepting ACP jobs. All have low rejection risk
 - **Type:** `trust_evaluation`
 - **Status:** ENABLED
 - **Default tier:** full
-- **Domains:** crypto, community
+- **Domains:** crypto, community, business
 - **Description:** Evaluate the trustworthiness and legitimacy of a project, token, or entity through live expert conversation
 - **Checklist:**
   1. Assess project legitimacy
@@ -37,7 +37,7 @@ These 8 offerings are active and accepting ACP jobs. All have low rejection risk
 - **Type:** `output_quality_gate`
 - **Status:** ENABLED
 - **Default tier:** quick
-- **Domains:** design, art, narrative, general
+- **Domains:** design, art, culture, general
 - **Description:** Have an expert review and validate AI-generated outputs in real-time
 - **Checklist:**
   1. Review AI output quality
@@ -51,7 +51,7 @@ These 8 offerings are active and accepting ACP jobs. All have low rejection risk
 - **Type:** `option_ranking`
 - **Status:** ENABLED
 - **Default tier:** full
-- **Domains:** general, crypto, design, art, music
+- **Domains:** general, crypto, business, design, art, music
 - **Description:** Expert ranks and compares multiple options with live reasoning
 - **Checklist:**
   1. Compare all options
@@ -65,7 +65,7 @@ These 8 offerings are active and accepting ACP jobs. All have low rejection risk
 - **Type:** `content_quality_gate`
 - **Status:** ENABLED
 - **Default tier:** full
-- **Domains:** art, music, design, narrative, community
+- **Domains:** art, music, design, culture, community
 - **Description:** Pre-publish review of AI-generated content (video, image, audio) for cultural sensitivity, derivative elements, brand safety, and emotional resonance before distribution
 - **Checklist:**
   1. Review for cultural sensitivity
@@ -94,7 +94,7 @@ These 8 offerings are active and accepting ACP jobs. All have low rejection risk
 - **Type:** `creative_direction_check`
 - **Status:** ENABLED
 - **Default tier:** quick
-- **Domains:** art, music, design, narrative
+- **Domains:** art, music, design, culture
 - **Description:** Early-stage review of a creative brief, concept, or storyboard before expensive generation runs. Catch cultural red flags, derivative risks, or tonal mismatches before committing compute
 - **Checklist:**
   1. Review concept viability
@@ -108,7 +108,7 @@ These 8 offerings are active and accepting ACP jobs. All have low rejection risk
 - **Type:** `fact_check_verification`
 - **Status:** ENABLED
 - **Default tier:** quick
-- **Domains:** general, crypto, narrative
+- **Domains:** general, crypto, culture, business
 - **Description:** Human expert verifies factual claims, checks sources, and flags inaccuracies in AI-generated or user-submitted content
 - **Checklist:**
   1. Verify factual claims
@@ -124,7 +124,7 @@ These 8 offerings are active and accepting ACP jobs. All have low rejection risk
 - **Type:** `dispute_arbitration`
 - **Status:** ENABLED
 - **Default tier:** quick
-- **Domains:** general, crypto
+- **Domains:** general, crypto, business
 - **Description:** Third-party human evaluation of an ACP job delivery. Expert reviews whether the provider fulfilled the original contract and submits an approve/reject verdict
 - **Checklist:**
   1. Review original contract terms
@@ -142,31 +142,31 @@ These 8 offerings are active and accepting ACP jobs. All have low rejection risk
 
 These 4 offerings are fully implemented but disabled via `enabled: false` in `config/domains.ts`. Flip to `enabled: true` to activate.
 
-### 7. Cultural Context
+### 9. Cultural Context
 - **Type:** `cultural_context`
 - **Status:** DISABLED
 - **Default tier:** quick
-- **Domains:** narrative, community, art, music
+- **Domains:** culture, community, art, music
 - **Why disabled:** Medium rejection risk — subjective output, no structured deliverable format
 - **Recommendation to enable:** Add structured output (trend assessment: rising/stable/declining, authenticity: organic/manufactured, evidence list)
 
-### 8. Blind Spot Check
+### 10. Blind Spot Check
 - **Type:** `blind_spot_check`
 - **Status:** DISABLED
 - **Default tier:** quick
-- **Domains:** general, crypto, narrative, community
+- **Domains:** general, crypto, culture, community
 - **Why disabled:** Medium rejection risk — "what's missing" can feel empty if expert finds nothing wrong
 - **Recommendation to enable:** Frame as "validation + gaps" so even "looks good" has value. Require at least one observation.
 
-### 9. Human Reaction Prediction
+### 11. Human Reaction Prediction
 - **Type:** `human_reaction_prediction`
 - **Status:** DISABLED
 - **Default tier:** full
-- **Domains:** community, narrative, design, art, music
+- **Domains:** community, culture, design, art, music
 - **Why disabled:** HIGH rejection risk — predictions are inherently unverifiable
 - **Recommendation to enable:** Add structured scoring rubric (confidence bands, caveats section) so deliverable has measurable components even if prediction is wrong
 
-### 10. Expert Brainstorming
+### 12. Expert Brainstorming
 - **Type:** `expert_brainstorming`
 - **Status:** DISABLED
 - **Default tier:** deep
@@ -303,6 +303,10 @@ When evaluating which agents to target for partnerships/integration:
 - **Agents with high transaction volume** → Quick tier offerings (lower price, faster turnaround)
 - **Agents that explicitly mention quality concerns** → Quality Gate offerings
 
+### Expert Decline Policy
+
+Experts are vetted domain professionals. If an expert cannot fulfill a request with quality, they will decline the job with a written explanation. The agent receives a full refund and a message explaining the decline reason. This is documented in the agent-facing description and all offering descriptions.
+
 ### Prohibited Language
 
 The following phrases are blocked in expert responses for compliance:
@@ -313,4 +317,4 @@ should purchase, should invest, price target, price prediction,
 allocation advice, not financial advice
 ```
 
-**Note:** Currently enforced in v1.0 judgments only. Session message filtering is planned.
+**Note:** Enforcement planned for session message filtering. Currently advisory — experts are instructed to avoid financial advice in their onboarding.

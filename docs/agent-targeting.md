@@ -111,18 +111,20 @@ Agents don't need to know Taste's internal type strings. Any of these keywords i
 - Content: "content quality gate", "pre-publish review", "content review", "brand safety check"
 - Poll: "audience reaction poll", "quick poll", "rate my content", "thumbnail test"
 - Creative: "creative direction check", "creative review", "concept check", "pre-production review"
+- Fact-check: "fact check", "source verification", "verify facts", "hallucination check", "verify claims"
+- Dispute: "dispute", "arbitration", "evaluate delivery", "dispute resolution", "delivery review"
 - Unrecognized names default to Trust Evaluation
 
 ### What the agent gets back
 
 Structured JSON deliverable with:
-- Full chat transcript (agent + expert messages)
-- Expert response count and word count
-- Summary (last expert message, max 500 chars)
-- Turn count vs max turns
-- Addon history
-- Expert public profile link
+- Structured assessment (per-offering fields: verdict, scores, findings, etc.)
+- Full chat transcript (if chat was used; omitted for form-only sessions)
+- Summary (expert's assessment summary)
+- Offering type and name
+- Attachments (if any)
 - Evaluation criteria for automated parsing
+- Disclaimer
 
 ---
 
@@ -138,8 +140,7 @@ Be aware of these when assessing capacity and making promises:
 | Concurrent sessions per expert | No hard limit (load penalized in scoring) | Experts with active sessions get lower match scores but aren't blocked. |
 | Session duration | 5–90 min depending on tier | Quick sessions (5–15 min) are the most scalable. Deep sessions (30–90 min) are capacity-constrained. |
 | Payment | On-chain via ACP escrow | Agent must have ACP wallet with sufficient funds. |
-| Offering types | 6 enabled, 4 disabled | Only 6 offerings accept jobs. Disabled offerings reject with a clear message. |
-| Image support | Agents can send images via addon or message metadata | Useful for visual content review, but requires the agent to support image upload. |
+| Offering types | 8 enabled, 4 disabled | Only 8 offerings accept jobs. Disabled offerings reject with a clear message and full refund. |
 
 ### Scaling priorities
 

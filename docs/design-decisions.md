@@ -290,3 +290,27 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 **Decision:** Added explicit field definitions for `fact_check_verification` and `dispute_arbitration` to the CompletionForm's `DELIVERABLE_SCHEMAS` map, matching the server's expected fields exactly.
 
 **Trade-off:** Field definitions are duplicated between server (`deliverable-schemas.ts`) and dashboard (`CompletionForm.tsx`). A shared schema package would eliminate drift, but is over-engineering for the current offering count. The test suite catches mismatches.
+
+### 2026-02-27: Decline reason dialog
+
+**Context:** When an expert declined a job, the agent only received a generic refund message. No feedback on *why* the expert couldn't fulfill the request.
+
+**Decision:** Added a decline dialog in the dashboard. When expert clicks "Can't Fulfill", a textarea appears asking for the reason. The reason is sent to the agent via the ACP rejection message: "Expert declined: {reason}. You have been fully refunded."
+
+**Rationale:** Agents (and their developers) can learn from decline reasons and improve future requests. Transparent feedback builds trust and reduces repeat bad requests.
+
+### 2026-02-27: Quality policy messaging
+
+**Context:** Agents may submit low-quality or out-of-scope requests. Without clear expectations, this wastes expert time and creates negative experiences.
+
+**Decision:** Added vetting/quality policy language to: (1) business description in `agent-description.md`, (2) all 8 offering descriptions in `agent-offerings.json`, (3) both public resource endpoints (availability + catalog). Core message: "Experts are vetted. Requests that cannot be fulfilled with quality are declined with explanation and full refund."
+
+**Rationale:** Sets expectations before purchase. Agents know they'll get quality or their money back — not a half-hearted attempt.
+
+### 2026-02-27: "Sessions" → "Jobs" in dashboard UI
+
+**Context:** The backend uses "session" as the data model term (correct for the interactive expert-agent interaction). But dashboard users (experts, admin) think in terms of "jobs" — a job request arrives, you complete the job, you get paid.
+
+**Decision:** Renamed all user-facing UI labels from "session" to "job" (Session History → Job History, "No active sessions" → "No active jobs", "Accept Session" → "Accept Job", etc.). Backend API and data model remain "session". Added `JobStatusBadge` component with color-coded status: completed (green), declined (red), timed out (grey).
+
+**Rationale:** User-facing language should match user mental model. The old UI showed all completed/declined/timed-out jobs as green, which was misleading. Status badges give experts accurate feedback on their track record.

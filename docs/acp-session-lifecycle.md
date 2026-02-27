@@ -131,8 +131,8 @@ Sessions have a `maxTurns` limit (from tier config). After hitting the limit:
 
 Only the **expert** or **admin** can complete a session. The buying agent cannot.
 
-1. Expert clicks "Complete" in dashboard -> **CompletionForm modal** appears
-2. Expert fills per-offering structured fields (verdict, scores, findings) and optional file attachments
+1. Expert sees the **CompletionForm** inline in the session view (form-first layout)
+2. Expert fills per-offering structured fields (verdict, scores, findings)
 3. Expert submits -> `POST /sessions/:id/complete` with `{ structuredData, summary }`
 4. Server validates structured data against per-offering Zod schema
 5. `saveDeliverable()` stores in `session_deliverables` table
@@ -155,13 +155,15 @@ Each offering type has a per-offering schema defined in `deliverable-schemas.ts`
 - **content_quality_gate**: verdict, culturalSensitivityScore, brandSafetyScore, summary, flaggedIssues
 - **audience_reaction_poll**: overallRating, summary, criteriaScores, comparisonNotes
 - **creative_direction_check**: verdict, viabilityScore, summary, culturalFlags, tonalAlignment
+- **fact_check_verification**: overallAccuracy, claimsChecked, summary, flaggedClaims, corrections
+- **dispute_arbitration**: verdict, reasoning, deliverableQuality, contractAlignment, summary
 - **Fallback** (unknown types): summary, verdict, keyFindings
 
 Backward compatible: sessions completed without structured data use the old transcript-based summary.
 
-### File Attachments
+### File Attachments (Disabled)
 
-Experts can attach evidence files (screenshots, PDFs, images) during chat or at completion:
+File upload routes are currently disabled (return 403). Implementation preserved for future use:
 - **Chat uploads**: `POST /sessions/:id/attachments` with `context=chat` — creates a `file` message in chat
 - **Completion uploads**: Same endpoint with `context=completion` — attached to deliverable only
 - **Signed URLs**: External (ACP agent) access via HMAC-signed URLs with 24h expiry
@@ -171,9 +173,9 @@ Experts can attach evidence files (screenshots, PDFs, images) during chat or at 
 
 ## Expert Options During Session
 
-- **Complete**: Submit deliverable with whatever data they have
-- **Decline**: Can't fulfill the request -> buyer refunded, no reputation penalty
-- **Keep chatting**: Continue conversation within turn/time limits
+- **Complete**: Submit structured assessment via the CompletionForm (form-first workflow)
+- **Decline**: Can't fulfill the request -> expert provides a written reason -> buyer refunded with explanation, no reputation penalty
+- **Keep chatting**: Send chat messages within turn/time limits (optional — agents rarely reply in practice)
 
 > **Add-ons are disabled for ACP sessions.** ACP has no standard mid-session upsell mechanism, so agents wouldn't understand addon requests. The addon code is preserved for potential non-ACP use. The ChatView hides the addon UI when `session.acpJobId` is set, and the AcpDemo page shows a disabled notice instead of the addon form.
 

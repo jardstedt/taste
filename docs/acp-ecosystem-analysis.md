@@ -343,14 +343,14 @@ Human expertise commands a premium as the only offering of its kind. Current aut
 
 | # | Type | Name | Tier | Domains | Keywords | Schema | Dashboard |
 |---|------|------|------|---------|----------|--------|-----------|
-| 1 | trust_evaluation | Trust Evaluation | full | crypto, community | 9 | 6 fields | Yes |
-| 2 | output_quality_gate | Output Quality Gate | quick | design, art, narrative, general | 8 | 5 fields | Yes |
-| 3 | option_ranking | Option Ranking | full | general, crypto, design, art, music | 8 | 4 fields | Yes |
-| 4 | content_quality_gate | Content Quality Gate | full | art, music, design, narrative, community | 6 | 5 fields | Yes |
+| 1 | trust_evaluation | Trust Evaluation | full | crypto, community, business | 13 | 6 fields | Yes |
+| 2 | output_quality_gate | Output Quality Gate | quick | design, art, culture, general | 11 | 5 fields | Yes |
+| 3 | option_ranking | Option Ranking | full | general, crypto, business, design, art, music | 9 | 4 fields | Yes |
+| 4 | content_quality_gate | Content Quality Gate | full | art, music, design, culture, community | 6 | 5 fields | Yes |
 | 5 | audience_reaction_poll | Audience Reaction Poll | quick | art, music, design, community, general | 7 | 5 fields | Yes |
-| 6 | creative_direction_check | Creative Direction Check | quick | art, music, design, narrative | 8 | 5 fields | Yes |
-| 7 | fact_check_verification | Fact-Check & Source Verification | quick | general, crypto, narrative | 8 | 5 fields | Yes |
-| 8 | dispute_arbitration | Dispute Evaluation | quick | general, crypto | 6 | 5 fields | Yes |
+| 6 | creative_direction_check | Creative Direction Check | quick | art, music, design, culture | 8 | 5 fields | Yes |
+| 7 | fact_check_verification | Fact-Check & Source Verification | quick | general, crypto, culture, business | 8 | 5 fields | Yes |
+| 8 | dispute_arbitration | Dispute Evaluation | quick | general, crypto, business | 6 | 5 fields | Yes |
 
 ### Implementation Completeness per Offering
 

@@ -155,9 +155,11 @@ All transitions are atomic (conditional SQL UPDATE) — prevents race conditions
    - Note: idle_warned_at column exists but idle timer logic is NOT implemented
 
 9. SESSION DECLINE
-   - Trigger: Expert clicks "Can't Fulfill" in the assessment form
-   - Action: declineSession() → status = 'cancelled'
-   - Expert payout = $0, ACP job rejected, agent refunded
+   - Trigger: Expert clicks "Can't Fulfill" in the dashboard
+   - Expert enters a reason explaining why they can't fulfill the request
+   - Action: declineSession(reason) → status = 'cancelled'
+   - Decline reason sent to agent via ACP rejection message
+   - Expert payout = $0, ACP job rejected immediately, agent refunded
 
 10. SESSION CANCELLATION
     - Trigger: No expert available, deadline on pending/matching, admin action
@@ -189,7 +191,7 @@ Assessment fields: verdict (approve/reject), reasoning, deliverableQuality, cont
 
 ```
 1. Admin creates expert account
-   - Name, email, password (min 8 chars), domains (crypto, music, art, design, culture, community, business, general)
+   - Name, email, password (min 8 chars), domains: crypto, music, art, design, culture, community, business, general
    - Email encrypted with AES-256-GCM, hash stored for O(1) lookup
 
 2. Expert logs in
@@ -269,9 +271,11 @@ Affects: Expert matching priority (20% weight in scoring algorithm)
 Triggers:
   - New session matched to expert → "New Session Request"
   - Agent memo received (via ACP bridge) → "New Message" (with preview)
-  - Admin sends message as agent → "New Message" (with preview)
-  - Add-on requested → "Add-on Requested"
   - Dispute evaluation assigned → "Dispute Evaluation"
+
+Disabled triggers (implementation preserved):
+  - Admin sends message as agent → "New Message" (admin send-as-agent disabled)
+  - Add-on requested → "Add-on Requested" (add-ons disabled)
 
 Delivery: Web Push via VAPID keys
 Cleanup: Stale subscriptions (410/404) auto-removed
