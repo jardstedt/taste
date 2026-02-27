@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useSessions } from '../hooks/useSessions.js';
+import { formatOffering } from '../utils/format.js';
+import { JobStatusBadge } from '../components/JobStatusBadge.js';
 
 export function SessionHistory() {
   const navigate = useNavigate();
@@ -12,7 +14,7 @@ export function SessionHistory() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {completed.map((session, i) => {
           const date = new Date(session.completedAt || session.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          const offeringLabel = session.offeringType.replace(/_/g, ' ');
+          const isSuccess = session.status === 'completed';
           return (
             <div
               key={session.id}
@@ -21,10 +23,15 @@ export function SessionHistory() {
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
             >
               <div>
-                <div style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>Session #{completed.length - i}</div>
-                <div style={{ fontSize: 12, color: '#9CA3AF' }}>{date} · {offeringLabel}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>Job #{completed.length - i}</span>
+                  <JobStatusBadge status={session.status} />
+                </div>
+                <div style={{ fontSize: 12, color: '#9CA3AF' }}>{date} · {formatOffering(session.offeringType)}</div>
               </div>
-              <div style={{ color: '#059669', fontWeight: 600 }}>${session.expertPayoutUsdc.toFixed(2)}</div>
+              <div style={{ color: isSuccess ? '#059669' : '#9CA3AF', fontWeight: 600 }}>
+                ${session.expertPayoutUsdc.toFixed(2)}
+              </div>
             </div>
           );
         })}
@@ -37,8 +44,8 @@ export function SessionHistory() {
               <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
             </svg>
           </div>
-          <div className="empty-state-title">No completed sessions yet</div>
-          <div className="empty-state-text">Your session history will appear here</div>
+          <div className="empty-state-title">No completed jobs yet</div>
+          <div className="empty-state-text">Your job history will appear here</div>
         </div>
       )}
     </div>

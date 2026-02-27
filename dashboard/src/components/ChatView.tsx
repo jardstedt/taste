@@ -269,24 +269,24 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
         {/* ── Locked state ── */}
         {isActive && isLocked && (
           <div className="chat-ended" style={{ color: 'var(--color-error, #DC2626)', margin: 16, borderRadius: 8 }}>
-            Grace period exhausted — please complete or decline the session.
+            Grace period exhausted — please complete or decline the job.
           </div>
         )}
 
         {/* ── End states ── */}
         {session.status === 'completed' && (
           <div className="chat-ended" style={{ margin: 16, borderRadius: 8 }}>
-            Session completed
+            Job completed
           </div>
         )}
         {session.status === 'cancelled' && (
-          <div className="chat-ended" style={{ margin: 16, borderRadius: 8 }}>
-            Session cancelled
+          <div className="chat-ended" style={{ margin: 16, borderRadius: 8, color: '#991B1B' }}>
+            Job declined
           </div>
         )}
         {session.status === 'timeout' && (
-          <div className="chat-ended" style={{ margin: 16, borderRadius: 8 }}>
-            Session timed out
+          <div className="chat-ended" style={{ margin: 16, borderRadius: 8, color: '#6B7280' }}>
+            Job timed out
           </div>
         )}
 

@@ -77,7 +77,7 @@ export function SessionRequest({ session, onAccept, onDecline }: SessionRequestP
             cursor: 'pointer', fontFamily: 'var(--font-family)'
           }}
         >
-          Accept Session
+          Accept Job
         </button>
       </div>
     </div>

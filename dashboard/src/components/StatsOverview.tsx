@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSessions } from '../hooks/useSessions.js';
 import { SessionRequest } from './SessionRequest.js';
+import { JobStatusBadge } from './JobStatusBadge.js';
 import * as api from '../api/client.js';
 import type { AuthUser } from '../types/index.js';
 import { formatOffering, truncateAddress } from '../utils/format.js';
@@ -75,20 +76,20 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
         <div className="stat-card">
           <div className="stat-label">This Month</div>
           <div className="stat-value" style={{ marginTop: 8 }}>${totalEarnings.toFixed(2)}</div>
-          <div className="stat-sub stat-sub-green">Earned from {completed.length} sessions</div>
+          <div className="stat-sub stat-sub-green">Earned from {completed.length} jobs</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Sessions Completed</div>
+          <div className="stat-label">Jobs Completed</div>
           <div className="stat-value" style={{ marginTop: 8 }}>{completed.length}</div>
           <div className="stat-sub stat-sub-purple">{avgReputation > 0 ? `${avgReputation} avg score` : 'No ratings yet'}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Avg Session Value</div>
+          <div className="stat-label">Avg Job Value</div>
           <div className="stat-value" style={{ marginTop: 8 }}>${avgSessionValue.toFixed(2)}</div>
-          <div className="stat-sub stat-sub-amber">Per completed session</div>
+          <div className="stat-sub stat-sub-amber">Per completed job</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Total Sessions</div>
+          <div className="stat-label">Total Jobs</div>
           <div className="stat-value" style={{ marginTop: 8 }}>{sessions.length}</div>
           <div className="stat-sub stat-sub-blue">{active.length} active now</div>
         </div>
@@ -114,14 +115,14 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
               </div>
             ) : (
               <div style={{ color: '#9CA3AF', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-                Complete sessions to build reputation
+                Complete jobs to build reputation
               </div>
             )}
           </div>
 
           {/* Session Breakdown */}
           <div className="card" style={{ padding: 20 }}>
-            <div style={{ color: '#6B21A8', fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Session Breakdown</div>
+            <div style={{ color: '#6B21A8', fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Job Breakdown</div>
             {breakdownItems.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {breakdownItems.map(([label, count], i) => {
@@ -130,7 +131,7 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
                     <div key={label} className="breakdown-item">
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{ fontSize: 13, color: '#1A1A2E' }}>{label}</span>
-                        <span style={{ fontSize: 12, color: '#9CA3AF' }}>{count} sessions</span>
+                        <span style={{ fontSize: 12, color: '#9CA3AF' }}>{count} jobs</span>
                       </div>
                       <div className="breakdown-bar">
                         <div className="breakdown-fill" style={{ width: `${pct}%`, opacity: 1 - i * 0.15 }} />
@@ -141,7 +142,7 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
               </div>
             ) : (
               <div style={{ color: '#9CA3AF', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-                No sessions yet
+                No jobs yet
               </div>
             )}
           </div>
@@ -165,13 +166,14 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
         </div>
       )}
 
-      {/* Recent Sessions */}
+      {/* Recent Jobs */}
       {completed.length > 0 && (
         <div>
-          <div className="section-header">Recent Sessions</div>
+          <div className="section-header">Recent Jobs</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {completed.slice(0, 5).map(session => {
               const date = new Date(session.completedAt || session.createdAt).toLocaleDateString();
+              const isSuccess = session.status === 'completed';
               return (
                 <div
                   key={session.id}
@@ -180,12 +182,15 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                 >
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>
-                      {formatOffering(session.offeringType)} for {truncateAddress(session.buyerAgent)}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>
+                        {formatOffering(session.offeringType)} for {truncateAddress(session.buyerAgent)}
+                      </span>
+                      <JobStatusBadge status={session.status} />
                     </div>
                     <div style={{ color: '#9CA3AF', fontSize: 12 }}>{date}</div>
                   </div>
-                  <div style={{ color: '#059669', fontSize: 15, fontWeight: 600, flexShrink: 0 }}>
+                  <div style={{ color: isSuccess ? '#059669' : '#9CA3AF', fontSize: 15, fontWeight: 600, flexShrink: 0 }}>
                     ${session.expertPayoutUsdc.toFixed(2)}
                   </div>
                 </div>
@@ -202,8 +207,8 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
           </div>
-          <div className="empty-state-title">No sessions yet</div>
-          <div className="empty-state-text">Sessions will appear here when AI agents request your expertise</div>
+          <div className="empty-state-title">No jobs yet</div>
+          <div className="empty-state-text">Jobs will appear here when AI agents request your expertise</div>
         </div>
       )}
     </div>
