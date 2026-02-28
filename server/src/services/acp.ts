@@ -584,6 +584,10 @@ function startPolling(): void {
   console.log('[ACP] Polling started (30s interval)');
 }
 
+// Track ACP job IDs that we've already delivered/rejected via polling so we
+// don't keep retrying them if getPendingMemoJobs() returns them again.
+const _resolvedPollingJobs = new Set<number>();
+
 async function pollJobs(): Promise<void> {
   if (!_acpClient) return;
 
@@ -591,18 +595,26 @@ async function pollJobs(): Promise<void> {
   const pendingJobs = await _acpClient.getPendingMemoJobs();
 
   for (const job of pendingJobs) {
+    if (_resolvedPollingJobs.has(job.id)) continue;
+
     if (job.phase === AcpJobPhases.TRANSACTION) {
       // Check for session delivery or rejection
       const session = getSessionByAcpId(String(job.id));
       if (session) {
-        if (session.status === 'completed') {
-          const deliverable = formatSessionDeliverable(session.id);
-          await job.deliver(JSON.stringify(deliverable));
-          console.log(`[ACP] Delivered session for job ${job.id} via polling`);
-          autoConfirmIfNoEvaluator(job, session.id);
-        } else if (session.status === 'timeout' || session.status === 'cancelled') {
-          await job.reject(`Session ${session.status} — expert did not complete the task. You have been fully refunded. Please try again and a new expert will be assigned.`);
-          console.log(`[ACP] Rejected job ${job.id} via polling (session ${session.status}) — agent refunded`);
+        try {
+          if (session.status === 'completed') {
+            const deliverable = formatSessionDeliverable(session.id);
+            await job.deliver(JSON.stringify(deliverable));
+            console.log(`[ACP] Delivered session for job ${job.id} via polling`);
+            autoConfirmIfNoEvaluator(job, session.id);
+            _resolvedPollingJobs.add(job.id);
+          } else if (session.status === 'timeout' || session.status === 'cancelled') {
+            await job.reject(`Session ${session.status} — expert did not complete the task. You have been fully refunded. Please try again and a new expert will be assigned.`);
+            console.log(`[ACP] Rejected job ${job.id} via polling (session ${session.status}) — agent refunded`);
+            _resolvedPollingJobs.add(job.id);
+          }
+        } catch {
+          // Will retry next cycle — don't add to resolved set
         }
       }
     }
@@ -1125,5 +1137,6 @@ export function stopAcp(): void {
   _bridgedJobs.clear();
   _processingJobs.clear();
   _reconciledSessionIds.clear();
+  _resolvedPollingJobs.clear();
   console.log('[ACP] Stopped');
 }

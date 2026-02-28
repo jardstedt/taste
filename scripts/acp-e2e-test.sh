@@ -116,13 +116,16 @@ api_get() {
 
 api_post() {
   local url="$1"
-  local body="${2:-{}}"
+  local body="$2"
+  if [ -z "$body" ]; then body='{}'; fi
   log_request "POST" "$BASE$url" "$body"
   local tmp=$(mktemp)
+  local body_file=$(mktemp)
+  printf '%s' "$body" > "$body_file"
   RESP_CODE=$(curl -s -o "$tmp" -w "%{http_code}" -b "$COOKIE_FILE" -c "$COOKIE_FILE" \
-    -H "Content-Type: application/json" -X POST "$BASE$url" -d "$body")
+    -H "Content-Type: application/json" -X POST "$BASE$url" --data-binary "@$body_file")
   RESP_BODY=$(cat "$tmp")
-  rm -f "$tmp"
+  rm -f "$tmp" "$body_file"
   log_response "$RESP_CODE" "$RESP_BODY"
 }
 
