@@ -362,15 +362,36 @@ do_wait_for_negotiation() {
 do_pay() {
   log_step "Pay for job (NEGOTIATION → TRANSACTION)"
 
-  api_post "/api/agent-sim/jobs/$JOB_ID/pay"
+  # The provider sends accept + createRequirement as two separate on-chain
+  # calls.  The buyer's payAndAcceptRequirement needs the requirement memo
+  # to exist, which may take a few seconds to propagate after NEGOTIATION.
+  local max_retries=5
+  local attempt=0
 
-  if is_success "$RESP_BODY"; then
-    log_result "true" "Payment submitted on-chain"
-  else
+  while [ $attempt -lt $max_retries ]; do
+    api_post "/api/agent-sim/jobs/$JOB_ID/pay"
+
+    if is_success "$RESP_BODY"; then
+      log_result "true" "Payment submitted on-chain"
+      return 0
+    fi
+
     local err=$(json_field "$RESP_BODY" "o.error ?? 'unknown'")
-    log_result "false" "Payment failed: $err"
-    return 1
-  fi
+
+    # Retry on "no notification memo" — the requirement hasn't propagated yet
+    if echo "$err" | grep -qi "memo\|notification"; then
+      attempt=$((attempt + 1))
+      echo -e "  ${DIM}Requirement memo not ready, retrying in 10s... ($attempt/$max_retries)${NC}"
+      log "  Payment attempt $attempt failed: $err — retrying in 10s"
+      sleep 10
+    else
+      log_result "false" "Payment failed: $err"
+      return 1
+    fi
+  done
+
+  log_result "false" "Payment failed after $max_retries retries (requirement memo never arrived)"
+  return 1
 }
 
 do_find_session() {
