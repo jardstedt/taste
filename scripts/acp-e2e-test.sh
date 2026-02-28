@@ -116,7 +116,8 @@ api_get() {
 
 api_post() {
   local url="$1"
-  local body="$2"
+  local body
+  body="${2-}"
   if [ -z "$body" ]; then body='{}'; fi
   log_request "POST" "$BASE$url" "$body"
   local tmp=$(mktemp)
