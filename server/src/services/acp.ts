@@ -806,15 +806,31 @@ export async function rejectSessionOnAcp(internalSessionId: string, reason?: str
  * Detect sessions stuck in completed/cancelled/timeout whose ACP jobs
  * are still in TRANSACTION phase. Deliver or reject on ACP to unblock them.
  */
+// Track session IDs that have been reconciled (or confirmed terminal) so we
+// don't retry them every polling cycle.  Persists until process restart, at
+// which point the ACP jobs will already be in a terminal phase.
+const _reconciledSessionIds = new Set<string>();
+
 async function reconcileStuckSessions(): Promise<void> {
   if (!_acpClient) return;
 
   const stuckRows = getStuckAcpSessions();
 
   for (const row of stuckRows) {
+    if (_reconciledSessionIds.has(row.id)) continue;
+
     try {
       const acpJob = await _acpClient!.getJobById(Number(row.acpJobId));
-      if (!acpJob || acpJob.phase !== AcpJobPhases.TRANSACTION) continue;
+      if (!acpJob) {
+        _reconciledSessionIds.add(row.id);
+        continue;
+      }
+
+      // Job already in a terminal phase — nothing to do, stop retrying
+      if (acpJob.phase !== AcpJobPhases.TRANSACTION) {
+        _reconciledSessionIds.add(row.id);
+        continue;
+      }
 
       if (row.status === 'completed') {
         const deliverable = formatSessionDeliverable(row.id);
@@ -825,8 +841,10 @@ async function reconcileStuckSessions(): Promise<void> {
         await acpJob.reject(`Session ${row.status} — expert did not complete the task. Agent refunded.`);
         console.log(`[ACP] Reconciled: rejected stuck session ${row.id} (${row.status})`);
       }
+
+      _reconciledSessionIds.add(row.id);
     } catch {
-      // Will retry on next polling cycle
+      // Will retry on next polling cycle — do NOT add to reconciled set
     }
   }
 }
@@ -1106,5 +1124,6 @@ export function stopAcp(): void {
   _seenMemoIds.clear();
   _bridgedJobs.clear();
   _processingJobs.clear();
+  _reconciledSessionIds.clear();
   console.log('[ACP] Stopped');
 }
