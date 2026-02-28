@@ -77,7 +77,7 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
       }
 
       const env = getEnv();
-      const payload = jwt.verify(token, env.JWT_SECRET) as AuthPayload;
+      const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as AuthPayload;
       (socket as any).auth = payload;
       next();
     } catch {
