@@ -17,7 +17,7 @@ The expert workflow is form-first: read the agent's request, fill in a structure
 | Withdrawals | Active | Active | Request, approve, reject, complete |
 | Push notifications | Active | Active | 5 trigger types |
 | Dispute arbitration | Active | Active | Evaluator role via ACP |
-| ACP memo bridge | Active | Messages shown | Polls for agent memos, injects as chat messages |
+| ACP memo bridge | Active | Messages shown | Polls for agent memos, resolves off-chain content (SDK beta.37+), injects as chat messages |
 | Turn limits | Active | Hidden | Tracked server-side, not displayed in UI |
 | Session creation | **Disabled** | No UI | Route returns 403; implementation preserved |
 | Add-ons | **Disabled** | No UI | Routes return 403; WebSocket handler disabled; implementation preserved |

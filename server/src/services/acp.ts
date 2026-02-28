@@ -21,6 +21,27 @@ import { sendPushToExpert } from './push.js';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
+/** Pattern for off-chain memo content URLs (SDK beta.37+) */
+const MEMO_CONTENT_URL_RE = /api\/memo-contents\/\d+$/;
+
+/**
+ * Resolve memo content that may be either inline text or an off-chain URL reference.
+ * SDK beta.37+ stores large payloads off-chain and puts only the URL on-chain.
+ * Mirrors the pattern in AcpJob.getDeliverable().
+ */
+async function resolveMemoContent(content: string): Promise<string> {
+  if (!_acpClient || !MEMO_CONTENT_URL_RE.test(content)) {
+    return content;
+  }
+  try {
+    const resolved = await _acpClient.getMemoContent(content);
+    return typeof resolved === 'string' ? resolved : JSON.stringify(resolved);
+  } catch {
+    // Fallback to raw content if fetch fails
+    return content;
+  }
+}
+
 /** Format a requirement value for human-readable display in chat messages */
 function formatRequirementValue(v: unknown): string {
   if (Array.isArray(v)) {
@@ -48,6 +69,12 @@ function autoConfirmIfNoEvaluator(job: AcpJob, sessionId: string): void {
 let _acpClient: InstanceType<typeof AcpClient> | null = null;
 let _pollInterval: ReturnType<typeof setInterval> | null = null;
 let _memoBridgeInterval: ReturnType<typeof setInterval> | null = null;
+
+// ── Job Processing Lock ──
+// Prevents the same ACP job from being processed concurrently by both WebSocket and polling.
+// The atomic SQL in createSession already prevents double-creation, but this makes the
+// dedup intent explicit and avoids redundant ACP accept/reject calls.
+const _processingJobs = new Set<number>();
 
 // ── Memo Bridge State ──
 // Track which ACP memo IDs we've already injected into chat to avoid duplicates.
@@ -177,16 +204,22 @@ const OFFERING_NAME_MAP: Record<string, string> = {
   'contract dispute': 'dispute_arbitration',
 };
 
-function resolveOfferingType(jobName: string): string {
+function resolveOfferingType(jobName: string): string | null {
   const lower = jobName.toLowerCase().trim().replace(/_/g, ' ');
 
+  // Check if the name exactly matches an enabled offering type first
+  const enabled = getEnabledSessionOfferings();
+  const exactMatch = enabled.find(o => o.type === lower.replace(/ /g, '_'));
+  if (exactMatch) return exactMatch.type;
+
+  // Fuzzy keyword matching for agent-sent names
   for (const [key, type] of Object.entries(OFFERING_NAME_MAP)) {
     const normalizedKey = key.replace(/_/g, ' ');
     if (lower.includes(normalizedKey)) return type;
   }
 
-  // Default to trust_evaluation as the most general session offering
-  return 'trust_evaluation';
+  // No match — caller should reject
+  return null;
 }
 
 // ── Initialization ──
@@ -243,6 +276,13 @@ export async function initAcp(): Promise<InstanceType<typeof AcpClient> | null> 
 // ── WebSocket Callbacks ──
 
 async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
+  // Dedup: skip if this job is already being processed (WebSocket + polling overlap)
+  if (_processingJobs.has(job.id)) {
+    console.log(`[ACP] Skipping job ${job.id} — already processing`);
+    return;
+  }
+  _processingJobs.add(job.id);
+
   try {
     // Phase 1: Incoming job request — accept it
     if (
@@ -254,12 +294,22 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
       // Determine offering type from job name
       const offeringType = resolveOfferingType(job.name ?? String(job.id));
 
+      // Reject unrecognized offering types
+      if (!offeringType) {
+        const available = getEnabledSessionOfferings().map(o => o.type).join(', ');
+        console.log(`[ACP] Unrecognized offering in job ${job.id} (name: "${job.name}") — rejecting`);
+        await job.reject(`Unrecognized offering type. Available offerings: ${available}`);
+        return;
+      }
+
       // Extract requirements from the first buyer memo or context
       let requirements: Record<string, unknown> = {};
       if (job.memos && job.memos.length > 0) {
         const firstMemo = job.memos[0];
         try {
-          const parsed = JSON.parse(firstMemo.content);
+          // Resolve off-chain content if memo is a URL reference (SDK beta.37+)
+          const memoText = await resolveMemoContent(firstMemo.content);
+          const parsed = JSON.parse(memoText);
           // ACP wraps the actual data under a "requirement" key
           if (parsed.requirement && typeof parsed.requirement === 'object') {
             requirements = parsed.requirement as Record<string, unknown>;
@@ -267,8 +317,9 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
             requirements = parsed;
           }
         } catch {
-          // If not valid JSON, store as raw text
-          requirements = { rawRequest: firstMemo.content };
+          // If not valid JSON, store as raw text (resolve in case it's a URL)
+          const fallbackText = await resolveMemoContent(firstMemo.content);
+          requirements = { rawRequest: fallbackText };
         }
       }
       if (job.context && Object.keys(job.context).length > 0) {
@@ -364,6 +415,8 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
     }
   } catch (err) {
     console.error(`[ACP] Error handling job ${job.id}`);
+  } finally {
+    _processingJobs.delete(job.id);
   }
 }
 
@@ -373,8 +426,9 @@ async function handleEvaluate(job: AcpJob): Promise<void> {
 
     // Check if this is a third-party evaluator assignment (not our own provider job)
     const existingSession = getSessionByAcpId(String(job.id));
-    if (!existingSession && job.deliverable) {
-      await handleEvaluatorAssignment(job);
+    const jobDeliverable = await job.getDeliverable();
+    if (!existingSession && jobDeliverable) {
+      await handleEvaluatorAssignment(job, jobDeliverable);
       return;
     }
 
@@ -434,9 +488,10 @@ async function handleEvaluate(job: AcpJob): Promise<void> {
 
 // ── Evaluator Assignment ──
 
-async function handleEvaluatorAssignment(job: AcpJob): Promise<void> {
+async function handleEvaluatorAssignment(job: AcpJob, rawDeliverable: unknown): Promise<void> {
   let deliverable: unknown;
-  try { deliverable = JSON.parse(job.deliverable!); } catch { deliverable = job.deliverable; }
+  const deliverableStr = typeof rawDeliverable === 'string' ? rawDeliverable : JSON.stringify(rawDeliverable);
+  try { deliverable = JSON.parse(deliverableStr); } catch { deliverable = rawDeliverable; }
 
   const description = [
     `**Dispute Evaluation Request** (ACP Job #${job.id})`,
@@ -625,8 +680,9 @@ async function bridgeInboundMemos(): Promise<boolean> {
         // Only inject memos from the buyer (not our own provider memos)
         if (memo.senderAddress.toLowerCase() === providerAddress) continue;
 
-        // Inject as an agent message in the chat
-        const content = memo.content.slice(0, MAX_MEMO_LENGTH);
+        // Resolve content — may be inline text or an off-chain URL (SDK beta.37+)
+        const rawContent = await resolveMemoContent(memo.content);
+        const content = rawContent.slice(0, MAX_MEMO_LENGTH);
         const message = addMessage(sessionId, 'agent', null, content);
         emitToSession(sessionId, 'message:new', message);
 
@@ -855,6 +911,9 @@ async function trackBuyerAccount(job: AcpJob): Promise<void> {
 
 // ── Getters ──
 
+/** Exposed for unit testing only */
+export const _testResolveOfferingType = resolveOfferingType;
+
 export function getAcpClient(): InstanceType<typeof AcpClient> | null {
   return _acpClient;
 }
@@ -908,7 +967,7 @@ export interface AcpJobInspection {
   providerAddress: string;
   evaluatorAddress: string;
   price: number;
-  deliverable: string | null;
+  deliverable: string | Record<string, unknown> | null;
   rejectionReason: string | null;
   requirement: unknown;
   memos: Array<{
@@ -938,6 +997,7 @@ export async function inspectAcpJob(acpJobId: number): Promise<AcpJobInspection 
 
   // Find local session linked to this ACP job
   const session = getSessionByAcpId(String(acpJobId));
+  const jobDeliverable = await job.getDeliverable();
 
   return {
     acpJobId: job.id,
@@ -947,7 +1007,7 @@ export async function inspectAcpJob(acpJobId: number): Promise<AcpJobInspection 
     providerAddress: job.providerAddress,
     evaluatorAddress: job.evaluatorAddress,
     price: job.price,
-    deliverable: job.deliverable ?? null,
+    deliverable: jobDeliverable ?? null,
     rejectionReason: job.rejectionReason ?? null,
     requirement: job.requirement ?? null,
     memos: (job.memos ?? []).map(m => ({
@@ -998,6 +1058,7 @@ export async function listAcpJobs(): Promise<AcpJobInspection[]> {
     seen.add(job.id);
 
     const session = getSessionByAcpId(String(job.id));
+    const jobDeliverable = await job.getDeliverable();
 
     results.push({
       acpJobId: job.id,
@@ -1007,7 +1068,7 @@ export async function listAcpJobs(): Promise<AcpJobInspection[]> {
       providerAddress: job.providerAddress,
       evaluatorAddress: job.evaluatorAddress,
       price: job.price,
-      deliverable: job.deliverable ?? null,
+      deliverable: jobDeliverable ?? null,
       rejectionReason: job.rejectionReason ?? null,
       requirement: job.requirement ?? null,
       memos: (job.memos ?? []).map(m => ({
@@ -1044,5 +1105,6 @@ export function stopAcp(): void {
   _acpClient = null;
   _seenMemoIds.clear();
   _bridgedJobs.clear();
+  _processingJobs.clear();
   console.log('[ACP] Stopped');
 }

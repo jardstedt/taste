@@ -32,6 +32,7 @@ Quick reference for all project documents, scripts, and config files.
 | `acp-research.ts` | ACP marketplace analysis: searches 21 keywords, deduplicates agents, reports top agents, common offerings, pricing, demand keywords. Run: `npx tsx scripts/acp-research.ts` |
 | `fetch-agent.js` | Fetch full agent details from ACP API. Run: `node scripts/fetch-agent.js "search query" [topK]` |
 | `agent-sim.sh` | Interactive CLI tool for testing sessions end-to-end. Simulates a buying agent. |
+| `graduation-check.ts` | Automated graduation health check: exercises all 8 offerings end-to-end against production or local. Run before submission and daily during review. `ADMIN_PASSWORD=xxx npx tsx scripts/graduation-check.ts` |
 | `deploy.sh` | Production deploy: git pull, build, pm2 restart. Run on VPS. |
 | `vps-setup.sh` | Full one-command VPS setup: nvm, Cloudflare certs, nginx, PM2, backups. |
 | `generate-secrets.sh` | Generate JWT secret, encryption key, and VAPID keys for `.env`. |

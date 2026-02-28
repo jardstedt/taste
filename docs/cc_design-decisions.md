@@ -314,3 +314,23 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 **Decision:** Renamed all user-facing UI labels from "session" to "job" (Session History → Job History, "No active sessions" → "No active jobs", "Accept Session" → "Accept Job", etc.). Backend API and data model remain "session". Added `JobStatusBadge` component with color-coded status: completed (green), declined (red), timed out (grey).
 
 **Rationale:** User-facing language should match user mental model. The old UI showed all completed/declined/timed-out jobs as green, which was misleading. Status badges give experts accurate feedback on their track record.
+
+### 2026-02-27: Graduation readiness — reject unknown offerings + job dedup lock
+
+**Context:** Preparing for Virtuals ACP graduation. The review process sends test jobs to verify each offering works. If any single offering fails, the entire submission is rejected with resubmission delays.
+
+**Decision 1 — Reject unknown offerings:** `resolveOfferingType()` now returns `null` for unrecognized job names instead of silently defaulting to `trust_evaluation`. The rejection message lists all available offerings. Exact offering-type matches are checked before fuzzy keyword matches to prevent greedy keyword collisions (e.g., "audience_reaction_poll" was incorrectly matching the "audience reaction" keyword for `human_reaction_prediction`).
+
+**Decision 2 — Job processing dedup lock:** Added in-memory `Set<number>` (`_processingJobs`) to prevent the same ACP job from being processed concurrently by both the WebSocket callback and the 30s polling fallback. The existing atomic SQL in `createSession` already prevents double-creation in the DB, but the lock avoids redundant on-chain accept/reject calls and makes the concurrency intent explicit for graduation reviewers.
+
+**Decision 3 — SDK `deliverable` → `getDeliverable()`:** ACP SDK 0.3.0-beta.37 made the `deliverable` property private. All reads now use the async `job.getDeliverable()` method. The `AcpJobInspection` interface was widened to `string | Record<string, unknown> | null` to match the SDK's `DeliverablePayload` type.
+
+### 2026-02-27: Off-chain memo content resolution + description limit relaxation
+
+**Context:** SDK 0.3.0-beta.37 introduced off-chain memo content storage via `createMemoContent()` / `getMemoContent()`. Memo content that was previously stored inline on-chain can now be a URL reference (`/api/memo-contents/123`). Both formats coexist — agents on older SDKs send inline text, agents on newer SDKs may send URL references.
+
+**Decision 1 — Resolve URL-based memos:** Added `resolveMemoContent()` helper (mirrors the pattern in `AcpJob.getDeliverable()`) that detects the `/api/memo-contents/[id]` URL pattern and fetches the actual content. Applied to both the inbound memo bridge (buyer→expert chat) and the initial requirement extraction from job memos. Falls back to raw content if the fetch fails, so inline text still works unchanged.
+
+**Decision 2 — Relax `MAX_DESCRIPTION_LENGTH`:** Increased from 2,000 to 50,000 chars. The description is stored in local SQLite (`TEXT`, no size limit) and rendered by the dashboard which handles long JSON gracefully. The old 2,000 limit was set when we assumed everything was on-chain. Agents sending detailed requirements (multiple paragraphs, nested JSON) were being truncated. The `MAX_MEMO_LENGTH` (2,000) stays for outbound expert→agent chat relay via `createNotification()`, which still writes directly on-chain.
+
+**Rationale:** The SDK now supports both inline and URL-based memo content. We must handle both since agents will be on various SDK versions. The description limit was artificially restrictive for data that never goes on-chain.

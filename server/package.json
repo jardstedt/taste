@@ -11,7 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@virtuals-protocol/acp-node": "0.3.0-beta.30",
+    "@virtuals-protocol/acp-node": "0.3.0-beta.37",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "11.7.0",
     "cookie-parser": "1.4.7",
