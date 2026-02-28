@@ -36,5 +36,8 @@ npm-debug.log*
 test-buyer.ts
 test-jobs.sh
 
+# E2E test results (may contain auth tokens)
+scripts/acp-e2e-results/
+
 # Internal notes
 feedback/
