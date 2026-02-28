@@ -20,7 +20,14 @@
 
 set -uo pipefail
 
-BASE="${1:-http://localhost:3001}"
+# Auto-detect: if running on the VPS, use the public HTTPS domain
+# (production sets secure cookies that won't send over plain HTTP).
+if [ -d "/opt/taste" ] && [ "$(hostname)" = "racknerd-19f4019" ]; then
+  DEFAULT_BASE="https://humantaste.app"
+else
+  DEFAULT_BASE="http://localhost:3001"
+fi
+BASE="${1:-$DEFAULT_BASE}"
 COOKIE_FILE=$(mktemp)
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 RESULTS_DIR="$(cd "$(dirname "$0")" && pwd)/acp-e2e-results"
