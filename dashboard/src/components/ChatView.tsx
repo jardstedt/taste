@@ -108,7 +108,6 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
   const desc = parseDescription(session.description);
   const userMessages = messages.filter(m => m.senderType === 'agent' || m.senderType === 'expert').length;
   const isFinished = session.status === 'completed' || session.status === 'cancelled' || session.status === 'timeout';
-  const chatMessages = messages.filter(m => m.messageType !== 'system_notice' || m.content !== messages[0]?.content);
 
   return (
     <div className="chat-container">
