@@ -13,6 +13,7 @@ import {
   getActiveJobs,
   getSampleRequests,
 } from '../services/agent-sim.js';
+import { shortenSessionDeadline } from '../services/sessions.js';
 
 const router = Router();
 
@@ -176,6 +177,25 @@ router.post('/jobs/:jobId/reject', async (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, error: (err as Error).message });
   }
+});
+
+// POST /api/agent-sim/shorten-deadline — shorten session deadline for testing
+router.post('/shorten-deadline', (req, res) => {
+  const { sessionId, minutes } = req.body as { sessionId?: string; minutes?: number };
+  if (!sessionId || typeof sessionId !== 'string') {
+    res.status(400).json({ success: false, error: 'sessionId required' });
+    return;
+  }
+  if (typeof minutes !== 'number' || minutes < 1 || minutes > 10) {
+    res.status(400).json({ success: false, error: 'minutes must be 1-10' });
+    return;
+  }
+  const newDeadline = shortenSessionDeadline(sessionId, minutes);
+  if (!newDeadline) {
+    res.status(404).json({ success: false, error: 'Session not found' });
+    return;
+  }
+  res.json({ success: true, data: { sessionId, newDeadline } });
 });
 
 export default router;

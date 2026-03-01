@@ -1294,6 +1294,17 @@ run_timeout_auto() {
     do_final_report; return 1
   fi
 
+  # Shorten deadline to 2 minutes so we don't wait 15-45 min
+  log_step "Shorten session deadline to 2 minutes (test speedup)"
+  api_post "/api/agent-sim/shorten-deadline" "{\"sessionId\":\"$SESSION_ID\",\"minutes\":2}"
+  if is_success "$RESP_BODY"; then
+    local new_deadline=$(json_field "$RESP_BODY" "o.data?.newDeadline ?? ''")
+    log_result "true" "Deadline shortened to: $new_deadline"
+  else
+    log_result "false" "Could not shorten deadline: $(json_field "$RESP_BODY" "o.error ?? ''")"
+    echo -e "  ${YELLOW}Continuing with original deadline — this may take a while${NC}"
+  fi
+
   do_wait_for_timeout
 
   do_final_report

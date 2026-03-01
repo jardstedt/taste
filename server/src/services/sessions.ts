@@ -704,6 +704,15 @@ export function checkSessionTimeouts(): number {
   return expiredSessions.length;
 }
 
+/** Shorten a session's deadline (for testing). Returns the new deadline or null. */
+export function shortenSessionDeadline(sessionId: string, minutes: number): string | null {
+  const session = getSessionById(sessionId);
+  if (!session) return null;
+  const newDeadline = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+  getDb().prepare('UPDATE sessions SET deadline_at = ?, updated_at = datetime(\'now\') WHERE id = ?').run(newDeadline, sessionId);
+  return newDeadline;
+}
+
 // ── Structured Deliverables ──
 
 interface DeliverableRow {
