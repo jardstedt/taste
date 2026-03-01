@@ -1092,7 +1092,13 @@ run_happy_path_auto() {
   sleep 15
 
   if do_wait_for_evaluation; then
-    do_auto_accept_deliverable
+    # Only accept if in EVALUATION — COMPLETED means auto-confirmed (no evaluator)
+    if [ "$CURRENT_PHASE" = "EVALUATION" ]; then
+      do_auto_accept_deliverable
+    else
+      log_step "Deliverable auto-confirmed (no evaluator)"
+      log_result "true" "Job already COMPLETED — no buyer accept needed"
+    fi
   fi
 
   do_final_report
@@ -1178,7 +1184,12 @@ run_messaging_auto() {
   sleep 15
 
   if do_wait_for_evaluation; then
-    do_auto_accept_deliverable
+    if [ "$CURRENT_PHASE" = "EVALUATION" ]; then
+      do_auto_accept_deliverable
+    else
+      log_step "Deliverable auto-confirmed (no evaluator)"
+      log_result "true" "Job already COMPLETED — no buyer accept needed"
+    fi
   fi
 
   do_final_report
