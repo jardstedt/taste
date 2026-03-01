@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, statSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync } from 'fs';
 import { join, extname, resolve } from 'path';
 import { randomUUID, createHmac, timingSafeEqual } from 'crypto';
 import { getEnv } from '../config/env.js';
@@ -312,4 +312,74 @@ export function getSessionAttachments(sessionId: string): AttachmentRecord[] {
     'SELECT * FROM session_attachments WHERE session_id = ? ORDER BY created_at ASC',
   ).all(sessionId) as AttachmentRow[];
   return rows.map(rowToAttachment);
+}
+
+// ── Avatar Storage ──
+
+export const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB
+
+const AVATAR_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;
+
+export function isAllowedAvatarMime(mime: string): boolean {
+  return (AVATAR_MIME_TYPES as readonly string[]).includes(mime);
+}
+
+function ensureAvatarDir(): string {
+  const base = resolve(getUploadDir());
+  const dir = resolve(base, 'avatars');
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
+export function deleteAvatar(expertId: string): boolean {
+  const dir = ensureAvatarDir();
+  // Remove any existing avatar file for this expert (any extension)
+  const existing = readdirSync(dir).filter(f => f.startsWith(`${expertId}.`));
+  for (const f of existing) {
+    unlinkSync(join(dir, f));
+  }
+  return existing.length > 0;
+}
+
+export function saveAvatar(
+  expertId: string,
+  buffer: Buffer,
+  originalFilename: string,
+  declaredMime: string,
+): string {
+  if (!isAllowedAvatarMime(declaredMime)) {
+    throw new Error(`Avatar type "${declaredMime}" is not allowed. Use PNG, JPEG, WebP, or GIF.`);
+  }
+  if (buffer.length > MAX_AVATAR_SIZE) {
+    throw new Error(`Avatar exceeds maximum size of ${MAX_AVATAR_SIZE / 1024 / 1024}MB`);
+  }
+  if (!validateMagicBytes(buffer, declaredMime)) {
+    throw new Error('File content does not match declared type');
+  }
+
+  // Delete old avatar before writing new one
+  deleteAvatar(expertId);
+
+  const ext = MIME_TO_EXTENSION[declaredMime] || '.png';
+  const dir = ensureAvatarDir();
+  const filePath = join(dir, `${expertId}${ext}`);
+  writeFileSync(filePath, buffer);
+
+  return `/api/public/avatars/${expertId}`;
+}
+
+export function readAvatar(expertId: string): { buffer: Buffer; mimeType: string } | null {
+  const dir = ensureAvatarDir();
+  // Try each image extension
+  for (const mime of AVATAR_MIME_TYPES) {
+    const ext = MIME_TO_EXTENSION[mime];
+    if (!ext) continue;
+    const filePath = join(dir, `${expertId}${ext}`);
+    if (existsSync(filePath)) {
+      return { buffer: readFileSync(filePath), mimeType: mime };
+    }
+  }
+  return null;
 }

@@ -78,9 +78,11 @@ function SessionView() {
 }
 
 function AdminPanel() {
-  const [experts, setExperts] = useState<Array<{ id: string; name: string; role: string; domains: string[]; availability: string; completedJobs: number; deactivatedAt: string | null; reputationScores: Record<string, number> }>>([]);
+  const [experts, setExperts] = useState<Array<{ id: string; name: string; role: string; domains: string[]; availability: string; completedJobs: number; deactivatedAt: string | null; reputationScores: Record<string, number>; credentials?: { bio?: string; tagline?: string; twitterHandle?: string; profileImageUrl?: string } }>>([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', domains: [] as string[], password: '' });
+  const [form, setForm] = useState({ name: '', email: '', domains: [] as string[], password: '', bio: '', tagline: '', twitterHandle: '' });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   // Withdrawals
@@ -113,12 +115,35 @@ function AdminPanel() {
     e.preventDefault();
     if (form.domains.length === 0) return;
     setCreating(true);
-    await api.createExpert({ name: form.name, email: form.email, domains: form.domains, password: form.password });
+
+    // Build credentials from optional fields
+    const credentials: Record<string, unknown> = {};
+    if (form.bio.trim()) credentials.bio = form.bio.trim();
+    if (form.tagline.trim()) credentials.tagline = form.tagline.trim();
+    if (form.twitterHandle.trim()) credentials.twitterHandle = form.twitterHandle.trim().replace(/^@/, '');
+
+    const createRes = await api.createExpert({
+      name: form.name,
+      email: form.email,
+      domains: form.domains,
+      password: form.password,
+      credentials: Object.keys(credentials).length > 0 ? credentials : undefined,
+    });
+
+    // Upload avatar if selected and create succeeded
+    if (avatarFile && createRes.success && createRes.data) {
+      const newExpert = createRes.data as { id: string };
+      await api.uploadExpertAvatar(newExpert.id, avatarFile);
+    }
+
     const res = await api.getExperts();
     if (res.success && res.data) {
       setExperts(res.data as typeof experts);
     }
-    setForm({ name: '', email: '', domains: [], password: '' });
+    setForm({ name: '', email: '', domains: [], password: '', bio: '', tagline: '', twitterHandle: '' });
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    setAvatarFile(null);
+    setAvatarPreview(null);
     setShowCreate(false);
     setCreating(false);
   };
@@ -280,6 +305,48 @@ function AdminPanel() {
             <label className="form-label">Password</label>
             <input type="password" value={form.password} onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))} required minLength={8} className="input input-full" placeholder="Min 8 characters" />
           </div>
+
+          {/* Profile fields */}
+          <div className="form-group">
+            <label className="form-label">Avatar</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: '50%', overflow: 'hidden',
+                background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, fontWeight: 700, color: '#6B21A8', flexShrink: 0,
+              }}>
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  form.name.charAt(0).toUpperCase() || '?'
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={e => {
+                  const file = e.target.files?.[0] ?? null;
+                  if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                  setAvatarFile(file);
+                  setAvatarPreview(file ? URL.createObjectURL(file) : null);
+                }}
+                style={{ fontSize: 13 }}
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Tagline</label>
+            <input type="text" value={form.tagline} onChange={e => setForm(prev => ({ ...prev, tagline: e.target.value }))} maxLength={200} className="input input-full" placeholder="e.g. Crypto native & music producer" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Twitter / X</label>
+            <input type="text" value={form.twitterHandle} onChange={e => setForm(prev => ({ ...prev, twitterHandle: e.target.value }))} maxLength={50} className="input input-full" placeholder="handle (without @)" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Bio <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 400 }}>({form.bio.length}/1000)</span></label>
+            <textarea value={form.bio} onChange={e => setForm(prev => ({ ...prev, bio: e.target.value }))} maxLength={1000} rows={3} className="input input-full" placeholder="Brief professional background..." style={{ resize: 'vertical' }} />
+          </div>
+
           <button type="submit" disabled={creating} className="btn btn-primary">
             {creating ? 'Creating...' : 'Create Expert'}
           </button>
@@ -289,16 +356,74 @@ function AdminPanel() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {experts.map(expert => (
           <div key={expert.id} className="card" style={{ padding: 16, opacity: expert.deactivatedAt ? 0.5 : 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="text-bold">{expert.name}</span>
-                <span style={{
-                  fontSize: 11, fontWeight: 600, textTransform: 'capitalize',
-                  padding: '1px 6px', borderRadius: 4,
-                  background: '#F3E8FF', color: '#6B21A8',
-                }}>{expert.role}</span>
+            {/* Row 1: Avatar + Name/Tagline/Twitter + Status */}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+              {/* Avatar with upload overlay */}
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: '50%', overflow: 'hidden',
+                  background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 16, fontWeight: 700, color: '#6B21A8',
+                }}>
+                  {expert.credentials?.profileImageUrl ? (
+                    <img src={expert.credentials.profileImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    expert.name.charAt(0).toUpperCase()
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/png,image/jpeg,image/webp,image/gif';
+                    input.onchange = async () => {
+                      const file = input.files?.[0];
+                      if (!file) return;
+                      await api.uploadExpertAvatar(expert.id, file);
+                      const res = await api.getExperts();
+                      if (res.success && res.data) setExperts(res.data as typeof experts);
+                    };
+                    input.click();
+                  }}
+                  title="Change avatar"
+                  style={{
+                    position: 'absolute', bottom: -2, right: -2,
+                    width: 18, height: 18, borderRadius: '50%',
+                    background: '#6B21A8', color: '#fff', border: '2px solid #fff',
+                    fontSize: 12, lineHeight: '12px', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: 0,
+                  }}
+                >+</button>
               </div>
-              <div>
+
+              {/* Name + meta */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="text-bold">{expert.name}</span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, textTransform: 'capitalize',
+                    padding: '1px 6px', borderRadius: 4,
+                    background: '#F3E8FF', color: '#6B21A8',
+                  }}>{expert.role}</span>
+                </div>
+                {expert.credentials?.tagline && (
+                  <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{expert.credentials.tagline}</div>
+                )}
+                {expert.credentials?.twitterHandle && (
+                  <a
+                    href={`https://x.com/${expert.credentials.twitterHandle}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 12, color: '#7C3AED', textDecoration: 'none', marginTop: 1, display: 'inline-block' }}
+                  >
+                    @{expert.credentials.twitterHandle}
+                  </a>
+                )}
+              </div>
+
+              {/* Status */}
+              <div style={{ flexShrink: 0 }}>
                 {expert.deactivatedAt ? (
                   <span style={{ color: 'var(--color-error, #DC2626)', fontSize: 12, fontWeight: 600 }}>Deactivated</span>
                 ) : (
@@ -309,11 +434,22 @@ function AdminPanel() {
                 )}
               </div>
             </div>
+
+            {/* Bio */}
+            {expert.credentials?.bio && (
+              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8, lineHeight: 1.4 }}>
+                {expert.credentials.bio.length > 150 ? expert.credentials.bio.slice(0, 150) + '...' : expert.credentials.bio}
+              </div>
+            )}
+
+            {/* Domains */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
               {expert.domains.map(d => (
                 <span key={d} className="chip">{d}</span>
               ))}
             </div>
+
+            {/* Footer */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 12, color: '#9CA3AF' }}>{expert.completedJobs} jobs completed</span>
               {expert.role !== 'admin' && !expert.deactivatedAt && (

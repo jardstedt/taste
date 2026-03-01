@@ -53,6 +53,19 @@ export function deleteExpert(id: string) {
   return request(`/experts/${id}`, { method: 'DELETE' });
 }
 
+export async function uploadExpertAvatar(expertId: string, file: File): Promise<ApiResponse> {
+  const formData = new FormData();
+  formData.append('avatar', file);
+
+  const res = await fetch(`${BASE}/experts/${expertId}/avatar`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+
+  return res.json() as Promise<ApiResponse>;
+}
+
 export function setPassword(id: string, password: string) {
   return request(`/experts/${id}/password`, { method: 'POST', body: JSON.stringify({ password }) });
 }

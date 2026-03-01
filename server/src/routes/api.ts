@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { verifyToken, requireRole } from '../middleware/auth.js';
 import {
   validate,
@@ -34,7 +35,8 @@ import {
 import { getExpertReputationScores, getExpertReputationHistory } from '../services/reputation.js';
 import { getOfferingDefinitions, inspectAcpJob, inspectSessionAcp, listAcpJobs } from '../services/acp.js';
 import type { Domain, ExpertCredentials, WalletChain } from '../types/index.js';
-import { withdrawalLimiter, passwordLimiter } from '../middleware/rateLimit.js';
+import { withdrawalLimiter, passwordLimiter, uploadLimiter } from '../middleware/rateLimit.js';
+import { saveAvatar, isAllowedAvatarMime, MAX_AVATAR_SIZE } from '../services/storage.js';
 import sessionRoutes from './sessions.js';
 import notificationRoutes from './notifications.js';
 import agentSimRoutes from './agent-sim.js';
@@ -103,6 +105,47 @@ router.patch('/experts/:id', validate(updateExpertSchema), (req, res) => {
   }
 
   res.json({ success: true, data: getExpertPublic(updated.id) });
+});
+
+// POST /api/experts/:id/avatar — upload avatar image (admin only)
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_AVATAR_SIZE },
+  fileFilter: (_req, file, cb) => {
+    if (isAllowedAvatarMime(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Avatar type "${file.mimetype}" is not allowed. Use PNG, JPEG, WebP, or GIF.`));
+    }
+  },
+});
+
+router.post('/experts/:id/avatar', requireRole('admin'), uploadLimiter, avatarUpload.single('avatar'), async (req, res, next) => {
+  try {
+    const expertId = param(req.params.id);
+    const expert = getExpertById(expertId);
+    if (!expert) {
+      res.status(404).json({ success: false, error: 'Expert not found' });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No avatar file provided' });
+      return;
+    }
+
+    const avatarUrl = saveAvatar(expertId, req.file.buffer, req.file.originalname, req.file.mimetype);
+
+    // Update expert credentials with avatar URL
+    const currentCreds = expert.credentials || {};
+    updateExpert(expertId, {
+      credentials: { ...currentCreds, profileImageUrl: avatarUrl },
+    });
+
+    res.json({ success: true, data: { avatarUrl } });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // POST /api/experts/:id/password — set password

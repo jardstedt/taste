@@ -77,6 +77,10 @@ export function AcpDemo() {
   const [jobDetail, setJobDetail] = useState<JobDetail | null>(null);
   const [jobLoading, setJobLoading] = useState(false);
 
+  // ── Create All ──
+  const [creatingAll, setCreatingAll] = useState(false);
+  const [creatingProgress, setCreatingProgress] = useState(0);
+
   // ── Session (left panel) ──
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -209,6 +213,38 @@ export function AcpDemo() {
       setError((err as Error).message);
     }
     setCreating(false);
+  };
+
+  const handleCreateAllJobs = async () => {
+    setCreatingAll(true);
+    setCreatingProgress(0);
+    setError(null);
+    try {
+      for (let i = 0; i < offerings.length; i++) {
+        setCreatingProgress(i + 1);
+        const offering = offerings[i];
+        let requirement: Record<string, unknown> = {};
+        if (offering.exampleInput) {
+          try { requirement = JSON.parse(offering.exampleInput); } catch { /* use empty */ }
+        }
+        const res = await api.agentSim.createJob(offering.index, requirement);
+        if (!res.success) {
+          setError(`Failed on offering "${offering.name}": ${res.error ?? 'Unknown error'}`);
+          break;
+        }
+        // Select the last created job
+        if (res.data) {
+          const { jobId } = res.data as { jobId: number };
+          setSelectedJobId(jobId);
+        }
+      }
+      await refreshJobs();
+      if (selectedJobId !== null) await refreshJobDetail(selectedJobId);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+    setCreatingAll(false);
+    setCreatingProgress(0);
   };
 
   const handlePay = async () => {
@@ -462,14 +498,24 @@ export function AcpDemo() {
                     />
                   </div>
 
-                  <button
-                    onClick={handleCreateJob}
-                    disabled={creating}
-                    className="btn btn-primary"
-                    style={{ width: '100%' }}
-                  >
-                    {creating ? 'Creating...' : 'Create Job (onchain)'}
-                  </button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={handleCreateJob}
+                      disabled={creating || creatingAll}
+                      className="btn btn-primary"
+                      style={{ flex: 1 }}
+                    >
+                      {creating ? 'Creating...' : 'Create Job (onchain)'}
+                    </button>
+                    <button
+                      onClick={handleCreateAllJobs}
+                      disabled={creating || creatingAll}
+                      className="btn btn-secondary"
+                      style={{ whiteSpace: 'nowrap' }}
+                    >
+                      {creatingAll ? `Creating ${creatingProgress}/${offerings.length}...` : `Create All (${offerings.length})`}
+                    </button>
+                  </div>
                 </>
               )}
             </div>

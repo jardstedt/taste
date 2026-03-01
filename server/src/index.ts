@@ -27,7 +27,7 @@ import { initPush } from './services/push.js';
 import { getExpertPublic, getAllExpertsPublic, getAllExperts } from './services/experts.js';
 import { getAllSessions } from './services/sessions.js';
 import { getResourceAvailability, getOfferingCatalog, getSampleDeliverables } from './services/resource.js';
-import { getAttachmentById, readFile, verifySignedUrl, sanitizeFilename } from './services/storage.js';
+import { getAttachmentById, readFile, readAvatar, verifySignedUrl, sanitizeFilename } from './services/storage.js';
 
 async function main() {
   // Load and validate environment
@@ -116,6 +116,22 @@ async function main() {
   });
   app.get('/api/public/resource/samples', (_req, res) => {
     res.json(getSampleDeliverables());
+  });
+
+  // Public avatar serving (no auth — profile pictures are public)
+  app.get('/api/public/avatars/:expertId', (req, res) => {
+    const expertId = Array.isArray(req.params.expertId) ? req.params.expertId[0] : req.params.expertId ?? '';
+    const avatar = readAvatar(expertId);
+    if (!avatar) {
+      res.status(404).json({ success: false, error: 'Avatar not found' });
+      return;
+    }
+
+    res.setHeader('Content-Type', avatar.mimeType);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Content-Length', avatar.buffer.length);
+    res.send(avatar.buffer);
   });
 
   // Public signed URL file access (no auth — HMAC-signed)
