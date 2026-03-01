@@ -36,12 +36,15 @@ export function SessionRequest({ session, onAccept, onDecline }: SessionRequestP
       {desc.raw && (
         desc.isJson ? (
           <div className="session-request-details" style={{ marginBottom: 16 }}>
-            {desc.pairs.map(([label, value]) => (
-              <div key={label}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 2, textTransform: 'capitalize' }}>{label}</div>
-                <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}><LinkifyText text={value} /></div>
-              </div>
-            ))}
+            {desc.pairs.map(([label, value]) => {
+              const spanFull = desc.pairs.length === 1 || label.toLowerCase().includes('note');
+              return (
+                <div key={label} style={spanFull ? { gridColumn: '1 / -1' } : undefined}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 2 }}>{label}</div>
+                  <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}><LinkifyText text={value} /></div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.6, marginBottom: 16 }}><LinkifyText text={desc.raw} /></p>

@@ -50,6 +50,11 @@ function formatJsonValue(v: unknown): string {
   return JSON.stringify(v);
 }
 
+/** Label overrides for known JSON keys that need friendlier display names */
+const LABEL_OVERRIDES: Record<string, string> = {
+  videoUrl: 'Content URL',
+};
+
 /** Parse a JSON description string into key-value pairs for display */
 export function parseDescription(desc: string | null): { isJson: boolean; pairs: [string, string][]; raw: string } {
   if (!desc) return { isJson: false, pairs: [], raw: '' };
@@ -59,7 +64,9 @@ export function parseDescription(desc: string | null): { isJson: boolean; pairs:
       const obj = JSON.parse(trimmed);
       const pairs: [string, string][] = [];
       for (const [k, v] of Object.entries(obj)) {
-        const label = k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim();
+        const label = LABEL_OVERRIDES[k]
+          ?? k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()
+               .replace(/\b\w/g, c => c.toUpperCase());
         const value = typeof v === 'string' ? v : formatJsonValue(v);
         pairs.push([label, value]);
       }

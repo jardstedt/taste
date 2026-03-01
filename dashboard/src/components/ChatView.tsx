@@ -163,12 +163,15 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
             </div>
             {desc.isJson ? (
               <div className="session-request-details">
-                {desc.pairs.map(([label, value]) => (
-                  <div key={label}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 2, textTransform: 'capitalize' }}>{label}</div>
-                    <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}><LinkifyText text={value} /></div>
-                  </div>
-                ))}
+                {desc.pairs.map(([label, value]) => {
+                  const spanFull = desc.pairs.length === 1 || label.toLowerCase().includes('note');
+                  return (
+                    <div key={label} style={spanFull ? { gridColumn: '1 / -1' } : undefined}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 2 }}>{label}</div>
+                      <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}><LinkifyText text={value} /></div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.5 }}>
