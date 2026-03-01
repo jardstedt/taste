@@ -5,9 +5,11 @@ import type {
   SessionDeliverable,
 } from '../types/index.js';
 import { getSessionTier, getSessionOffering, isOfferingEnabled } from '../config/domains.js';
-import { getExpertById, findExpertsForDomain, incrementCompletedJobs } from './experts.js';
+import { getExpertById, findExpertsForDomain, incrementCompletedJobs, setOnExpertOnlineHook } from './experts.js';
 import { getExpertReputationScores, recordEvent } from './reputation.js';
 import { getSessionAttachments, createSignedUrl } from './storage.js';
+import { notifyExpert } from './socket.js';
+import { sendPushToExpert } from './push.js';
 import { getEnv } from '../config/env.js';
 import { EXPERT_SHARE, PLATFORM_FEE, GRACE_TURNS } from '../config/constants.js';
 
@@ -242,6 +244,22 @@ export function rematchWaitingSessions(): Session[] {
   }
   return matched;
 }
+
+// Register hook so waiting sessions get re-matched when an expert comes online
+setOnExpertOnlineHook(() => {
+  const matched = rematchWaitingSessions();
+  for (const session of matched) {
+    if (session.expertId) {
+      try { notifyExpert(session.expertId, 'session:new', session); } catch {}
+      sendPushToExpert(session.expertId, {
+        title: 'New Session Request',
+        body: `${session.offeringType} — $${session.priceUsdc} USDC`,
+        tag: `session-${session.id}`,
+        data: { url: `/dashboard/session/${session.id}`, sessionId: session.id, type: 'session_request' },
+      }).catch(() => {});
+    }
+  }
+});
 
 // ── Session Lifecycle ──
 

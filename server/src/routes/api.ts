@@ -84,6 +84,8 @@ router.post('/experts', requireRole('admin'), validate(createExpertSchema), asyn
 
     const expert = createExpert(name, email, domains, 'expert', credentials);
     await setExpertPassword(expert.id, password);
+    // Auto-accept agreement for admin-created experts so they're immediately eligible for matching
+    acceptAgreement(expert.id);
     res.status(201).json({ success: true, data: getExpertPublic(expert.id) });
   } catch (err) {
     next(err);

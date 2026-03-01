@@ -1,9 +1,15 @@
 import { getDb, generateId, encryptEmail, decryptEmail, hashEmail, auditLog } from '../db/database.js';
 import type { Expert, ExpertPublic, Domain, Availability, ExpertCredentials, ExpertRole, WalletChain } from '../types/index.js';
 import { getExpertReputationScores } from './reputation.js';
-import { notifyExpert } from './socket.js';
-import { sendPushToExpert } from './push.js';
 import bcrypt from 'bcrypt';
+
+// Callback hook for session re-matching when expert comes online.
+// Set by sessions.ts at import time to avoid circular dependency.
+let _onExpertOnlineHook: ((expertId: string) => void) | null = null;
+
+export function setOnExpertOnlineHook(hook: (expertId: string) => void): void {
+  _onExpertOnlineHook = hook;
+}
 
 // ── Row ↔ Object Mapping ──
 
@@ -201,23 +207,9 @@ export function updateExpert(
 
   auditLog('expert', id, 'updated', updates as Record<string, unknown>);
 
-  // When an expert comes online, re-match any waiting sessions (fire-and-forget)
-  // Dynamic import to avoid circular dependency (sessions.ts imports experts.ts)
-  if (updates.availability === 'online') {
-    import('./sessions.js').then(({ rematchWaitingSessions }) => {
-      const matched = rematchWaitingSessions();
-      for (const session of matched) {
-        if (session.expertId) {
-          try { notifyExpert(session.expertId, 'session:new', session); } catch {}
-          sendPushToExpert(session.expertId, {
-            title: 'New Session Request',
-            body: `${session.offeringType} — $${session.priceUsdc} USDC`,
-            tag: `session-${session.id}`,
-            data: { url: `/dashboard/session/${session.id}`, sessionId: session.id, type: 'session_request' },
-          }).catch(() => {});
-        }
-      }
-    }).catch(err => console.error('[Experts] Re-match failed:', err));
+  // When an expert comes online, re-match any waiting sessions
+  if (updates.availability === 'online' && _onExpertOnlineHook) {
+    _onExpertOnlineHook(id);
   }
 
   return getExpertById(id);
