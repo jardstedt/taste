@@ -95,6 +95,24 @@ const DELIVERABLE_SCHEMAS: Record<string, DeliverableFieldDef[]> = {
   dispute_arbitration: disputeArbitrationFields,
 };
 
+// Follow-up test data: positive "issues resolved" responses for second reviews
+const FOLLOWUP_TEST_DATA: Record<string, Record<string, string>> = {
+  content_quality_gate: {
+    verdict: 'safe',
+    culturalSensitivityScore: '9',
+    brandSafetyScore: '9',
+    summary: 'All previously flagged issues have been addressed. The revised content is culturally appropriate, brand-safe, and ready for publication.',
+    flaggedIssues: '',
+  },
+  output_quality_gate: {
+    qualityVerdict: 'approved',
+    qualityScore: '9',
+    summary: 'All issues from the previous review have been resolved. Structure is improved, links are fixed, and the content reads clearly.',
+    issuesFound: '',
+    suggestedImprovements: '',
+  },
+};
+
 const TEST_DATA: Record<string, Record<string, string>> = {
   trust_evaluation: {
     verdict: 'legitimate',
@@ -266,14 +284,26 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
 
       {/* Fill with test data */}
       {TEST_DATA[session.offeringType] && (
-        <button
-          type="button"
-          onClick={() => setValues(TEST_DATA[session.offeringType])}
-          className="btn btn-ghost"
-          style={{ fontSize: 12, marginBottom: 12, color: '#6B21A8' }}
-        >
-          Fill with test data
-        </button>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setValues(TEST_DATA[session.offeringType])}
+            className="btn btn-ghost"
+            style={{ fontSize: 12, color: '#6B21A8' }}
+          >
+            Fill with test data
+          </button>
+          {session.followupOf && FOLLOWUP_TEST_DATA[session.offeringType] && (
+            <button
+              type="button"
+              onClick={() => setValues(FOLLOWUP_TEST_DATA[session.offeringType])}
+              className="btn btn-ghost"
+              style={{ fontSize: 12, color: '#059669' }}
+            >
+              Fill follow-up (issues resolved)
+            </button>
+          )}
+        </div>
       )}
 
       {/* Dynamic fields */}
