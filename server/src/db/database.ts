@@ -40,7 +40,7 @@ export function initDb(): Database.Database {
   return _db;
 }
 
-const KNOWN_TABLES = ['experts', 'withdrawals', 'sessions', 'messages', 'addons', 'reputation_events', 'audit_log', 'session_deliverables', 'session_attachments'];
+const KNOWN_TABLES = ['experts', 'withdrawals', 'sessions', 'messages', 'addons', 'reputation_events', 'audit_log', 'session_deliverables', 'session_attachments', 'reference_codes'];
 
 function hasColumn(db: Database.Database, table: string, column: string): boolean {
   if (!KNOWN_TABLES.includes(table)) throw new Error(`Unknown table: ${table}`);
@@ -114,6 +114,16 @@ function runMigrations(db: Database.Database): void {
   if (!hasColumn(db, 'sessions', 'payment_received_at')) {
     db.exec('ALTER TABLE sessions ADD COLUMN payment_received_at TEXT');
     console.log('[DB] v1.4 added payment_received_at to sessions');
+  }
+
+  // v1.5: follow-up reference codes
+  if (!hasColumn(db, 'sessions', 'followup_of')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN followup_of TEXT REFERENCES sessions(id)');
+  }
+  const v15 = resolve(__dirname, 'migration-v1.5.sql');
+  if (existsSync(v15)) {
+    db.exec(readFileSync(v15, 'utf-8'));
+    console.log('[DB] v1.5 migration applied (reference codes)');
   }
 
   // v1.5: security hardening

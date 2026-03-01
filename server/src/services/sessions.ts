@@ -12,6 +12,7 @@ import { notifyExpert } from './socket.js';
 import { sendPushToExpert } from './push.js';
 import { getEnv } from '../config/env.js';
 import { EXPERT_SHARE, PLATFORM_FEE, GRACE_TURNS } from '../config/constants.js';
+import { generateReferenceCode, getReferenceCodeForSession } from './referral.js';
 
 // ── Row Mapping ──
 
@@ -38,6 +39,7 @@ interface SessionRow {
   deadline_at: string | null;
   payment_received_at: string | null;
   payout_confirmed_at: string | null;
+  followup_of: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +68,7 @@ function rowToSession(row: SessionRow): Session {
     deadlineAt: row.deadline_at,
     paymentReceivedAt: row.payment_received_at,
     payoutConfirmedAt: row.payout_confirmed_at,
+    followupOf: row.followup_of,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -135,6 +138,7 @@ export function createSession(opts: {
   priceUsdc?: number;
   acpJobId?: string;
   jobId?: string;
+  followupOf?: string;
 }): Session {
   if (!isOfferingEnabled(opts.offeringType)) {
     throw new Error(`Offering "${opts.offeringType}" is currently disabled`);
@@ -145,14 +149,14 @@ export function createSession(opts: {
   const offering = getSessionOffering(opts.offeringType);
   const tierId = opts.tierId ?? offering?.defaultTier ?? 'quick';
   const tier = getSessionTier(tierId);
-  const price = opts.priceUsdc ?? (tier ? tier.priceRange[0] : 1);
+  const price = opts.priceUsdc ?? offering?.basePrice ?? (tier ? tier.priceRange[0] : 1);
   const maxTurns = tier?.maxTurns ?? 20;
   const durationMins = tier ? tier.durationMinutes[1] : 30;
   const deadlineAt = new Date(Date.now() + durationMins * 60 * 1000).toISOString();
 
   db.prepare(
-    `INSERT INTO sessions (id, job_id, acp_job_id, tier_id, offering_type, description, tags, buyer_agent, buyer_agent_display, price_usdc, max_turns, deadline_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO sessions (id, job_id, acp_job_id, tier_id, offering_type, description, tags, buyer_agent, buyer_agent_display, price_usdc, max_turns, deadline_at, followup_of)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     opts.jobId ?? null,
@@ -166,9 +170,10 @@ export function createSession(opts: {
     price,
     maxTurns,
     deadlineAt,
+    opts.followupOf ?? null,
   );
 
-  auditLog('session', id, 'created', { offeringType: opts.offeringType, tierId, buyerAgent: opts.buyerAgent });
+  auditLog('session', id, 'created', { offeringType: opts.offeringType, tierId, buyerAgent: opts.buyerAgent, followupOf: opts.followupOf });
 
   return getSessionById(id)!;
 }
@@ -247,11 +252,13 @@ export function getAllSessions(limit = 100): Session[] {
  * Notify all eligible experts about a session via WebSocket + push.
  */
 export function notifyEligibleExperts(session: Session, eligibleExpertIds: string[], title = 'New Session Request'): void {
+  const offering = getSessionOffering(session.offeringType);
+  const offeringName = offering?.name ?? session.offeringType;
   for (const expertId of eligibleExpertIds) {
     try { notifyExpert(expertId, 'session:new', session); } catch {}
     sendPushToExpert(expertId, {
       title,
-      body: `${session.offeringType} — $${session.priceUsdc} USDC`,
+      body: `${offeringName} — $${session.priceUsdc} USDC`,
       tag: `session-${session.id}`,
       data: { url: `/dashboard/session/${session.id}`, sessionId: session.id, type: 'session_request' },
     }).catch(() => {});
@@ -276,7 +283,7 @@ setOnExpertOnlineHook((expertId: string) => {
       try { notifyExpert(expertId, 'session:new', session); } catch {}
       sendPushToExpert(expertId, {
         title: 'New Session Request',
-        body: `${session.offeringType} — $${session.priceUsdc} USDC`,
+        body: `${offering?.name ?? session.offeringType} — $${session.priceUsdc} USDC`,
         tag: `session-${session.id}`,
         data: { url: `/dashboard/session/${session.id}`, sessionId: session.id, type: 'session_request' },
       }).catch(() => {});
@@ -390,6 +397,15 @@ export function completeSession(sessionId: string): Session | null {
 
   addMessage(sessionId, 'system', null, 'Session completed. Thank you for your expertise.', 'system_notice');
   auditLog('session', sessionId, 'completed', { expertPayout });
+
+  // Generate follow-up reference code for content_quality_gate (non-follow-up only — no chaining)
+  if (session.offeringType === 'content_quality_gate' && !session.followupOf) {
+    try {
+      generateReferenceCode(sessionId, 'content_quality_gate');
+    } catch (err) {
+      console.error('[Sessions] Failed to generate reference code:', err);
+    }
+  }
 
   // For local sessions (no ACP), confirm payout immediately.
   // ACP sessions get payout confirmed after on-chain COMPLETED phase.
@@ -877,6 +893,27 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
       }))
     : undefined;
 
+  // Follow-up reference code (only for content_quality_gate non-follow-up sessions)
+  let followUpFields: Record<string, unknown> = {};
+  if (session.offeringType === 'content_quality_gate' && !session.followupOf) {
+    const refCode = getReferenceCodeForSession(sessionId);
+    if (refCode) {
+      followUpFields = {
+        followUpCode: refCode,
+        followUpInstructions: `Include {"referenceCode": "${refCode}"} in your next content_quality_gate job for a 50% discount follow-up review. Expires in 7 days. Single use.`,
+      };
+    }
+  }
+
+  // Previous assessment for follow-up sessions
+  let previousAssessment: Record<string, unknown> | null = null;
+  if (session.followupOf) {
+    const originalDeliverable = getDeliverable(session.followupOf);
+    if (originalDeliverable) {
+      previousAssessment = originalDeliverable.structuredData;
+    }
+  }
+
   return {
     offeringType: session.offeringType,
     offeringName: offering?.name ?? session.offeringType,
@@ -897,6 +934,12 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
 
     // Full conversation — only when expert actually chatted
     ...(transcript ? { transcript } : {}),
+
+    // Follow-up reference code for iterative reviews
+    ...followUpFields,
+
+    // Previous assessment for follow-up sessions
+    ...(previousAssessment ? { previousAssessment } : {}),
 
     disclaimer: 'This is a qualitative human opinion provided for informational purposes only. It does not constitute financial, investment, legal, or professional advice.',
 

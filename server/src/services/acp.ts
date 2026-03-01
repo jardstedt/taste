@@ -9,7 +9,7 @@ import { encodeFunctionData } from 'viem';
 // Handle double-nested default export in this SDK version
 const AcpClient = (acpModule as unknown as { default: typeof acpModule }).default ?? acpModule;
 import { getEnv } from '../config/env.js';
-import { isOfferingEnabled, getEnabledSessionOfferings } from '../config/domains.js';
+import { isOfferingEnabled, getEnabledSessionOfferings, getSessionOffering } from '../config/domains.js';
 import { MEMO_BRIDGE_POLL_MS, MAX_DESCRIPTION_LENGTH, MAX_MEMO_LENGTH, MAX_VERDICT_REASON_LENGTH } from '../config/constants.js';
 import {
   createSession, getSessionByAcpId, getSessionById,
@@ -19,6 +19,7 @@ import {
 } from './sessions.js';
 import { notifyExpert, emitToSession } from './socket.js';
 import { sendPushToExpert } from './push.js';
+import { validateReferenceCode, redeemReferenceCode } from './referral.js';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -390,6 +391,31 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
       // Track recurring buyer relationships (non-blocking)
       trackBuyerAccount(job).catch(err => console.error('[ACP] trackBuyerAccount failed:', err));
 
+      // Detect follow-up reference code in requirements
+      let followupOf: string | undefined;
+      let discountedPrice: number | undefined;
+      let detectedRefCode: string | undefined;
+
+      const refCodeFromField = typeof requirements.referenceCode === 'string' ? requirements.referenceCode : undefined;
+      const refCodeFromScan = !refCodeFromField
+        ? JSON.stringify(requirements).match(/TASTE-[a-f0-9]{24}/)?.[0]
+        : undefined;
+      detectedRefCode = refCodeFromField ?? refCodeFromScan;
+
+      if (detectedRefCode) {
+        const validation = validateReferenceCode(detectedRefCode, offeringType);
+        if (validation.valid) {
+          followupOf = validation.sourceSessionId;
+          const offering = getSessionOffering(offeringType);
+          const basePrice = offering?.basePrice ?? 0.01;
+          discountedPrice = Math.max(0.01, basePrice * (1 - validation.discountPct / 100));
+          console.log(`[ACP] Follow-up code ${detectedRefCode} valid — ${validation.discountPct}% discount ($${discountedPrice})`);
+        } else {
+          console.log(`[ACP] Reference code ${detectedRefCode} invalid: ${validation.reason} — continuing at full price`);
+          detectedRefCode = undefined; // Don't redeem
+        }
+      }
+
       // Create session and match expert
       try {
         const existingSession = getSessionByAcpId(String(job.id));
@@ -400,7 +426,16 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
             buyerAgent: job.clientAddress ?? String(job.id),
             buyerAgentDisplay: job.name ?? `Agent ${job.id}`,
             description: JSON.stringify(requirements).slice(0, MAX_DESCRIPTION_LENGTH),
+            followupOf,
+            priceUsdc: discountedPrice,
           });
+
+          // Redeem the reference code now that the session exists
+          if (detectedRefCode && followupOf) {
+            redeemReferenceCode(detectedRefCode, session.id);
+            addMessage(session.id, 'system', null,
+              'Follow-up review — 50% discount applied via reference code', 'system_notice');
+          }
 
           // Seed chat with the buyer's requirement as the first message
           if (Object.keys(requirements).length > 0) {

@@ -26,6 +26,7 @@ export interface SessionOfferingDefinition {
   defaultTier: SessionTier;
   relevantDomains: Domain[];
   enabled: boolean;
+  basePrice?: number;
 }
 
 export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
@@ -92,6 +93,7 @@ export const SESSION_OFFERINGS: SessionOfferingDefinition[] = [
     defaultTier: 'full',
     relevantDomains: ['art', 'music', 'design', 'culture', 'community'],
     enabled: true,
+    basePrice: 0.02,
   },
   {
     type: 'audience_reaction_poll',

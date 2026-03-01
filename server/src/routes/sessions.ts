@@ -29,6 +29,7 @@ import {
   notifyEligibleExperts,
   incrementTurnCount,
   saveDeliverable,
+  getDeliverable,
 } from '../services/sessions.js';
 import {
   saveFile,
@@ -122,7 +123,17 @@ router.get('/:id', (req, res) => {
   }
   const messages = getMessages(session.id);
   const addons = getAddons(session.id);
-  res.json({ success: true, data: { session, messages, addons } });
+
+  // Include original assessment for follow-up sessions
+  let previousAssessment: Record<string, unknown> | null = null;
+  if (session.followupOf) {
+    const originalDeliverable = getDeliverable(session.followupOf);
+    if (originalDeliverable) {
+      previousAssessment = originalDeliverable.structuredData;
+    }
+  }
+
+  res.json({ success: true, data: { session, messages, addons, ...(previousAssessment ? { previousAssessment } : {}) } });
 });
 
 // POST /sessions/:id/accept

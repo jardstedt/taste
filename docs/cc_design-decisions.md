@@ -344,3 +344,19 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 **Decision:** Replaced single-expert assignment with broadcast matching. `matchSession()` now sets `expert_id = NULL` and notifies ALL eligible experts (online, matching domains, agreement accepted). First expert to accept gets the session. `acceptSession()` uses an atomic SQL `WHERE status IN ('pending', 'matching')` guard to prevent race conditions on concurrent accepts.
 
 **Rationale:** With a small expert pool, broadcast is simpler and fairer. Every eligible expert sees every job. The weighted scoring algorithm can be re-introduced later as a ranking/priority system if the expert pool grows large enough to warrant it.
+
+---
+
+## Follow-Up Reference Codes (content_quality_gate)
+
+### 2026-03-01: Reference codes for iterative content review
+
+**Context:** Agents often need iterative content review — first assessment flags issues, agent improves content, then wants a second review. Without linking, each review is a brand new job at full price with no context.
+
+**Decision:** When a `content_quality_gate` session completes (and is NOT itself a follow-up), a `TASTE-{24 hex chars}` reference code is generated and included in the deliverable. Agents include `{"referenceCode": "TASTE-..."}` in their next job to get 50% off and have sessions linked. Codes are single-use, 7-day expiry, and follow-ups do NOT generate new codes (no chaining).
+
+**Rationale:**
+- **No chaining:** Prevents infinite discount chains. Follow-ups are a one-shot courtesy for iteration.
+- **$0.02 base → $0.01 discount:** ACP minimum is $0.01. Bumping content_quality_gate to $0.02 via `basePrice` (not global tier change) keeps other offerings at $0.01 while making the 50% discount land exactly at the minimum.
+- **Regex fallback scan:** ACP agents may not use structured JSON fields consistently. A fallback regex scan of stringified requirements catches codes embedded in free-text. Invalid codes are silently ignored (job continues at full price).
+- **previousAssessment in deliverable:** Follow-up sessions include the original session's structured assessment so the expert can compare what changed.
