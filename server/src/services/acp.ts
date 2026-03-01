@@ -475,15 +475,28 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
           console.log(`[ACP] Job ${job.id} delivered via session ${session.id}`);
           await autoConfirmIfNoEvaluator(job, session.id);
         } else if (session.status === 'timeout' || session.status === 'cancelled') {
-          const reason = session.cancelReason
-            ? `Expert declined: ${session.cancelReason}. You have been fully refunded. Please try again and a new expert will be assigned.`
-            : session.status === 'timeout'
+          // Expert explicitly declined → deliver a decline response so the buyer
+          // sees the reason instead of treating it as a generic rejection/retry
+          if (session.cancelReason) {
+            const declineDeliverable = {
+              status: 'declined',
+              summary: `Expert reviewed the request but could not fulfill it: ${session.cancelReason}`,
+              offering: session.offeringType,
+              reason: session.cancelReason,
+              recommendation: 'Please resubmit the job — a different expert will be assigned.',
+            };
+            await job.deliver(JSON.stringify(declineDeliverable));
+            console.log(`[ACP] Job ${job.id} delivered decline for session ${session.id}: ${session.cancelReason}`);
+            await autoConfirmIfNoEvaluator(job, session.id);
+          } else {
+            const reason = session.status === 'timeout'
               ? 'Expert ran out of time and could not complete the review. Funds fully refunded. Please resubmit — a different expert will be assigned.'
               : session.expertId
                 ? 'Expert accepted but did not complete the task in time. Funds fully refunded. Please resubmit — a different expert will be assigned.'
                 : 'No expert was available within the time window. Funds fully refunded. Please resubmit — experts are notified in real-time and availability varies.';
-          await job.reject(reason);
-          console.log(`[ACP] Job ${job.id} rejected (session ${session.status}) — agent refunded`);
+            await job.reject(reason);
+            console.log(`[ACP] Job ${job.id} rejected (session ${session.status}) — agent refunded`);
+          }
         } else if (session.status === 'accepted') {
           startSession(session.id);
           // Register for memo bridging and seed seen-memo state
@@ -888,16 +901,14 @@ export async function relayExpertMessageToAcp(
 
 export async function rejectSessionOnAcp(internalSessionId: string, reason?: string): Promise<boolean> {
   if (!_acpClient) {
-    console.log('[ACP] Not connected — rejection stored locally only, reconciler will retry');
+    console.log('[ACP] Not connected — decline stored locally only, reconciler will retry');
     return false;
   }
 
   const session = getSessionById(internalSessionId);
   if (!session?.acpJobId) return false;
 
-  const message = reason
-    ? `Expert declined: ${reason}. You have been fully refunded. Please try again and a new expert will be assigned.`
-    : `Session ${session.status} — expert did not complete the task. You have been fully refunded. Please try again and a new expert will be assigned.`;
+  const declineReason = reason ?? 'Expert could not fulfill this request';
 
   try {
     const acpJob = await _acpClient.getJobById(Number(session.acpJobId));
@@ -906,22 +917,34 @@ export async function rejectSessionOnAcp(internalSessionId: string, reason?: str
       return false;
     }
 
-    if (acpJob.phase === AcpJobPhases.TRANSACTION) {
-      await acpJob.reject(message);
-      console.log(`[ACP] Rejected session ${internalSessionId} (${session.status}) — agent refunded`);
-      return true;
-    }
-
+    // Pre-payment: safe to reject since no funds are at stake
     if (acpJob.phase === AcpJobPhases.NEGOTIATION) {
-      await acpJob.reject(message);
+      await acpJob.reject(`Expert declined: ${declineReason}`);
       console.log(`[ACP] Rejected session ${internalSessionId} in NEGOTIATION phase (pre-payment decline)`);
       return true;
     }
 
-    console.log(`[ACP] Cannot reject session ${internalSessionId} — job ${session.acpJobId} in unexpected phase: ${acpJob.phase}. Reconciler will retry if applicable.`);
+    // Post-payment: deliver a decline response instead of rejecting.
+    // ACP rejection triggers buyer retry; a deliverable lets the buyer
+    // read the reason and decide what to do.
+    if (acpJob.phase === AcpJobPhases.TRANSACTION) {
+      const declineDeliverable = {
+        status: 'declined',
+        summary: `Expert reviewed the request but could not fulfill it: ${declineReason}`,
+        offering: session.offeringType,
+        reason: declineReason,
+        recommendation: 'Please resubmit the job — a different expert will be assigned.',
+      };
+      await acpJob.deliver(JSON.stringify(declineDeliverable));
+      console.log(`[ACP] Delivered decline for session ${internalSessionId}: ${declineReason}`);
+      await autoConfirmIfNoEvaluator(acpJob, internalSessionId);
+      return true;
+    }
+
+    console.log(`[ACP] Cannot process decline for session ${internalSessionId} — job ${session.acpJobId} in unexpected phase: ${acpJob.phase}. Reconciler will retry if applicable.`);
     return false;
   } catch (err) {
-    console.error(`[ACP] Failed to reject session ${internalSessionId}:`, err);
+    console.error(`[ACP] Failed to decline session ${internalSessionId}:`, err);
     return false;
   }
 }
@@ -963,12 +986,22 @@ async function reconcileStuckSessions(): Promise<void> {
         await acpJob.deliver(JSON.stringify(deliverable));
         console.log(`[ACP] Reconciled: delivered stuck session ${row.id}`);
         await autoConfirmIfNoEvaluator(acpJob, row.id);
+      } else if (row.cancelReason) {
+        // Expert explicitly declined — deliver a decline response instead of rejecting
+        const declineDeliverable = {
+          status: 'declined',
+          summary: `Expert reviewed the request but could not fulfill it: ${row.cancelReason}`,
+          offering: row.status,
+          reason: row.cancelReason,
+          recommendation: 'Please resubmit the job — a different expert will be assigned.',
+        };
+        await acpJob.deliver(JSON.stringify(declineDeliverable));
+        console.log(`[ACP] Reconciled: delivered decline for session ${row.id}: ${row.cancelReason}`);
+        await autoConfirmIfNoEvaluator(acpJob, row.id);
       } else {
-        const reason = row.cancelReason
-          ? `Expert declined: ${row.cancelReason}. You have been fully refunded. Please try again and a new expert will be assigned.`
-          : row.status === 'timeout'
-            ? 'Expert ran out of time and could not complete the review. Funds fully refunded. Please resubmit — a different expert will be assigned.'
-            : 'No expert was available or the task was not completed in time. Funds fully refunded. Please resubmit.';
+        const reason = row.status === 'timeout'
+          ? 'Expert ran out of time and could not complete the review. Funds fully refunded. Please resubmit — a different expert will be assigned.'
+          : 'No expert was available or the task was not completed in time. Funds fully refunded. Please resubmit.';
         await acpJob.reject(reason);
         console.log(`[ACP] Reconciled: rejected stuck session ${row.id} (${row.status})`);
       }
