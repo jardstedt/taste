@@ -91,6 +91,13 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
 
   return (
     <div>
+      {/* Total Earnings */}
+      <div className="card mb-xl" style={{ padding: 20 }}>
+        <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 8 }}>Total earnings</div>
+        <div style={{ color: '#1A1A2E', fontSize: 24, fontWeight: 700 }}>${totalPayout.toFixed(2)}</div>
+        <div style={{ color: '#9CA3AF', fontSize: 12 }}>{completed.length} completed sessions</div>
+      </div>
+
       {/* Wallet Setup */}
       {!user.walletAddress ? (
         <div className="card mb-xl" style={{ padding: 20 }}>
@@ -170,13 +177,6 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
           </form>
         </div>
       )}
-
-      {/* Session revenue */}
-      <div className="card mb-xl" style={{ padding: 20 }}>
-        <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 8 }}>Session revenue</div>
-        <div style={{ color: '#1A1A2E', fontSize: 24, fontWeight: 700 }}>${totalPayout.toFixed(2)}</div>
-        <div style={{ color: '#9CA3AF', fontSize: 12 }}>{completed.length} completed sessions</div>
-      </div>
 
       {/* Withdrawal History */}
       {withdrawals.length > 0 && (

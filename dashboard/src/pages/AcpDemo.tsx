@@ -92,14 +92,41 @@ export function AcpDemo() {
   // ── Polling ref ──
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Load status on mount ──
+  // ── Auto-connect on mount ──
   useEffect(() => {
-    refreshStatus();
     loadSessions();
+    // Check status first, then auto-init if not connected
+    (async () => {
+      const res = await api.agentSim.status();
+      if (res.success && res.data) {
+        const s = res.data as BuyerStatus;
+        setStatus(s);
+        if (!s.connected) {
+          // Auto-init
+          setInitializing(true);
+          try {
+            const initRes = await api.agentSim.init();
+            if (!initRes.success) setError(initRes.error ?? 'Failed to initialize');
+            await refreshStatus();
+          } catch (err) {
+            setError((err as Error).message);
+          }
+          setInitializing(false);
+        }
+      }
+    })();
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
+
+  // ── Auto-discover offerings and fetch jobs once connected ──
+  useEffect(() => {
+    if (status?.connected && offerings.length === 0) {
+      handleDiscoverOfferings();
+      refreshJobs();
+    }
+  }, [status?.connected]);
 
   // ── Start polling when we have tracked jobs ──
   useEffect(() => {
