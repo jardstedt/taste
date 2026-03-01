@@ -12,7 +12,7 @@ dotenv.config({ path: resolve(projectRoot, envFile) });
 import express from 'express';
 import { createServer } from 'http';
 import cookieParser from 'cookie-parser';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync } from 'fs';
 import { loadEnv, getEnv } from './config/env.js';
 import { initDb, closeDb } from './db/database.js';
 import { seedAdminExpert } from './services/experts.js';
@@ -200,6 +200,19 @@ async function main() {
     res.status(500).json({ success: false, error: 'Internal server error' });
   });
 
+  // Serve whitepaper as rendered HTML
+  const whitepaperPath = resolve(__dirname, '../../WHITEPAPER_v3_0_GENERAL.md');
+  app.get('/whitepaper', (_req, res) => {
+    if (!existsSync(whitepaperPath)) {
+      res.status(404).send('Whitepaper not found');
+      return;
+    }
+    const md = readFileSync(whitepaperPath, 'utf-8');
+    const html = renderWhitepaperHtml(md);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  });
+
   // Serve dashboard static files in production
   const dashboardDist = resolve(__dirname, '../../dashboard/dist');
   if (existsSync(dashboardDist)) {
@@ -244,3 +257,132 @@ main().catch(err => {
   console.error('Fatal error:', err);
   process.exit(1);
 });
+
+// ── Whitepaper Renderer ──
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderWhitepaperHtml(md: string): string {
+  let html = '';
+  const lines = md.split('\n');
+  let inCodeBlock = false;
+  let inTable = false;
+  let tableRows: string[] = [];
+
+  function flushTable() {
+    if (!inTable) return;
+    inTable = false;
+    const rows = tableRows.filter(r => !/^\|[\s-:|]+\|$/.test(r)); // skip separator rows
+    if (rows.length === 0) { tableRows = []; return; }
+    let t = '<table>';
+    rows.forEach((row, i) => {
+      const cells = row.split('|').slice(1, -1).map(c => c.trim());
+      const tag = i === 0 ? 'th' : 'td';
+      t += '<tr>' + cells.map(c => `<${tag}>${inlineMarkdown(c)}</${tag}>`).join('') + '</tr>';
+    });
+    t += '</table>';
+    html += t;
+    tableRows = [];
+  }
+
+  function inlineMarkdown(text: string): string {
+    return text
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`(.+?)`/g, '<code>$1</code>')
+      .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Code blocks
+    if (line.startsWith('```')) {
+      if (inCodeBlock) {
+        html += '</code></pre>';
+        inCodeBlock = false;
+      } else {
+        flushTable();
+        inCodeBlock = true;
+        html += '<pre><code>';
+      }
+      continue;
+    }
+    if (inCodeBlock) {
+      html += escapeHtml(line) + '\n';
+      continue;
+    }
+
+    // Table rows
+    if (line.startsWith('|')) {
+      if (!inTable) inTable = true;
+      tableRows.push(line);
+      continue;
+    } else {
+      flushTable();
+    }
+
+    // Blank lines
+    if (line.trim() === '') continue;
+
+    // Horizontal rules
+    if (/^---+$/.test(line.trim())) {
+      html += '<hr>';
+      continue;
+    }
+
+    // Headers
+    const hMatch = line.match(/^(#{1,6})\s+(.+)/);
+    if (hMatch) {
+      const level = hMatch[1].length;
+      html += `<h${level}>${inlineMarkdown(hMatch[2])}</h${level}>`;
+      continue;
+    }
+
+    // List items
+    if (/^[-*]\s/.test(line.trim())) {
+      html += `<li>${inlineMarkdown(line.trim().slice(2))}</li>`;
+      continue;
+    }
+
+    // Paragraph
+    html += `<p>${inlineMarkdown(line)}</p>`;
+  }
+  flushTable();
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taste — Human Judgment for the AI Economy</title>
+<meta name="description" content="Whitepaper for Taste, the human judgment oracle for AI agents.">
+<style>
+  :root { --bg: #0a0a0a; --fg: #e0e0e0; --muted: #888; --accent: #c0a0ff; --border: #2a2a2a; --code-bg: #151515; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.7; max-width: 720px; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1 { font-size: 2rem; margin: 2rem 0 0.5rem; color: #fff; }
+  h2 { font-size: 1.5rem; margin: 2.5rem 0 0.75rem; color: #fff; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  h3 { font-size: 1.15rem; margin: 1.8rem 0 0.5rem; color: var(--accent); }
+  p { margin: 0.75rem 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  strong { color: #fff; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+  li { margin: 0.3rem 0 0.3rem 1.5rem; }
+  code { font-family: 'JetBrains Mono', 'Fira Code', monospace; background: var(--code-bg); padding: 0.15em 0.4em; border-radius: 3px; font-size: 0.9em; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+  pre code { background: none; padding: 0; font-size: 0.85em; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  th, td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
+  th { background: var(--code-bg); color: #fff; font-weight: 600; }
+  @media (max-width: 600px) { body { padding: 1.5rem 1rem 4rem; } h1 { font-size: 1.5rem; } h2 { font-size: 1.25rem; } }
+</style>
+</head>
+<body>
+${html}
+</body>
+</html>`;
+}
