@@ -95,6 +95,64 @@ const DELIVERABLE_SCHEMAS: Record<string, DeliverableFieldDef[]> = {
   dispute_arbitration: disputeArbitrationFields,
 };
 
+const TEST_DATA: Record<string, Record<string, string>> = {
+  trust_evaluation: {
+    verdict: 'legitimate',
+    confidenceScore: '8',
+    summary: 'The project shows strong fundamentals with verified team, audited contracts, and consistent community engagement over 6+ months.',
+    keyFindings: 'Team fully doxxed with LinkedIn profiles\nSmart contract audited by CertiK\nActive Discord with 12k+ members\nRegular development updates on GitHub',
+    redFlags: 'Token unlock schedule is aggressive in Q3\nSome promotional claims lack citations',
+    positiveSignals: 'Transparent treasury management\nMulti-sig wallet with 3/5 signers\nPartnerships with established protocols',
+  },
+  output_quality_gate: {
+    qualityVerdict: 'needs_revision',
+    qualityScore: '6',
+    summary: 'The content is factually accurate but lacks structure and has several grammatical issues that reduce readability.',
+    issuesFound: 'Missing introduction section\nInconsistent heading hierarchy\nTwo broken hyperlinks in the references section',
+    suggestedImprovements: 'Add executive summary at the top\nFix heading levels (H2 → H3 for subsections)\nReplace broken links or remove references',
+  },
+  option_ranking: {
+    topPick: 'Option B — Hybrid staking model',
+    summary: 'Option B balances yield potential with risk management. It avoids the lock-up concerns of Option A while providing better returns than Option C.',
+    rankings: 'Option B — Hybrid staking model (best risk/reward)\nOption A — Full lock-up staking (highest yield but illiquid)\nOption C — Flexible staking (lowest risk, lowest returns)',
+    tradeoffs: 'A offers 18% APY but 90-day lock-up may frustrate users\nB offers 12% APY with 7-day unstaking — good middle ground\nC offers 6% APY but instant withdrawal appeals to risk-averse users',
+  },
+  content_quality_gate: {
+    verdict: 'needs_changes',
+    culturalSensitivityScore: '7',
+    brandSafetyScore: '8',
+    summary: 'Content is largely brand-safe but uses a metaphor in paragraph 3 that could be misread in certain cultural contexts. Recommend rephrasing before publication.',
+    flaggedIssues: 'Paragraph 3 metaphor ("crushing the competition") may read as aggressive in East Asian markets\nStock photo on slide 4 lacks demographic diversity',
+  },
+  audience_reaction_poll: {
+    overallRating: '7',
+    summary: 'The campaign concept resonates well with the 25-34 demographic but falls flat with older audiences. Visual style is strong; messaging needs refinement.',
+    criteriaScores: 'Visual appeal: 9\nMessage clarity: 6\nCall-to-action strength: 7\nBrand alignment: 8\nEmotional impact: 5',
+    comparisonNotes: 'Outperforms the Q4 campaign on visuals but underperforms on emotional hook. Similar engagement profile to Competitor X\'s recent launch.',
+  },
+  creative_direction_check: {
+    verdict: 'revise',
+    viabilityScore: '6',
+    summary: 'The creative concept has potential but the current execution leans too heavily on irony, which may not translate well across the target markets.',
+    culturalFlags: 'Sarcastic tone in headline may not translate to non-English markets\nColor palette (red + black) has negative connotations in some Southeast Asian cultures',
+    tonalAlignment: 'Current tone is edgy/irreverent — brand guidelines call for "confident but approachable." Recommend softening the humor while keeping the bold visual style.',
+  },
+  fact_check_verification: {
+    overallAccuracy: 'medium',
+    claimsChecked: '12',
+    summary: '9 of 12 claims verified accurate. Two claims use outdated statistics (2023 data cited as current), and one claim conflates correlation with causation.',
+    flaggedClaims: '"Market grew 340% in 2024" — actual figure is 280% per CoinGecko\n"Users prefer decentralized options" — cited survey had 200 respondents, not statistically significant\n"Zero security incidents" — one minor incident was reported in August 2024',
+    corrections: 'Update market growth figure to 280% with CoinGecko citation\nReframe user preference claim with proper sample size caveat\nChange "zero incidents" to "no major security incidents"',
+  },
+  dispute_arbitration: {
+    verdict: 'approve',
+    reasoning: 'The service provider delivered all 5 agreed-upon items listed in the original scope. While the client claims the quality was below expectations, the deliverables meet the objective criteria specified in the contract. The style guide was followed, deadlines were met, and revision rounds were completed as agreed.',
+    deliverableQuality: 'adequate',
+    contractAlignment: 'fully_met',
+    summary: 'Deliverables meet contractual requirements. Dispute resolved in favor of the service provider.',
+  },
+};
+
 function getFields(offeringType: string): DeliverableFieldDef[] {
   return DELIVERABLE_SCHEMAS[offeringType] ?? fallbackFields;
 }
@@ -204,6 +262,18 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
         }}>
           {error}
         </div>
+      )}
+
+      {/* Fill with test data */}
+      {TEST_DATA[session.offeringType] && (
+        <button
+          type="button"
+          onClick={() => setValues(TEST_DATA[session.offeringType])}
+          className="btn btn-ghost"
+          style={{ fontSize: 12, marginBottom: 12, color: '#6B21A8' }}
+        >
+          Fill with test data
+        </button>
       )}
 
       {/* Dynamic fields */}
