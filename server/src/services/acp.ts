@@ -1174,6 +1174,47 @@ export async function listAcpJobs(): Promise<AcpJobInspection[]> {
   return results.sort((a, b) => b.acpJobId - a.acpJobId);
 }
 
+// ── Retroactive Budget Claiming ──
+
+/**
+ * Claim escrowed budget for all completed ACP jobs.
+ * Use this to retroactively release funds for jobs that completed
+ * before the claimBudget logic was deployed.
+ */
+export async function claimAllCompletedJobs(): Promise<{ claimed: number[]; skipped: number[]; failed: number[] }> {
+  if (!_acpClient) throw new Error('ACP not connected');
+
+  const result = { claimed: [] as number[], skipped: [] as number[], failed: [] as number[] };
+
+  const completedJobs = await _acpClient.getCompletedJobs().catch(() => [] as AcpJob[]);
+  console.log(`[ACP] Claiming budget for ${completedJobs.length} completed jobs`);
+
+  for (const job of completedJobs) {
+    if (_claimedJobs.has(job.id)) {
+      result.skipped.push(job.id);
+      continue;
+    }
+
+    // Only claim for jobs where we are the provider
+    if (job.providerAddress.toLowerCase() !== _acpClient.walletAddress.toLowerCase()) {
+      result.skipped.push(job.id);
+      continue;
+    }
+
+    try {
+      // Temporarily remove from set so claimJobBudget doesn't skip
+      _claimedJobs.delete(job.id);
+      await claimJobBudget(job.id);
+      result.claimed.push(job.id);
+    } catch {
+      result.failed.push(job.id);
+    }
+  }
+
+  console.log(`[ACP] Claim sweep: ${result.claimed.length} claimed, ${result.skipped.length} skipped, ${result.failed.length} failed`);
+  return result;
+}
+
 // ── Cleanup ──
 
 export function stopAcp(): void {

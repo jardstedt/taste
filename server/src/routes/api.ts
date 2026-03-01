@@ -33,7 +33,7 @@ import {
   getPendingWithdrawals,
 } from '../services/withdrawals.js';
 import { getExpertReputationScores, getExpertReputationHistory } from '../services/reputation.js';
-import { getOfferingDefinitions, inspectAcpJob, inspectSessionAcp, listAcpJobs } from '../services/acp.js';
+import { getOfferingDefinitions, inspectAcpJob, inspectSessionAcp, listAcpJobs, claimAllCompletedJobs } from '../services/acp.js';
 import type { Domain, ExpertCredentials, WalletChain } from '../types/index.js';
 import { withdrawalLimiter, passwordLimiter, uploadLimiter } from '../middleware/rateLimit.js';
 import { saveAvatar, isAllowedAvatarMime, MAX_AVATAR_SIZE } from '../services/storage.js';
@@ -375,6 +375,17 @@ router.get('/acp/sessions/:sessionId', requireRole('admin'), async (req, res) =>
     res.json({ success: true, data: inspection });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to inspect session';
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+// POST /api/acp/claim-all — retroactively claim budget for all completed jobs
+router.post('/acp/claim-all', requireRole('admin'), async (_req, res) => {
+  try {
+    const result = await claimAllCompletedJobs();
+    res.json({ success: true, data: result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to claim budgets';
     res.status(500).json({ success: false, error: message });
   }
 });
