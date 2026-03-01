@@ -252,15 +252,20 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
     }
 
     setSubmitting(true);
-    const res = await api.completeSession(session.id, {
-      structuredData,
-      summary: summaryText || undefined,
-    });
+    try {
+      const res = await api.completeSession(session.id, {
+        structuredData,
+        summary: summaryText || undefined,
+      });
 
-    if (res.success) {
-      onComplete();
-    } else {
-      setError(res.error ?? 'Failed to complete session');
+      if (res.success) {
+        onComplete();
+      } else {
+        setError(res.error ?? 'Failed to complete session');
+        setSubmitting(false);
+      }
+    } catch {
+      setError('Network error — please check your connection and try again');
       setSubmitting(false);
     }
   };
@@ -322,7 +327,7 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
             >
               <option value="">Select...</option>
               {field.options?.map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
+                <option key={opt} value={opt}>{opt.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
               ))}
             </select>
           ) : field.type === 'textarea' ? (

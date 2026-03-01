@@ -3,13 +3,23 @@ import type { ApiResponse } from '../types/index.js';
 const BASE = '/api';
 
 async function request<T>(path: string, options?: RequestInit): Promise<ApiResponse<T>> {
-  const res = await fetch(`${BASE}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    });
+  } catch {
+    return { success: false, error: 'Network error — please check your connection' };
+  }
 
-  const data = await res.json() as ApiResponse<T>;
+  let data: ApiResponse<T>;
+  try {
+    data = await res.json() as ApiResponse<T>;
+  } catch {
+    return { success: false, error: `Request failed with status ${res.status}` };
+  }
 
   if (!res.ok && !data.error) {
     data.error = `Request failed with status ${res.status}`;
