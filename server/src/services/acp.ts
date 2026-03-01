@@ -376,34 +376,11 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
 
       console.log(`[ACP] Offering type: ${offeringType}, requirement keys: ${Object.keys(requirements).join(', ')}`);
 
-      // Reject disabled offerings
-      if (!isOfferingEnabled(offeringType)) {
-        console.log(`[ACP] Offering "${offeringType}" is disabled — rejecting job ${job.id}`);
-        await job.reject(`The "${offeringType}" offering is currently unavailable. Please try a different service type.`);
-        return;
-      }
-
-      // Reject empty/garbled requirements (LLM ambiguity / hallucination guard)
-      const reqText = JSON.stringify(requirements).toLowerCase();
-      if (Object.keys(requirements).length === 0 || reqText.length < 10) {
-        console.log(`[ACP] Empty or insufficient requirements in job ${job.id} — rejecting`);
-        await job.reject('No requirements provided. Please include a description of what you need reviewed or evaluated.');
-        return;
-      }
-
-      // Reject token/chain operations — we are a judgment oracle, not a trading/DeFi agent
-      const TOKEN_OP_PATTERNS = /\b(swap|transfer|send|bridge|stake|unstake|mint|burn|approve|withdraw)\b.*\b(token|eth|usdc|usdt|sol|bnb|matic|avax)\b/i;
-      if (TOKEN_OP_PATTERNS.test(reqText) && !/\b(review|evaluate|check|assess|opinion|judge|rate|rank)\b/i.test(reqText)) {
-        console.log(`[ACP] Token/chain operation detected in job ${job.id} — rejecting`);
-        await job.reject('Taste provides human expert judgment, not token operations. We cannot execute swaps, transfers, or other blockchain transactions. If you need a human review of a DeFi strategy, please rephrase your request as an evaluation.');
-        return;
-      }
-
-      // Reject risk/compliance-violating requests
-      const COMPLIANCE_PATTERNS = /\b(hack|exploit|phishing|steal|launder|money.?launder|illegal|child|csam|doxx|attack|ddos|ransomware)\b/i;
-      if (COMPLIANCE_PATTERNS.test(reqText)) {
-        console.log(`[ACP] Compliance-violating request in job ${job.id} — rejecting`);
-        await job.reject('This request appears to involve prohibited content or activities. Taste cannot process requests related to illegal activities, exploitation, or attacks.');
+      // Validate requirements (disabled offerings, empty input, token ops, compliance)
+      const rejectionReason = _testValidateJobRequirements(requirements, offeringType);
+      if (rejectionReason) {
+        console.log(`[ACP] Job ${job.id} rejected: ${rejectionReason.slice(0, 80)}...`);
+        await job.reject(rejectionReason);
         return;
       }
 
@@ -1119,6 +1096,41 @@ async function trackBuyerAccount(job: AcpJob): Promise<void> {
 
 /** Exposed for unit testing only */
 export const _testResolveOfferingType = resolveOfferingType;
+
+/**
+ * Validate job requirements before accepting. Returns null if valid,
+ * or a rejection reason string if the job should be rejected.
+ * Extracted for testability — mirrors the inline checks in handleNewTask().
+ */
+export function _testValidateJobRequirements(
+  requirements: Record<string, unknown>,
+  offeringType: string,
+): string | null {
+  // Disabled offering
+  if (!isOfferingEnabled(offeringType)) {
+    return `The "${offeringType}" offering is currently unavailable. Please try a different service type.`;
+  }
+
+  // Empty/garbled requirements (LLM ambiguity guard)
+  const reqText = JSON.stringify(requirements).toLowerCase();
+  if (Object.keys(requirements).length === 0 || reqText.length < 10) {
+    return 'No requirements provided. Please include a description of what you need reviewed or evaluated.';
+  }
+
+  // Token/chain operations — not our service
+  const TOKEN_OP_PATTERNS = /\b(swap|transfer|send|bridge|stake|unstake|mint|burn|approve|withdraw)\b.*\b(token|eth|usdc|usdt|sol|bnb|matic|avax)\b/i;
+  if (TOKEN_OP_PATTERNS.test(reqText) && !/\b(review|evaluate|check|assess|opinion|judge|rate|rank)\b/i.test(reqText)) {
+    return 'Taste provides human expert judgment, not token operations. We cannot execute swaps, transfers, or other blockchain transactions. If you need a human review of a DeFi strategy, please rephrase your request as an evaluation.';
+  }
+
+  // Risk/compliance-violating requests
+  const COMPLIANCE_PATTERNS = /\b(hack|exploit|phishing|steal|launder|money.?launder|illegal|child|csam|doxx|attack|ddos|ransomware)\b/i;
+  if (COMPLIANCE_PATTERNS.test(reqText)) {
+    return 'This request appears to involve prohibited content or activities. Taste cannot process requests related to illegal activities, exploitation, or attacks.';
+  }
+
+  return null; // Valid — no rejection
+}
 
 export function getAcpClient(): InstanceType<typeof AcpClient> | null {
   return _acpClient;
