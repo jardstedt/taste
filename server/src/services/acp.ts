@@ -383,6 +383,30 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
         return;
       }
 
+      // Reject empty/garbled requirements (LLM ambiguity / hallucination guard)
+      const reqText = JSON.stringify(requirements).toLowerCase();
+      if (Object.keys(requirements).length === 0 || reqText.length < 10) {
+        console.log(`[ACP] Empty or insufficient requirements in job ${job.id} — rejecting`);
+        await job.reject('No requirements provided. Please include a description of what you need reviewed or evaluated.');
+        return;
+      }
+
+      // Reject token/chain operations — we are a judgment oracle, not a trading/DeFi agent
+      const TOKEN_OP_PATTERNS = /\b(swap|transfer|send|bridge|stake|unstake|mint|burn|approve|withdraw)\b.*\b(token|eth|usdc|usdt|sol|bnb|matic|avax)\b/i;
+      if (TOKEN_OP_PATTERNS.test(reqText) && !/\b(review|evaluate|check|assess|opinion|judge|rate|rank)\b/i.test(reqText)) {
+        console.log(`[ACP] Token/chain operation detected in job ${job.id} — rejecting`);
+        await job.reject('Taste provides human expert judgment, not token operations. We cannot execute swaps, transfers, or other blockchain transactions. If you need a human review of a DeFi strategy, please rephrase your request as an evaluation.');
+        return;
+      }
+
+      // Reject risk/compliance-violating requests
+      const COMPLIANCE_PATTERNS = /\b(hack|exploit|phishing|steal|launder|money.?launder|illegal|child|csam|doxx|attack|ddos|ransomware)\b/i;
+      if (COMPLIANCE_PATTERNS.test(reqText)) {
+        console.log(`[ACP] Compliance-violating request in job ${job.id} — rejecting`);
+        await job.reject('This request appears to involve prohibited content or activities. Taste cannot process requests related to illegal activities, exploitation, or attacks.');
+        return;
+      }
+
       await job.accept('Human expert judgment service ready');
       await job.createRequirement('Payment required to proceed with human expert evaluation');
 
