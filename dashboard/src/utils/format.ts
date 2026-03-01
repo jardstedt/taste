@@ -50,9 +50,9 @@ function formatJsonValue(v: unknown): string {
   return JSON.stringify(v);
 }
 
-/** Label overrides for known JSON keys that need friendlier display names */
+/** Label overrides keyed by normalized lowercase form (after splitting camelCase/snake_case) */
 const LABEL_OVERRIDES: Record<string, string> = {
-  videoUrl: 'Content URL',
+  'video url': 'Content URL',
 };
 
 /** Parse a JSON description string into key-value pairs for display */
@@ -64,9 +64,9 @@ export function parseDescription(desc: string | null): { isJson: boolean; pairs:
       const obj = JSON.parse(trimmed);
       const pairs: [string, string][] = [];
       for (const [k, v] of Object.entries(obj)) {
-        const label = LABEL_OVERRIDES[k]
-          ?? k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()
-               .replace(/\b\w/g, c => c.toUpperCase());
+        const normalized = k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim().toLowerCase();
+        const label = LABEL_OVERRIDES[normalized]
+          ?? normalized.replace(/\b\w/g, c => c.toUpperCase());
         const value = typeof v === 'string' ? v : formatJsonValue(v);
         pairs.push([label, value]);
       }
