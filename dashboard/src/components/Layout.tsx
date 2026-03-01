@@ -113,10 +113,16 @@ export function Layout({ children, user, onLogout, onRefresh }: LayoutProps) {
             <button
               className="header-avatar"
               onClick={() => setMenuOpen(v => !v)}
-              style={{ cursor: 'pointer', border: 'none' }}
+              style={{ cursor: 'pointer', border: 'none', padding: 0, overflow: 'hidden' }}
               title="Profile menu"
               aria-label="Open profile menu"
-            >{getInitials(user.name)}</button>
+            >
+              {user.credentials?.profileImageUrl ? (
+                <img src={user.credentials.profileImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              ) : (
+                getInitials(user.name)
+              )}
+            </button>
             {menuOpen && (
               <div className="header-menu">
                 <button
