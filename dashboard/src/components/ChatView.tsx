@@ -29,7 +29,7 @@ interface ChatViewProps {
 }
 
 export function ChatView({ sessionId, onBack }: ChatViewProps) {
-  const { session, messages, addons, loading, sendMessage, acceptAddon } = useChat(sessionId);
+  const { session, messages, addons, deliverable, loading, sendMessage, acceptAddon } = useChat(sessionId);
   const { user } = useAuth();
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -107,6 +107,8 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
 
   const desc = parseDescription(session.description);
   const userMessages = messages.filter(m => m.senderType === 'agent' || m.senderType === 'expert').length;
+  const isFinished = session.status === 'completed' || session.status === 'cancelled' || session.status === 'timeout';
+  const chatMessages = messages.filter(m => m.messageType !== 'system_notice' || m.content !== messages[0]?.content);
 
   return (
     <div className="chat-container">
@@ -301,21 +303,59 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
           </div>
         )}
 
-        {/* ── End states ── */}
-        {session.status === 'completed' && (
-          <div className="chat-ended" style={{ margin: 16, borderRadius: 8 }}>
-            Job completed
-          </div>
-        )}
-        {session.status === 'cancelled' && (
-          <div className="chat-ended" style={{ margin: 16, borderRadius: 8, color: '#991B1B' }}>
-            Job declined
-          </div>
-        )}
-        {session.status === 'timeout' && (
-          <div className="chat-ended" style={{ margin: 16, borderRadius: 8, color: '#6B7280' }}>
-            Job timed out
-          </div>
+        {/* ── End states with deliverable + messages ── */}
+        {isFinished && (
+          <>
+            <div className="chat-ended" style={{
+              margin: 16, borderRadius: 8,
+              color: session.status === 'completed' ? undefined : session.status === 'cancelled' ? '#991B1B' : '#6B7280',
+            }}>
+              {session.status === 'completed' ? 'Job completed' : session.status === 'cancelled' ? 'Job declined' : 'Job timed out'}
+            </div>
+
+            {/* Deliverable */}
+            {deliverable && Object.keys(deliverable).length > 0 && (
+              <div style={{
+                margin: '0 16px 16px', padding: 16,
+                background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+                  Expert Assessment
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {Object.entries(deliverable).map(([key, value]) => {
+                    const label = key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim().replace(/\b\w/g, c => c.toUpperCase());
+                    const display = typeof value === 'string' ? value
+                      : typeof value === 'number' ? String(value)
+                      : Array.isArray(value) ? value.join(', ')
+                      : JSON.stringify(value);
+                    return (
+                      <div key={key}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 2 }}>{label}</div>
+                        <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.5 }}>
+                          <LinkifyText text={display} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Chat history */}
+            {chatMessages.length > 0 && (
+              <div style={{ margin: '0 16px 16px' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                  Messages
+                </div>
+                <div className="chat-messages" style={{ maxHeight: 400, flex: 'none' }}>
+                  {chatMessages.map(msg => (
+                    <ChatBubble key={msg.id} message={msg} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* ── Chat section (collapsible, at bottom) ── */}

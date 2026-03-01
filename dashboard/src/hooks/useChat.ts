@@ -7,6 +7,7 @@ export function useChat(sessionId: string | null) {
   const [session, setSession] = useState<Session | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [addons, setAddons] = useState<Addon[]>([]);
+  const [deliverable, setDeliverable] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const { on, emit } = useSocket();
   const joinedRef = useRef<string | null>(null);
@@ -15,10 +16,11 @@ export function useChat(sessionId: string | null) {
     if (!sessionId) return;
     const res = await api.getSession(sessionId);
     if (res.success && res.data) {
-      const data = res.data as { session: Session; messages: ChatMessage[]; addons: Addon[] };
+      const data = res.data as { session: Session; messages: ChatMessage[]; addons: Addon[]; deliverable?: Record<string, unknown> };
       setSession(data.session);
       setMessages(data.messages);
       setAddons(data.addons);
+      if (data.deliverable) setDeliverable(data.deliverable);
     }
     setLoading(false);
   }, [sessionId]);
@@ -79,5 +81,5 @@ export function useChat(sessionId: string | null) {
     emit('addon:respond', { addonId, accepted });
   }, [sessionId, emit]);
 
-  return { session, messages, addons, loading, sendMessage, acceptAddon, refresh };
+  return { session, messages, addons, deliverable, loading, sendMessage, acceptAddon, refresh };
 }

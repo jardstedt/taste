@@ -124,6 +124,9 @@ router.get('/:id', (req, res) => {
   const messages = getMessages(session.id);
   const addons = getAddons(session.id);
 
+  // Include deliverable for completed sessions
+  const deliverable = getDeliverable(session.id);
+
   // Include original assessment for follow-up sessions
   let previousAssessment: Record<string, unknown> | null = null;
   if (session.followupOf) {
@@ -133,7 +136,7 @@ router.get('/:id', (req, res) => {
     }
   }
 
-  res.json({ success: true, data: { session, messages, addons, ...(previousAssessment ? { previousAssessment } : {}) } });
+  res.json({ success: true, data: { session, messages, addons, ...(deliverable ? { deliverable: deliverable.structuredData } : {}), ...(previousAssessment ? { previousAssessment } : {}) } });
 });
 
 // POST /sessions/:id/accept
