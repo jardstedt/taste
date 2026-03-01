@@ -226,6 +226,7 @@ export async function discoverOfferings(): Promise<Array<{
 export async function createBuyerJob(
   offeringIndex: number,
   requirementData: Record<string, unknown>,
+  evaluatorAddress?: string,
 ): Promise<{ jobId: number }> {
   if (!_buyerClient) throw new Error('Buyer client not initialized');
 
@@ -251,7 +252,9 @@ export async function createBuyerJob(
   // Safety: gas check
   await assertGasSafe('createBuyerJob');
 
-  const jobId: number = await offering.initiateJob(requirementData);
+  const jobId: number = evaluatorAddress
+    ? await offering.initiateJob(requirementData, evaluatorAddress as `0x${string}`)
+    : await offering.initiateJob(requirementData);
 
   _activeJobs.set(jobId, {
     phase: AcpJobPhases.REQUEST,
@@ -259,8 +262,29 @@ export async function createBuyerJob(
     createdAt: new Date().toISOString(),
   });
 
-  console.log(`[AgentSim] Job created: ${jobId}`);
+  console.log(`[AgentSim] Job created: ${jobId}${evaluatorAddress ? ` (evaluator: ${evaluatorAddress})` : ''}`);
   return { jobId };
+}
+
+export async function evaluateJob(
+  jobId: number,
+  approved: boolean,
+  memo?: string,
+): Promise<{ success: boolean }> {
+  if (!_buyerClient) throw new Error('Buyer client not initialized');
+
+  const job = await _buyerClient.getJobById(jobId);
+  if (!job) throw new Error(`Job ${jobId} not found`);
+
+  if (job.phase !== AcpJobPhases.EVALUATION) {
+    throw new Error(`Job ${jobId} is in phase ${phaseLabel(job.phase)}, expected EVALUATION`);
+  }
+
+  const reason = (memo ?? (approved ? 'Approved via e2e test' : 'Rejected via e2e test')).slice(0, 500);
+  await job.evaluate(approved, reason);
+
+  console.log(`[AgentSim] Evaluated job ${jobId}: ${approved ? 'APPROVED' : 'REJECTED'}`);
+  return { success: true };
 }
 
 export async function getJobStatus(jobId: number): Promise<{

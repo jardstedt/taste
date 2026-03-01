@@ -42,6 +42,7 @@ SCENARIO=""
 AUTO_MODE=false
 OFFERINGS_JSON=""
 SAMPLES_JSON=""
+BUYER_WALLET=""
 
 # Colors
 RED='\033[0;31m'
@@ -517,6 +518,7 @@ do_final_report() {
 
 do_auto_create_job() {
   local array_idx="$1"
+  local evaluator="${2-}"
   log_step "Create ACP buyer job (auto: offering #$array_idx)"
 
   OFFERING_NAME=$(json_field "$OFFERINGS_JSON" "(o.data ?? [])[$array_idx]?.name ?? ''")
@@ -540,7 +542,13 @@ do_auto_create_job() {
   ")
   echo -e "  ${DIM}Using sample data${NC}"
 
-  local body="{\"offeringIndex\":$offering_index,\"requirement\":$sample_input}"
+  local body
+  if [ -n "$evaluator" ]; then
+    body="{\"offeringIndex\":$offering_index,\"requirement\":$sample_input,\"evaluatorAddress\":\"$evaluator\"}"
+    echo -e "  ${CYAN}Evaluator: $evaluator${NC}"
+  else
+    body="{\"offeringIndex\":$offering_index,\"requirement\":$sample_input}"
+  fi
   api_post "/api/agent-sim/jobs" "$body"
 
   if is_success "$RESP_BODY"; then
@@ -642,6 +650,16 @@ do_auto_accept_deliverable() {
     log_result "true" "Deliverable accepted on-chain"
   else
     log_result "false" "Accept failed: $(json_field "$RESP_BODY" "o.error ?? ''")"
+  fi
+}
+
+do_auto_evaluate_job() {
+  log_step "Evaluate job as third-party evaluator (auto: approve)"
+  api_post "/api/agent-sim/jobs/$JOB_ID/evaluate" '{"approved":true,"memo":"E2E auto test: evaluation approved"}'
+  if is_success "$RESP_BODY"; then
+    log_result "true" "Evaluator approved deliverable on-chain"
+  else
+    log_result "false" "Evaluate failed: $(json_field "$RESP_BODY" "o.error ?? ''")"
   fi
 }
 
@@ -1104,6 +1122,62 @@ run_happy_path_auto() {
   do_final_report
 }
 
+run_happy_path_with_evaluator_auto() {
+  SCENARIO="happy_path_evaluator"
+  LOG_FILE="$RESULTS_DIR/${TIMESTAMP}_happy_path_evaluator_${OFFERING_NAME}.log"
+  log_header "ACP E2E Test — Scenario: HAPPY PATH WITH EVALUATOR (AUTO)"
+  log "Date:     $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  log "Server:   $BASE"
+  log "Offering: $OFFERING_NAME"
+  log "Evaluator: $BUYER_WALLET"
+  log "Scenario: Full lifecycle with third-party evaluator approval (automated)"
+
+  do_poll_status "Initial job status"
+
+  if ! do_wait_for_negotiation; then
+    do_final_report; return 1
+  fi
+
+  if ! do_pay; then
+    do_final_report; return 1
+  fi
+
+  do_poll_status "Status after payment"
+
+  if ! do_find_session; then
+    do_final_report; return 1
+  fi
+
+  do_auto_accept_session
+  sleep 2
+
+  do_auto_send_expert_message "E2E auto test: This is my expert evaluation for the $OFFERING_NAME offering (with evaluator)."
+  sleep 2
+
+  do_auto_complete_session
+
+  echo -e "  ${DIM}Waiting 15s for deliverable to reach ACP...${NC}"
+  sleep 15
+
+  if do_wait_for_evaluation; then
+    if [ "$CURRENT_PHASE" = "EVALUATION" ]; then
+      log_step "Third-party evaluator approving deliverable"
+      log_result "true" "Job in EVALUATION — evaluator will approve"
+      do_auto_evaluate_job
+
+      # Wait for COMPLETED after evaluation
+      echo -e "  ${DIM}Waiting 15s for evaluation to finalize...${NC}"
+      sleep 15
+      do_poll_status "Status after evaluator approval"
+    else
+      log_step "Deliverable auto-confirmed (evaluator not used)"
+      log_result "true" "Job already COMPLETED"
+    fi
+  fi
+
+  do_final_report
+}
+
 run_expert_decline_auto() {
   SCENARIO="expert_decline"
   LOG_FILE="$RESULTS_DIR/${TIMESTAMP}_expert_decline_${OFFERING_NAME}.log"
@@ -1259,16 +1333,20 @@ main() {
     # ── Fully automated run-all mode ──
     AUTO_MODE=true
 
-    # Cache offerings and samples
+    # Cache offerings, samples, and buyer wallet
     api_get "/api/agent-sim/offerings"
     OFFERINGS_JSON="$RESP_BODY"
     api_get "/api/agent-sim/samples"
     SAMPLES_JSON="$RESP_BODY"
+    api_get "/api/agent-sim/status"
+    BUYER_WALLET=$(json_field "$RESP_BODY" "o.data?.wallet ?? ''")
 
     local offering_count=$(json_field "$OFFERINGS_JSON" "(o.data ?? []).length")
+    local evaluator_idx=$((offering_count - 1))
 
     echo ""
-    echo -e "${BOLD}${MAGENTA}AUTO MODE: Happy path for all $offering_count offerings + 3 edge cases${NC}"
+    echo -e "${BOLD}${MAGENTA}AUTO MODE: Happy path for all $offering_count offerings + 4 edge cases${NC}"
+    echo -e "${DIM}Offering #$((evaluator_idx+1)) will use buyer wallet as evaluator.${NC}"
     echo -e "${DIM}No further prompts — sit back and watch.${NC}"
     echo ""
 
@@ -1284,20 +1362,40 @@ main() {
 
       echo ""
       echo -e "${BOLD}$(printf '═%.0s' {1..50})${NC}"
-      echo -e "${BOLD}  HAPPY PATH — Offering $((i+1))/$offering_count${NC}"
+      if [ "$i" -eq "$evaluator_idx" ]; then
+        echo -e "${BOLD}  HAPPY PATH + EVALUATOR — Offering $((i+1))/$offering_count${NC}"
+      else
+        echo -e "${BOLD}  HAPPY PATH — Offering $((i+1))/$offering_count${NC}"
+      fi
       echo -e "${BOLD}$(printf '═%.0s' {1..50})${NC}"
 
       LOG_FILE=$(mktemp)
-      if do_auto_create_job "$i"; then
-        local temp_log="$LOG_FILE"
-        run_happy_path_auto
-        if [ -f "$temp_log" ] && [ "$temp_log" != "$LOG_FILE" ]; then
-          rm -f "$temp_log"
+
+      # Last offering uses buyer wallet as evaluator
+      if [ "$i" -eq "$evaluator_idx" ]; then
+        if do_auto_create_job "$i" "$BUYER_WALLET"; then
+          local temp_log="$LOG_FILE"
+          run_happy_path_with_evaluator_auto
+          if [ -f "$temp_log" ] && [ "$temp_log" != "$LOG_FILE" ]; then
+            rm -f "$temp_log"
+          fi
+          pass_count=$((pass_count + 1))
+        else
+          fail_count=$((fail_count + 1))
+          echo -e "  ${RED}Skipping — job creation failed${NC}"
         fi
-        pass_count=$((pass_count + 1))
       else
-        fail_count=$((fail_count + 1))
-        echo -e "  ${RED}Skipping — job creation failed${NC}"
+        if do_auto_create_job "$i"; then
+          local temp_log="$LOG_FILE"
+          run_happy_path_auto
+          if [ -f "$temp_log" ] && [ "$temp_log" != "$LOG_FILE" ]; then
+            rm -f "$temp_log"
+          fi
+          pass_count=$((pass_count + 1))
+        else
+          fail_count=$((fail_count + 1))
+          echo -e "  ${RED}Skipping — job creation failed${NC}"
+        fi
       fi
 
       echo -e "${DIM}Offering $((i+1)) done. Continuing...${NC}"

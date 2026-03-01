@@ -58,6 +58,7 @@ import {
   payForJob,
   acceptDeliverable,
   rejectDeliverable,
+  evaluateJob,
   getActiveJobs,
   getSampleRequests,
   stopBuyerClient,
@@ -225,6 +226,47 @@ describe('agent-sim service', () => {
     it('throws if client not initialized', async () => {
       stopBuyerClient();
       await expect(createBuyerJob(0, { question: 'test' })).rejects.toThrow(/not initialized/);
+    });
+
+    it('passes evaluator address when provided', async () => {
+      const evalAddr = '0x' + 'c'.repeat(40);
+      await createBuyerJob(0, { question: 'test' }, evalAddr);
+      expect(mockInitiateJob).toHaveBeenCalledWith({ question: 'test' }, evalAddr);
+    });
+  });
+
+  // ── Evaluate Job ──
+
+  describe('evaluateJob', () => {
+    const mockEvaluate = vi.fn().mockResolvedValue(undefined);
+
+    it('evaluates a job in EVALUATION phase', async () => {
+      await initBuyerClient();
+      mockGetJobById.mockResolvedValue({ id: 42, phase: 3, evaluate: mockEvaluate });
+
+      const result = await evaluateJob(42, true, 'Looks good');
+      expect(result.success).toBe(true);
+      expect(mockEvaluate).toHaveBeenCalledWith(true, 'Looks good');
+    });
+
+    it('uses default memo when none provided', async () => {
+      await initBuyerClient();
+      mockGetJobById.mockResolvedValue({ id: 42, phase: 3, evaluate: mockEvaluate });
+
+      await evaluateJob(42, false);
+      expect(mockEvaluate).toHaveBeenCalledWith(false, 'Rejected via e2e test');
+    });
+
+    it('rejects if not in EVALUATION phase', async () => {
+      await initBuyerClient();
+      mockGetJobById.mockResolvedValue({ id: 42, phase: 2 });
+      await expect(evaluateJob(42, true)).rejects.toThrow(/expected EVALUATION/);
+    });
+
+    it('throws if job not found', async () => {
+      await initBuyerClient();
+      mockGetJobById.mockResolvedValue(null);
+      await expect(evaluateJob(42, true)).rejects.toThrow(/not found/);
     });
   });
 

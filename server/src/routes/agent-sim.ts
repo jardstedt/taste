@@ -9,6 +9,7 @@ import {
   payForJob,
   acceptDeliverable,
   rejectDeliverable,
+  evaluateJob,
   getActiveJobs,
   getSampleRequests,
 } from '../services/agent-sim.js';
@@ -57,9 +58,10 @@ router.get('/samples', (_req, res) => {
 // POST /api/agent-sim/jobs — create a buyer job
 router.post('/jobs', async (req, res) => {
   try {
-    const { offeringIndex, requirement } = req.body as {
+    const { offeringIndex, requirement, evaluatorAddress } = req.body as {
       offeringIndex: number;
       requirement: Record<string, unknown>;
+      evaluatorAddress?: string;
     };
 
     if (typeof offeringIndex !== 'number' || offeringIndex < 0) {
@@ -76,8 +78,13 @@ router.post('/jobs', async (req, res) => {
       res.status(400).json({ success: false, error: 'requirement too large (max 10KB)' });
       return;
     }
+    // Validate evaluator address if provided
+    if (evaluatorAddress !== undefined && (typeof evaluatorAddress !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(evaluatorAddress))) {
+      res.status(400).json({ success: false, error: 'evaluatorAddress must be a valid Ethereum address' });
+      return;
+    }
 
-    const result = await createBuyerJob(offeringIndex, requirement);
+    const result = await createBuyerJob(offeringIndex, requirement, evaluatorAddress);
     res.json({ success: true, data: result });
   } catch (err) {
     res.status(500).json({ success: false, error: (err as Error).message });
@@ -129,6 +136,26 @@ router.post('/jobs/:jobId/accept', async (req, res) => {
     }
     const { memo } = (req.body ?? {}) as { memo?: string };
     const result = await acceptDeliverable(jobId, memo);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+// POST /api/agent-sim/jobs/:jobId/evaluate — evaluate as third-party evaluator
+router.post('/jobs/:jobId/evaluate', async (req, res) => {
+  try {
+    const jobId = parseInt(req.params.jobId, 10);
+    if (isNaN(jobId)) {
+      res.status(400).json({ success: false, error: 'Invalid jobId' });
+      return;
+    }
+    const { approved, memo } = (req.body ?? {}) as { approved?: boolean; memo?: string };
+    if (typeof approved !== 'boolean') {
+      res.status(400).json({ success: false, error: 'approved must be a boolean' });
+      return;
+    }
+    const result = await evaluateJob(jobId, approved, memo);
     res.json({ success: true, data: result });
   } catch (err) {
     res.status(500).json({ success: false, error: (err as Error).message });
