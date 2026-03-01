@@ -322,9 +322,8 @@ router.post('/:id/addons/:addonId/respond', validate(respondAddonSchema), (req, 
   res.json({ success: true, data: addon });
 });
 
-// POST /sessions/:id/attachments — upload file (DISABLED — removed from dashboard UI)
+// POST /sessions/:id/attachments — upload file
 router.post('/:id/attachments', uploadLimiter, (req, res, next) => {
-  if (featureDisabled(res)) return;
   upload.single('file')(req, res, (err) => {
     if (err) {
       const message = err instanceof Error ? err.message : 'Upload failed';
