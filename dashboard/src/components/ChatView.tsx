@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useChat } from '../hooks/useChat.js';
+import { useAuth } from '../hooks/useAuth.js';
 import { AddonDetail } from './AddonDetail.js';
 import { CompletionForm } from './CompletionForm.js';
 import * as api from '../api/client.js';
@@ -29,6 +30,7 @@ interface ChatViewProps {
 
 export function ChatView({ sessionId, onBack }: ChatViewProps) {
   const { session, messages, addons, loading, sendMessage, acceptAddon } = useChat(sessionId);
+  const { user } = useAuth();
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [showRequirements, setShowRequirements] = useState(false);
@@ -37,6 +39,7 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
   const [declining, setDeclining] = useState(false);
+  const [expiring, setExpiring] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Reset state when session changes
@@ -76,6 +79,14 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
     await api.declineSession(sessionId, declineReason.trim() || 'Expert unable to fulfill request');
     setDeclining(false);
     setShowDeclineDialog(false);
+  };
+
+  const handleExpire = async () => {
+    if (!confirm('Expire this session now? This will trigger the timeout flow.')) return;
+    setExpiring(true);
+    await api.agentSim.expireSession(sessionId);
+    setExpiring(false);
+    window.location.reload();
   };
 
   // Timer
@@ -145,6 +156,20 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
             </div>
           </div>
         </div>
+        {user?.role === 'admin' && (isActive || session.status === 'matching' || session.status === 'pending') && (
+          <button
+            onClick={handleExpire}
+            disabled={expiring}
+            title="Force expire this session (demo)"
+            style={{
+              background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6,
+              color: '#DC2626', fontSize: 11, fontWeight: 600, padding: '4px 8px',
+              cursor: expiring ? 'wait' : 'pointer', flexShrink: 0,
+            }}
+          >
+            {expiring ? '...' : 'Expire Now'}
+          </button>
+        )}
         {onBack && (
           <button onClick={onBack} aria-label="Close" style={{
             background: 'none', border: 'none', cursor: 'pointer', padding: 8,

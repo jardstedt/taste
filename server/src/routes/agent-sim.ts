@@ -13,7 +13,7 @@ import {
   getActiveJobs,
   getSampleRequests,
 } from '../services/agent-sim.js';
-import { shortenSessionDeadline } from '../services/sessions.js';
+import { shortenSessionDeadline, checkSessionTimeouts, getSessionById } from '../services/sessions.js';
 
 const router = Router();
 
@@ -196,6 +196,28 @@ router.post('/shorten-deadline', (req, res) => {
     return;
   }
   res.json({ success: true, data: { sessionId, newDeadline } });
+});
+
+// POST /api/agent-sim/expire-session — expire a session immediately (for demo)
+router.post('/expire-session', (req, res) => {
+  const { sessionId } = req.body as { sessionId?: string };
+  if (!sessionId || typeof sessionId !== 'string') {
+    res.status(400).json({ success: false, error: 'sessionId required' });
+    return;
+  }
+  const session = getSessionById(sessionId);
+  if (!session) {
+    res.status(404).json({ success: false, error: 'Session not found' });
+    return;
+  }
+  if (['completed', 'cancelled', 'timeout'].includes(session.status)) {
+    res.status(400).json({ success: false, error: `Session already ${session.status}` });
+    return;
+  }
+  // Set deadline to 1 second ago and run timeout check
+  shortenSessionDeadline(sessionId, -1);
+  const expired = checkSessionTimeouts();
+  res.json({ success: true, data: { sessionId, expired, previousStatus: session.status } });
 });
 
 export default router;

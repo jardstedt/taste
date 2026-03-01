@@ -260,6 +260,8 @@ export const agentSim = {
     request(`/agent-sim/jobs/${jobId}/accept`, { method: 'POST', body: JSON.stringify({ memo }) }),
   rejectJob: (jobId: number, memo?: string) =>
     request(`/agent-sim/jobs/${jobId}/reject`, { method: 'POST', body: JSON.stringify({ memo }) }),
+  expireSession: (sessionId: string) =>
+    request('/agent-sim/expire-session', { method: 'POST', body: JSON.stringify({ sessionId }) }),
 };
 
 // ── ACP Inspector (admin) ──
