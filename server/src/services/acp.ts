@@ -802,6 +802,11 @@ export async function deliverSessionToAcp(internalSessionId: string): Promise<bo
  * Called from socket handler and REST route when an expert sends a message
  * on an ACP-linked session.
  */
+// Toggle: use MESSAGE (type 0, unsecured) instead of NOTIFICATION (type 9, secured).
+// MESSAGE memos are the standard type used throughout ACP and more likely to be
+// processed by buyer agents like Butler. Set to false to revert to createNotification.
+const USE_MESSAGE_MEMO_FOR_RELAY = true;
+
 export async function relayExpertMessageToAcp(
   internalSessionId: string,
   content: string,
@@ -815,16 +820,29 @@ export async function relayExpertMessageToAcp(
     const acpJob = await _acpClient.getJobById(Number(session.acpJobId));
     if (!acpJob || acpJob.phase !== AcpJobPhases.TRANSACTION) return false;
 
-    // Send as notification memo (capped at 2000 chars)
     const safeMemo = content.slice(0, MAX_MEMO_LENGTH);
-    await acpJob.createNotification(safeMemo);
+
+    if (USE_MESSAGE_MEMO_FOR_RELAY) {
+      // Send as MESSAGE memo (type 0, unsecured) — stays in TRANSACTION phase.
+      // More likely to be read by buyer agents than NOTIFICATION type.
+      const contractClient = _acpClient.acpContractClient as InstanceType<typeof AcpContractClientV2>;
+      const payload = contractClient.createMemo(
+        Number(session.acpJobId),
+        safeMemo,
+        0,    // MESSAGE type
+        false, // unsecured — publicly readable
+        AcpJobPhases.TRANSACTION, // stay in current phase
+      );
+      await contractClient.handleOperation([payload]);
+    } else {
+      // Original: NOTIFICATION memo (type 9, secured)
+      await acpJob.createNotification(safeMemo);
+    }
 
     // Record the memo we just sent so the inbound bridge ignores it
     // (next poll will see our own memo — we skip it via senderAddress check,
     // but also add to seen set as extra protection)
     const seen = _seenMemoIds.get(session.acpJobId) ?? new Set<number>();
-    // The new memo's ID isn't returned by createNotification, so we rely
-    // on the senderAddress filter in bridgeInboundMemos to avoid echo.
     _seenMemoIds.set(session.acpJobId, seen);
 
     console.log(`[ACP] Memo bridge: relayed expert message to buyer for job ${session.acpJobId}`);
