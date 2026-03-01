@@ -342,19 +342,6 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
               </div>
             )}
 
-            {/* Chat history */}
-            {chatMessages.length > 0 && (
-              <div style={{ margin: '0 16px 16px' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-                  Messages
-                </div>
-                <div className="chat-messages" style={{ maxHeight: 400, flex: 'none' }}>
-                  {chatMessages.map(msg => (
-                    <ChatBubble key={msg.id} message={msg} />
-                  ))}
-                </div>
-              </div>
-            )}
           </>
         )}
 
