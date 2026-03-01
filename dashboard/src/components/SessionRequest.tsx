@@ -25,7 +25,7 @@ export function SessionRequest({ session, onAccept, onDecline }: SessionRequestP
           </div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ color: '#059669', fontSize: 20, fontWeight: 700 }}>${session.priceUsdc.toFixed(0)}</div>
+          <div style={{ color: '#059669', fontSize: 20, fontWeight: 700 }}>${session.priceUsdc.toFixed(2)}</div>
           {deadline && (
             <div style={{ color: '#D97706', fontSize: 11, fontWeight: 500 }}>{remainingMins} min to accept</div>
           )}

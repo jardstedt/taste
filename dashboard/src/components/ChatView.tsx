@@ -137,10 +137,10 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
                       <span style={{ color: '#D1D5DB' }}>&middot;</span>
                     </>
                   )}
-                  <span>${session.priceUsdc.toFixed(0)} escrowed</span>
+                  <span>${session.priceUsdc.toFixed(2)} escrowed</span>
                 </>
               ) : (
-                <span style={{ textTransform: 'capitalize' }}>{session.status.replace(/_/g, ' ')} · ${session.priceUsdc.toFixed(0)} USDC</span>
+                <span style={{ textTransform: 'capitalize' }}>{session.status.replace(/_/g, ' ')} · ${session.priceUsdc.toFixed(2)} USDC</span>
               )}
             </div>
           </div>

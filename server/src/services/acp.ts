@@ -452,6 +452,9 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
           startMemoBridge();
           console.log(`[ACP] Session ${session.id} started (payment received)`);
         }
+        // Notify dashboard so "Awaiting payment" badge clears in real time
+        const updated = getSessionById(session.id);
+        if (updated) emitToSession(session.id, 'session:updated', updated);
       }
     }
   } catch (err) {
