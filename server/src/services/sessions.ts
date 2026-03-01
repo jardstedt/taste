@@ -40,6 +40,7 @@ interface SessionRow {
   payment_received_at: string | null;
   payout_confirmed_at: string | null;
   followup_of: string | null;
+  cancel_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -69,6 +70,7 @@ function rowToSession(row: SessionRow): Session {
     paymentReceivedAt: row.payment_received_at,
     payoutConfirmedAt: row.payout_confirmed_at,
     followupOf: row.followup_of,
+    cancelReason: row.cancel_reason,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -535,8 +537,8 @@ export function declineSession(sessionId: string, reason?: string): Session | nu
 
   // Atomic: only decline from active states
   const result = db.prepare(
-    "UPDATE sessions SET status = 'cancelled', expert_payout_usdc = 0, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status IN ('active', 'wrapping_up', 'accepted')",
-  ).run(sessionId);
+    "UPDATE sessions SET status = 'cancelled', expert_payout_usdc = 0, cancel_reason = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status IN ('active', 'wrapping_up', 'accepted')",
+  ).run(reason ?? null, sessionId);
 
   if (result.changes === 0) return null;
 
@@ -979,10 +981,10 @@ export function cancelSessionFromAcp(sessionId: string, reason: string): void {
 }
 
 /** Get completed/cancelled/timeout sessions not yet delivered to ACP */
-export function getStuckAcpSessions(): Array<{ id: string; acpJobId: string; status: string }> {
+export function getStuckAcpSessions(): Array<{ id: string; acpJobId: string; status: string; cancelReason: string | null }> {
   const db = getDb();
   const rows = db.prepare(
-    "SELECT id, acp_job_id, status FROM sessions WHERE acp_job_id IS NOT NULL AND status IN ('completed', 'cancelled', 'timeout') AND completed_at < datetime('now', '-2 minutes')",
-  ).all() as Array<{ id: string; acp_job_id: string; status: string }>;
-  return rows.map(r => ({ id: r.id, acpJobId: r.acp_job_id, status: r.status }));
+    "SELECT id, acp_job_id, status, cancel_reason FROM sessions WHERE acp_job_id IS NOT NULL AND status IN ('completed', 'cancelled', 'timeout') AND completed_at < datetime('now', '-2 minutes')",
+  ).all() as Array<{ id: string; acp_job_id: string; status: string; cancel_reason: string | null }>;
+  return rows.map(r => ({ id: r.id, acpJobId: r.acp_job_id, status: r.status, cancelReason: r.cancel_reason }));
 }

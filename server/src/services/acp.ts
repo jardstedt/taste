@@ -475,11 +475,13 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
           console.log(`[ACP] Job ${job.id} delivered via session ${session.id}`);
           await autoConfirmIfNoEvaluator(job, session.id);
         } else if (session.status === 'timeout' || session.status === 'cancelled') {
-          const reason = session.status === 'timeout'
-            ? 'Expert ran out of time and could not complete the review. Funds fully refunded. Please resubmit — a different expert will be assigned.'
-            : session.expertId
-              ? 'Expert accepted but did not complete the task in time. Funds fully refunded. Please resubmit — a different expert will be assigned.'
-              : 'No expert was available within the time window. Funds fully refunded. Please resubmit — experts are notified in real-time and availability varies.';
+          const reason = session.cancelReason
+            ? `Expert declined: ${session.cancelReason}. You have been fully refunded. Please try again and a new expert will be assigned.`
+            : session.status === 'timeout'
+              ? 'Expert ran out of time and could not complete the review. Funds fully refunded. Please resubmit — a different expert will be assigned.'
+              : session.expertId
+                ? 'Expert accepted but did not complete the task in time. Funds fully refunded. Please resubmit — a different expert will be assigned.'
+                : 'No expert was available within the time window. Funds fully refunded. Please resubmit — experts are notified in real-time and availability varies.';
           await job.reject(reason);
           console.log(`[ACP] Job ${job.id} rejected (session ${session.status}) — agent refunded`);
         } else if (session.status === 'accepted') {
@@ -962,9 +964,11 @@ async function reconcileStuckSessions(): Promise<void> {
         console.log(`[ACP] Reconciled: delivered stuck session ${row.id}`);
         await autoConfirmIfNoEvaluator(acpJob, row.id);
       } else {
-        const reason = row.status === 'timeout'
-          ? 'Expert ran out of time and could not complete the review. Funds fully refunded. Please resubmit — a different expert will be assigned.'
-          : 'No expert was available or the task was not completed in time. Funds fully refunded. Please resubmit.';
+        const reason = row.cancelReason
+          ? `Expert declined: ${row.cancelReason}. You have been fully refunded. Please try again and a new expert will be assigned.`
+          : row.status === 'timeout'
+            ? 'Expert ran out of time and could not complete the review. Funds fully refunded. Please resubmit — a different expert will be assigned.'
+            : 'No expert was available or the task was not completed in time. Funds fully refunded. Please resubmit.';
         await acpJob.reject(reason);
         console.log(`[ACP] Reconciled: rejected stuck session ${row.id} (${row.status})`);
       }

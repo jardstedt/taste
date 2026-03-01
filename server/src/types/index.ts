@@ -144,6 +144,7 @@ export interface Session {
   paymentReceivedAt: string | null;
   payoutConfirmedAt: string | null;
   followupOf: string | null;
+  cancelReason: string | null;
   createdAt: string;
   updatedAt: string;
 }

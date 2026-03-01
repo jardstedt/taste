@@ -130,6 +130,11 @@ function runMigrations(db: Database.Database): void {
   if (!hasColumn(db, 'sessions', 'payout_confirmed_at')) {
     db.exec('ALTER TABLE sessions ADD COLUMN payout_confirmed_at TEXT');
   }
+  // v1.6: store expert decline reason for ACP rejection messages
+  if (!hasColumn(db, 'sessions', 'cancel_reason')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN cancel_reason TEXT');
+  }
+
   if (!hasColumn(db, 'experts', 'email_hash')) {
     db.exec('ALTER TABLE experts ADD COLUMN email_hash TEXT');
     db.exec('CREATE INDEX IF NOT EXISTS idx_experts_email_hash ON experts(email_hash)');

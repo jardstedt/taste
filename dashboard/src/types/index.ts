@@ -128,6 +128,7 @@ export interface Session {
   deadlineAt: string | null;
   paymentReceivedAt: string | null;
   followupOf: string | null;
+  cancelReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
