@@ -4,6 +4,7 @@ import acpModule, {
   AcpJobPhases,
   AcpMemo,
 } from '@virtuals-protocol/acp-node';
+import { encodeFunctionData } from 'viem';
 
 // Handle double-nested default export in this SDK version
 const AcpClient = (acpModule as unknown as { default: typeof acpModule }).default ?? acpModule;
@@ -58,11 +59,57 @@ function formatRequirementValue(v: unknown): string {
 /**
  * After delivering, check if the evaluator is the zero address.
  * If so, no evaluator will ever approve — confirm payout immediately.
+ * Also claims escrowed budget on-chain so the provider actually gets paid.
  */
-function autoConfirmIfNoEvaluator(job: AcpJob, sessionId: string): void {
+async function autoConfirmIfNoEvaluator(job: AcpJob, sessionId: string): Promise<void> {
   if (job.evaluatorAddress === ZERO_ADDRESS) {
     const confirmed = confirmSessionPayout(sessionId);
     console.log(`[ACP] No evaluator (zero address) for job ${job.id} — auto-confirmed payout: ${confirmed}`);
+    await claimJobBudget(job.id);
+  }
+}
+
+// ── Budget Claiming ──
+
+const CLAIM_BUDGET_ABI = [{
+  inputs: [{ name: 'id', type: 'uint256' }],
+  name: 'claimBudget',
+  outputs: [],
+  stateMutability: 'nonpayable',
+  type: 'function',
+}] as const;
+
+/** Track claimed job IDs to avoid redundant on-chain calls within a process lifetime. */
+const _claimedJobs = new Set<number>();
+
+/**
+ * Call claimBudget(jobId) on the JobManager contract to release escrowed funds.
+ * For zero-evaluator jobs, this is the ONLY way funds get released to the provider.
+ * For evaluator-path jobs, funds are already released by signMemo — this is a harmless no-op/revert.
+ */
+async function claimJobBudget(jobId: number): Promise<void> {
+  if (!_acpClient || _claimedJobs.has(jobId)) return;
+  _claimedJobs.add(jobId);
+
+  const contractClient = _acpClient.acpContractClient as InstanceType<typeof AcpContractClientV2>;
+  // jobManagerAddress is private in TS but accessible at runtime
+  const jobManagerAddress = (contractClient as unknown as { jobManagerAddress: `0x${string}` }).jobManagerAddress;
+  if (!jobManagerAddress) {
+    console.warn('[ACP] Cannot claim budget — jobManagerAddress not available');
+    return;
+  }
+
+  try {
+    const data = encodeFunctionData({
+      abi: CLAIM_BUDGET_ABI,
+      functionName: 'claimBudget',
+      args: [BigInt(jobId)],
+    });
+    await contractClient.handleOperation([{ data, contractAddress: jobManagerAddress }]);
+    console.log(`[ACP] Claimed budget for job ${jobId}`);
+  } catch (err) {
+    // Expected for evaluator-path jobs (already claimed via signMemo)
+    console.log(`[ACP] Budget claim for job ${jobId} skipped: ${(err as Error).message?.slice(0, 200)}`);
   }
 }
 
@@ -397,7 +444,7 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
           const sessionDeliverable = formatSessionDeliverable(session.id);
           await job.deliver(JSON.stringify(sessionDeliverable));
           console.log(`[ACP] Job ${job.id} delivered via session ${session.id}`);
-          autoConfirmIfNoEvaluator(job, session.id);
+          await autoConfirmIfNoEvaluator(job, session.id);
         } else if (session.status === 'timeout' || session.status === 'cancelled') {
           await job.reject(`Session ${session.status} — expert did not complete the task. You have been fully refunded. Please try again and a new expert will be assigned.`);
           console.log(`[ACP] Job ${job.id} rejected (session ${session.status}) — agent refunded`);
@@ -443,6 +490,9 @@ async function handleEvaluate(job: AcpJob): Promise<void> {
           console.log(`[ACP] Payout confirmed for session ${session.id}`);
         }
       }
+
+      // Release escrowed funds on-chain (critical for zero-evaluator jobs)
+      claimJobBudget(job.id).catch(() => {});
     } else if (job.phase === AcpJobPhases.EXPIRED) {
       console.log(`[ACP] Job ${job.id} expired on-chain`);
 
@@ -606,7 +656,7 @@ async function pollJobs(): Promise<void> {
             const deliverable = formatSessionDeliverable(session.id);
             await job.deliver(JSON.stringify(deliverable));
             console.log(`[ACP] Delivered session for job ${job.id} via polling`);
-            autoConfirmIfNoEvaluator(job, session.id);
+            await autoConfirmIfNoEvaluator(job, session.id);
             _resolvedPollingJobs.add(job.id);
           } else if (session.status === 'timeout' || session.status === 'cancelled') {
             await job.reject(`Session ${session.status} — expert did not complete the task. You have been fully refunded. Please try again and a new expert will be assigned.`);
@@ -736,7 +786,7 @@ export async function deliverSessionToAcp(internalSessionId: string): Promise<bo
       const deliverable = formatSessionDeliverable(internalSessionId);
       await acpJob.deliver(JSON.stringify(deliverable));
       console.log(`[ACP] Delivered session ${internalSessionId}`);
-      autoConfirmIfNoEvaluator(acpJob, internalSessionId);
+      await autoConfirmIfNoEvaluator(acpJob, internalSessionId);
       return true;
     }
   } catch (err) {
@@ -848,7 +898,7 @@ async function reconcileStuckSessions(): Promise<void> {
         const deliverable = formatSessionDeliverable(row.id);
         await acpJob.deliver(JSON.stringify(deliverable));
         console.log(`[ACP] Reconciled: delivered stuck session ${row.id}`);
-        autoConfirmIfNoEvaluator(acpJob, row.id);
+        await autoConfirmIfNoEvaluator(acpJob, row.id);
       } else {
         await acpJob.reject(`Session ${row.status} — expert did not complete the task. Agent refunded.`);
         console.log(`[ACP] Reconciled: rejected stuck session ${row.id} (${row.status})`);
@@ -1138,5 +1188,6 @@ export function stopAcp(): void {
   _processingJobs.clear();
   _reconciledSessionIds.clear();
   _resolvedPollingJobs.clear();
+  _claimedJobs.clear();
   console.log('[ACP] Stopped');
 }
