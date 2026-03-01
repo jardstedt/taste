@@ -1203,6 +1203,10 @@ run_expert_decline_auto() {
     do_final_report; return 1
   fi
 
+  # Must accept before declining — decline only works on accepted/active sessions
+  do_auto_accept_session
+  sleep 2
+
   do_auto_decline_session "E2E auto test: expert decline scenario"
 
   do_wait_for_rejected
