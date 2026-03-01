@@ -13,7 +13,7 @@ import { isOfferingEnabled, getEnabledSessionOfferings } from '../config/domains
 import { MEMO_BRIDGE_POLL_MS, MAX_DESCRIPTION_LENGTH, MAX_MEMO_LENGTH, MAX_VERDICT_REASON_LENGTH } from '../config/constants.js';
 import {
   createSession, getSessionByAcpId, getSessionById,
-  matchSession, startSession, formatSessionDeliverable, checkSessionTimeouts,
+  matchSession, notifyEligibleExperts, startSession, formatSessionDeliverable, checkSessionTimeouts,
   confirmSessionPayout, addMessage,
   getActiveAcpSessions, markPaymentReceived, cancelSessionFromAcp, getStuckAcpSessions,
 } from './sessions.js';
@@ -414,15 +414,9 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
           const seenIds = new Set(job.memos.map((m: AcpMemo) => m.id));
           _seenMemoIds.set(String(job.id), seenIds);
 
-          const matched = matchSession(session.id);
-          if (matched?.expertId) {
-            try { notifyExpert(matched.expertId, 'session:new', matched); } catch {}
-            sendPushToExpert(matched.expertId, {
-              title: 'New Session Request',
-              body: `${matched.offeringType} — $${matched.priceUsdc} USDC`,
-              tag: `session-${matched.id}`,
-              data: { url: `/dashboard/session/${matched.id}`, sessionId: matched.id, type: 'session_request' },
-            }).catch(err => console.error('[ACP] Push failed for new session:', err));
+          const { session: matched, eligibleExpertIds } = matchSession(session.id);
+          if (matched && eligibleExpertIds.length > 0) {
+            notifyEligibleExperts(matched, eligibleExpertIds);
           }
         }
       } catch (err) {
@@ -571,15 +565,9 @@ async function handleEvaluatorAssignment(job: AcpJob, rawDeliverable: unknown): 
 
   addMessage(session.id, 'system', null, description, 'system_notice');
 
-  const matched = matchSession(session.id);
-  if (matched?.expertId) {
-    notifyExpert(matched.expertId, 'session:new', matched);
-    sendPushToExpert(matched.expertId, {
-      title: 'Dispute Evaluation',
-      body: `Review delivery for ACP Job #${job.id}`,
-      tag: `session-${matched.id}`,
-      data: { url: `/dashboard/session/${matched.id}`, sessionId: matched.id, type: 'session_request' },
-    }).catch(err => console.error('[ACP] Push failed for evaluator session:', err));
+  const { session: matched, eligibleExpertIds } = matchSession(session.id);
+  if (matched && eligibleExpertIds.length > 0) {
+    notifyEligibleExperts(matched, eligibleExpertIds, 'Dispute Evaluation');
   }
 
   console.log(`[ACP] Created evaluator session ${session.id} for job ${job.id}`);

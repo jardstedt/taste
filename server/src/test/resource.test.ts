@@ -46,7 +46,7 @@ describe('resource availability', () => {
     });
 
     it('counts active sessions', async () => {
-      await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+      const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       const session = createSession({
         offeringType: 'trust_evaluation',
         tierId: 'quick',
@@ -56,8 +56,7 @@ describe('resource availability', () => {
         priceUsdc: 0.01,
       });
       matchSession(session.id);
-      const matched = getSessionById(session.id)!;
-      acceptSession(session.id, matched.expertId!);
+      acceptSession(session.id, expert.id);
       getDb().prepare("UPDATE sessions SET status = 'active' WHERE id = ?").run(session.id);
 
       const result = getResourceAvailability();

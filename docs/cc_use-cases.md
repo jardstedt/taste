@@ -105,12 +105,12 @@ All transitions are atomic (conditional SQL UPDATE) — prevents race conditions
    - Action: createSession() → status = 'pending'
    - Sets: tier, offering type, price, deadline, max turns
 
-2. EXPERT MATCHING
+2. EXPERT MATCHING (Broadcast Model)
    - Trigger: Immediate after creation
-   - Action: matchSession() → status = 'matching'
-   - Algorithm: Weighted scoring (domain 40%, availability 30%, reputation 20%, load 10%)
+   - Action: matchSession() → status = 'matching', expert_id = NULL
+   - Algorithm: Broadcast to all eligible experts (domain overlap, online, agreement accepted)
    - Skips: Deactivated experts, offline experts, experts without agreement
-   - Result: Best expert assigned, notified via WebSocket + push notification
+   - Result: All eligible experts notified via WebSocket + push; first to accept gets the session
 
 3. EXPERT ACCEPTS
    - Trigger: Expert clicks Accept in dashboard
@@ -317,7 +317,7 @@ sequenceDiagram
     Agent->>ACP: Create job request
     ACP->>Taste: REQUEST phase (WebSocket/Poll)
     Taste->>Taste: Create session
-    Taste->>Taste: matchSession() → assign expert
+    Taste->>Taste: matchSession() → broadcast to eligible experts
     Taste->>Expert: Push notification + WebSocket
     Taste->>ACP: job.accept()
 

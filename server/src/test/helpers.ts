@@ -38,11 +38,10 @@ export function testSession(offeringType = 'trust_evaluation', priceUsdc = 0.01)
 
 /** Create session, match, accept, then force to active status */
 export async function createActiveSession(offeringType = 'trust_evaluation') {
-  await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+  const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
   const session = testSession(offeringType);
   matchSession(session.id);
-  const matched = getSessionById(session.id)!;
-  acceptSession(session.id, matched.expertId!);
+  acceptSession(session.id, expert.id);
   getDb().prepare("UPDATE sessions SET status = 'active' WHERE id = ?").run(session.id);
   return getSessionById(session.id)!;
 }

@@ -334,3 +334,13 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 **Decision 2 — Relax `MAX_DESCRIPTION_LENGTH`:** Increased from 2,000 to 50,000 chars. The description is stored in local SQLite (`TEXT`, no size limit) and rendered by the dashboard which handles long JSON gracefully. The old 2,000 limit was set when we assumed everything was on-chain. Agents sending detailed requirements (multiple paragraphs, nested JSON) were being truncated. The `MAX_MEMO_LENGTH` (2,000) stays for outbound expert→agent chat relay via `createNotification()`, which still writes directly on-chain.
 
 **Rationale:** The SDK now supports both inline and URL-based memo content. We must handle both since agents will be on various SDK versions. The description limit was artificially restrictive for data that never goes on-chain.
+
+---
+
+## Expert Matching: Broadcast Model (replaces Weighted Scoring)
+
+**Context:** The original `matchSession()` used weighted scoring (domain 40%, availability 30%, reputation 20%, load 10%) to pick a single best expert. In practice, admin always won because of 70+ completed jobs driving higher reputation. Regular experts never received sessions.
+
+**Decision:** Replaced single-expert assignment with broadcast matching. `matchSession()` now sets `expert_id = NULL` and notifies ALL eligible experts (online, matching domains, agreement accepted). First expert to accept gets the session. `acceptSession()` uses an atomic SQL `WHERE status IN ('pending', 'matching')` guard to prevent race conditions on concurrent accepts.
+
+**Rationale:** With a small expert pool, broadcast is simpler and fairer. Every eligible expert sees every job. The weighted scoring algorithm can be re-introduced later as a ranking/priority system if the expert pool grows large enough to warrant it.

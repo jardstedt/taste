@@ -25,11 +25,10 @@ import {
 function testSession() { return _testSession('trust_evaluation', 100); }
 
 async function createActiveSession() {
-  await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+  const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
   const session = testSession();
   matchSession(session.id);
-  const matched = getSessionById(session.id)!;
-  acceptSession(session.id, matched.expertId!);
+  acceptSession(session.id, expert.id);
   getDb().prepare("UPDATE sessions SET status = 'active' WHERE id = ?").run(session.id);
   return getSessionById(session.id)!;
 }
@@ -168,7 +167,7 @@ describe('security', () => {
     });
 
     it('completeSession does NOT credit earnings for ACP sessions', async () => {
-      await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
+      const bob = await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
       const session = createSession({
         offeringType: 'trust_evaluation',
         tierId: 'quick',
@@ -179,8 +178,7 @@ describe('security', () => {
         acpJobId: '12345', // ACP session
       });
       matchSession(session.id);
-      const matched = getSessionById(session.id)!;
-      acceptSession(session.id, matched.expertId!);
+      acceptSession(session.id, bob.id);
       getDb().prepare("UPDATE sessions SET status = 'active' WHERE id = ?").run(session.id);
 
       completeSession(session.id);
@@ -189,7 +187,7 @@ describe('security', () => {
       expect(final.status).toBe('completed');
       expect(final.payoutConfirmedAt).toBeNull(); // Not confirmed yet — waiting for ACP
 
-      const expert = getExpertById(matched.expertId!)!;
+      const expert = getExpertById(bob.id)!;
       expect(expert.earningsUsdc).toBe(0); // No earnings until ACP confirms
     });
   });
@@ -206,7 +204,7 @@ describe('security', () => {
 
     it('payment_received_at survives session completion', async () => {
       // Simulate ACP session with payment already received
-      await createOnlineExpert('Charlie', 'charlie@test.com', ['crypto']);
+      const charlie = await createOnlineExpert('Charlie', 'charlie@test.com', ['crypto']);
       const session = createSession({
         offeringType: 'trust_evaluation',
         tierId: 'quick',
@@ -216,8 +214,7 @@ describe('security', () => {
         acpJobId: '555',
       });
       matchSession(session.id);
-      const matched = getSessionById(session.id)!;
-      acceptSession(session.id, matched.expertId!);
+      acceptSession(session.id, charlie.id);
       getDb().prepare("UPDATE sessions SET status = 'active' WHERE id = ?").run(session.id);
 
       // Simulate payment received

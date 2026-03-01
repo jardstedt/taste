@@ -40,11 +40,10 @@ function createFactCheckSession() {
 }
 
 async function createActiveDisputeSession() {
-  await createOnlineExpert('Alice', 'alice@test.com', ['general', 'crypto']);
+  const expert = await createOnlineExpert('Alice', 'alice@test.com', ['general', 'crypto']);
   const session = createDisputeSession();
   matchSession(session.id);
-  const matched = getSessionById(session.id)!;
-  acceptSession(session.id, matched.expertId!);
+  acceptSession(session.id, expert.id);
   getDb().prepare("UPDATE sessions SET status = 'active' WHERE id = ?").run(session.id);
   return getSessionById(session.id)!;
 }
@@ -142,12 +141,13 @@ describe('dispute_arbitration offering', () => {
       expect(session.tags).toContain('dispute');
     });
 
-    it('matches to expert with general domain', async () => {
+    it('broadcasts to experts with general domain', async () => {
       await createOnlineExpert('Alice', 'alice@test.com', ['general']);
       const session = createDisputeSession();
-      const matched = matchSession(session.id);
+      const { session: matched, eligibleExpertIds } = matchSession(session.id);
       expect(matched).toBeTruthy();
-      expect(matched!.expertId).toBeTruthy();
+      expect(matched!.status).toBe('matching');
+      expect(eligibleExpertIds.length).toBeGreaterThan(0);
     });
 
     it('completes a dispute session with structured verdict', async () => {
@@ -300,7 +300,7 @@ describe('dispute_arbitration offering', () => {
     });
 
     it('does not trigger evaluator hook for non-dispute sessions', async () => {
-      await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
+      const bob = await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
       const session = createSession({
         offeringType: 'trust_evaluation',
         tierId: 'quick',
@@ -310,8 +310,7 @@ describe('dispute_arbitration offering', () => {
         priceUsdc: 0.01,
       });
       matchSession(session.id);
-      const matched = getSessionById(session.id)!;
-      acceptSession(session.id, matched.expertId!);
+      acceptSession(session.id, bob.id);
       getDb().prepare("UPDATE sessions SET status = 'active' WHERE id = ?").run(session.id);
 
       const completed = completeSession(session.id);

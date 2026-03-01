@@ -23,7 +23,7 @@ vi.mock('../services/acp.js', () => ({
 /** Create an active ACP session of any offering type */
 async function createActiveAcpSession(offeringType: string, acpJobId = '12345') {
   const domains = offeringType === 'dispute_arbitration' ? ['general', 'crypto'] : ['crypto'];
-  await createOnlineExpert('Alice', 'alice@test.com', domains);
+  const expert = await createOnlineExpert('Alice', 'alice@test.com', domains);
   const session = createSession({
     offeringType,
     tierId: 'quick',
@@ -33,15 +33,14 @@ async function createActiveAcpSession(offeringType: string, acpJobId = '12345') 
     priceUsdc: 0.01,
   });
   matchSession(session.id);
-  const matched = getSessionById(session.id)!;
-  acceptSession(session.id, matched.expertId!);
+  acceptSession(session.id, expert.id);
   getDb().prepare("UPDATE sessions SET status = 'active' WHERE id = ?").run(session.id);
   return getSessionById(session.id)!;
 }
 
 /** Create an active local session (no ACP) */
 async function createActiveLocalSession(offeringType = 'trust_evaluation') {
-  await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
+  const expert = await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
   const session = createSession({
     offeringType,
     tierId: 'quick',
@@ -50,8 +49,7 @@ async function createActiveLocalSession(offeringType = 'trust_evaluation') {
     priceUsdc: 0.01,
   });
   matchSession(session.id);
-  const matched = getSessionById(session.id)!;
-  acceptSession(session.id, matched.expertId!);
+  acceptSession(session.id, expert.id);
   getDb().prepare("UPDATE sessions SET status = 'active' WHERE id = ?").run(session.id);
   return getSessionById(session.id)!;
 }

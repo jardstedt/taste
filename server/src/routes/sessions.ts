@@ -26,6 +26,7 @@ import {
   respondToAddon,
   getAddons,
   matchSession,
+  notifyEligibleExperts,
   incrementTurnCount,
   saveDeliverable,
 } from '../services/sessions.js';
@@ -454,16 +455,10 @@ router.post('/', sessionCreateLimiter, requireRole('admin'), validate(createSess
     return;
   }
 
-  // Auto-match expert
-  const matched = matchSession(session.id);
-  if (matched?.expertId) {
-    notifyExpert(matched.expertId, 'session:new', matched);
-    sendPushToExpert(matched.expertId, {
-      title: 'New Session Request',
-      body: `${matched.offeringType} — $${matched.priceUsdc} USDC`,
-      tag: `session-${matched.id}`,
-      data: { url: `/dashboard/session/${matched.id}`, sessionId: matched.id, type: 'session_request' },
-    }).catch(err => console.error('[Push] Failed:', err));
+  // Broadcast to all eligible experts
+  const { session: matched, eligibleExpertIds } = matchSession(session.id);
+  if (matched && eligibleExpertIds.length > 0) {
+    notifyEligibleExperts(matched, eligibleExpertIds);
   }
 
   res.status(201).json({ success: true, data: matched ?? session });

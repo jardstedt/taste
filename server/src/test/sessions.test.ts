@@ -30,14 +30,15 @@ describe('sessions', () => {
   });
 
   describe('matchSession', () => {
-    it('matches session to an online expert with matching domain', async () => {
+    it('broadcasts session to all eligible experts', async () => {
       await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       const session = testSession();
 
-      const matched = matchSession(session.id);
+      const { session: matched, eligibleExpertIds } = matchSession(session.id);
       expect(matched).toBeTruthy();
       expect(matched!.status).toBe('matching');
-      expect(matched!.expertId).toBeTruthy();
+      expect(matched!.expertId).toBeNull(); // broadcast — not assigned to anyone
+      expect(eligibleExpertIds.length).toBeGreaterThan(0);
     });
 
     it('does not match deactivated experts', async () => {
@@ -47,21 +48,21 @@ describe('sessions', () => {
       db.prepare("UPDATE experts SET deactivated_at = datetime('now'), availability = 'offline' WHERE id = ?").run(expert.id);
 
       const session = testSession();
-      const matched = matchSession(session.id);
-      expect(matched!.expertId).toBeNull();
+      const { eligibleExpertIds } = matchSession(session.id);
+      expect(eligibleExpertIds.length).toBe(0);
     });
   });
 
   describe('acceptSession', () => {
     it('sets session to accepted when expert accepts', async () => {
-      await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
+      const expert = await createOnlineExpert('Alice', 'alice@test.com', ['crypto']);
       const session = testSession();
       matchSession(session.id);
-      const matched = getSessionById(session.id)!;
 
-      const accepted = acceptSession(session.id, matched.expertId!);
+      const accepted = acceptSession(session.id, expert.id);
       expect(accepted).toBeTruthy();
       expect(accepted!.status).toBe('accepted');
+      expect(accepted!.expertId).toBe(expert.id);
     });
   });
 
@@ -76,11 +77,10 @@ describe('sessions', () => {
     });
 
     it('completes from accepted status (form-first flow)', async () => {
-      await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
+      const expert = await createOnlineExpert('Bob', 'bob@test.com', ['crypto']);
       const session = testSession();
       matchSession(session.id);
-      const matched = getSessionById(session.id)!;
-      acceptSession(session.id, matched.expertId!);
+      acceptSession(session.id, expert.id);
 
       // Session is in 'accepted' — expert submits form without sending a message
       expect(getSessionById(session.id)!.status).toBe('accepted');

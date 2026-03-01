@@ -197,6 +197,25 @@ export function getSessionsForExpert(expertId: string, status?: string): Session
       'SELECT * FROM sessions WHERE expert_id = ? ORDER BY created_at DESC',
     ).all(expertId) as SessionRow[];
   }
+
+  // Also include unassigned 'matching' sessions where this expert is eligible
+  const expert = getExpertById(expertId);
+  if (expert && !expert.deactivatedAt && expert.agreementAcceptedAt) {
+    const matchingRows = db.prepare(
+      "SELECT * FROM sessions WHERE expert_id IS NULL AND status = 'matching' ORDER BY created_at DESC",
+    ).all() as SessionRow[];
+
+    for (const row of matchingRows) {
+      if (status && row.status !== status) continue;
+      // Check domain overlap
+      const offering = getSessionOffering(row.offering_type);
+      const domains = offering?.relevantDomains ?? ['general'];
+      if (domains.some(d => expert.domains.includes(d))) {
+        rows.push(row);
+      }
+    }
+  }
+
   return rows.map(rowToSession);
 }
 
@@ -225,33 +244,37 @@ export function getAllSessions(limit = 100): Session[] {
 }
 
 /**
- * Re-attempt matching for sessions stuck in 'matching' with no expert assigned.
- * Called when an expert comes online so waiting jobs get picked up.
- * Returns the list of sessions that were successfully matched.
+ * Notify all eligible experts about a session via WebSocket + push.
  */
-export function rematchWaitingSessions(): Session[] {
+export function notifyEligibleExperts(session: Session, eligibleExpertIds: string[], title = 'New Session Request'): void {
+  for (const expertId of eligibleExpertIds) {
+    try { notifyExpert(expertId, 'session:new', session); } catch {}
+    sendPushToExpert(expertId, {
+      title,
+      body: `${session.offeringType} — $${session.priceUsdc} USDC`,
+      tag: `session-${session.id}`,
+      data: { url: `/dashboard/session/${session.id}`, sessionId: session.id, type: 'session_request' },
+    }).catch(() => {});
+  }
+}
+
+// Register hook so when an expert comes online, they get notified about waiting sessions
+setOnExpertOnlineHook((expertId: string) => {
   const db = getDb();
   const rows = db.prepare(
     "SELECT * FROM sessions WHERE status = 'matching' AND expert_id IS NULL ORDER BY created_at ASC",
   ).all() as SessionRow[];
 
-  const matched: Session[] = [];
-  for (const row of rows) {
-    const result = matchSession(row.id);
-    if (result?.expertId) {
-      matched.push(result);
-    }
-  }
-  return matched;
-}
+  const expert = getExpertById(expertId);
+  if (!expert || expert.deactivatedAt || !expert.agreementAcceptedAt) return;
 
-// Register hook so waiting sessions get re-matched when an expert comes online
-setOnExpertOnlineHook(() => {
-  const matched = rematchWaitingSessions();
-  for (const session of matched) {
-    if (session.expertId) {
-      try { notifyExpert(session.expertId, 'session:new', session); } catch {}
-      sendPushToExpert(session.expertId, {
+  for (const row of rows) {
+    const session = rowToSession(row);
+    const offering = getSessionOffering(session.offeringType);
+    const domains = offering?.relevantDomains ?? ['general'];
+    if (domains.some(d => expert.domains.includes(d))) {
+      try { notifyExpert(expertId, 'session:new', session); } catch {}
+      sendPushToExpert(expertId, {
         title: 'New Session Request',
         body: `${session.offeringType} — $${session.priceUsdc} USDC`,
         tag: `session-${session.id}`,
@@ -263,92 +286,70 @@ setOnExpertOnlineHook(() => {
 
 // ── Session Lifecycle ──
 
-export function matchSession(sessionId: string): Session | null {
+/**
+ * Find all eligible experts for a session based on domain overlap.
+ * Returns expert IDs of online, non-deactivated experts with accepted agreements.
+ */
+export function findEligibleExperts(sessionId: string): string[] {
   const session = getSessionById(sessionId);
-  if (!session) return null;
+  if (!session) return [];
 
   const offering = getSessionOffering(session.offeringType);
   const domains = offering?.relevantDomains ?? ['general'];
 
-  // Gather all candidate experts across relevant domains
-  const candidateMap = new Map<string, { expert: ReturnType<typeof getExpertById>; domainScore: number }>();
-
+  const candidateSet = new Set<string>();
   for (const domain of domains) {
     const experts = findExpertsForDomain(domain);
     for (const expert of experts) {
-      if (!candidateMap.has(expert.id)) {
-        candidateMap.set(expert.id, { expert, domainScore: 0 });
+      if (!expert.deactivatedAt) {
+        candidateSet.add(expert.id);
       }
-      // More relevant domains = higher domain score
-      candidateMap.get(expert.id)!.domainScore += 1;
     }
   }
 
-  if (candidateMap.size === 0) {
-    updateSessionStatus(sessionId, 'matching');
-    return getSessionById(sessionId);
-  }
+  return [...candidateSet];
+}
 
-  // Weighted scoring: domain 40%, availability 30%, reputation 20%, load 10%
+/**
+ * Broadcast-match: set session to 'matching' without assigning a specific expert.
+ * All eligible experts will see it and can accept (first come, first served).
+ * Returns the session and the list of eligible expert IDs for notification.
+ */
+export function matchSession(sessionId: string): { session: Session | null; eligibleExpertIds: string[] } {
+  const session = getSessionById(sessionId);
+  if (!session) return { session: null, eligibleExpertIds: [] };
+
+  const eligibleExpertIds = findEligibleExperts(sessionId);
+
+  // Set to 'matching' with no expert assigned — all eligible experts can see it
   const db = getDb();
-  let bestExpertId: string | null = null;
-  let bestScore = -1;
+  db.prepare(
+    "UPDATE sessions SET expert_id = NULL, status = 'matching', updated_at = datetime('now') WHERE id = ?",
+  ).run(sessionId);
 
-  for (const [expertId, { expert, domainScore }] of candidateMap) {
-    if (!expert) continue;
-    if (expert.deactivatedAt) continue;
+  auditLog('session', sessionId, 'broadcast_matched', { eligibleCount: eligibleExpertIds.length, eligibleExpertIds });
 
-    // Domain match: normalized 0-1
-    const domainNorm = domainScore / domains.length;
-
-    // Availability: online=1, busy=0.3, offline=0
-    const availScore = expert.availability === 'online' ? 1 : expert.availability === 'busy' ? 0.3 : 0;
-
-    // Reputation: average across relevant domains, normalized 0-1
-    const repScores = getExpertReputationScores(expertId);
-    const repValues = domains.map(d => repScores[d] ?? 50);
-    const repAvg = repValues.reduce((a, b) => a + b, 0) / repValues.length;
-    const repNorm = repAvg / 100;
-
-    // Load: inverse of active session count
-    const activeCount = (db.prepare(
-      "SELECT COUNT(*) as cnt FROM sessions WHERE expert_id = ? AND status IN ('active', 'wrapping_up')",
-    ).get(expertId) as { cnt: number }).cnt;
-    const loadNorm = 1 / (1 + activeCount);
-
-    const totalScore = (domainNorm * 0.4) + (availScore * 0.3) + (repNorm * 0.2) + (loadNorm * 0.1);
-
-    if (totalScore > bestScore) {
-      bestScore = totalScore;
-      bestExpertId = expertId;
-    }
-  }
-
-  if (bestExpertId) {
-    db.prepare(
-      "UPDATE sessions SET expert_id = ?, status = 'matching', updated_at = datetime('now') WHERE id = ?",
-    ).run(bestExpertId, sessionId);
-    auditLog('session', sessionId, 'matched', { expertId: bestExpertId, score: bestScore });
-  }
-
-  return getSessionById(sessionId);
+  return { session: getSessionById(sessionId), eligibleExpertIds };
 }
 
 export function acceptSession(sessionId: string, expertId: string): Session | null {
   const session = getSessionById(sessionId);
   if (!session) return null;
   if (session.status !== 'pending' && session.status !== 'matching') return null;
-  // If session is already assigned to a specific expert, only that expert can accept
-  if (session.expertId && session.expertId !== expertId) return null;
 
   const db = getDb();
   const tier = getSessionTier(session.tierId);
   const durationMins = tier ? tier.durationMinutes[1] : 30;
   const deadlineAt = new Date(Date.now() + durationMins * 60 * 1000).toISOString();
 
-  db.prepare(
-    `UPDATE sessions SET expert_id = ?, status = 'accepted', accepted_at = datetime('now'), deadline_at = ?, updated_at = datetime('now') WHERE id = ?`,
+  // Atomic accept: only succeeds if session is still in matching/pending state.
+  // Prevents race condition where two experts accept simultaneously.
+  const result = db.prepare(
+    `UPDATE sessions SET expert_id = ?, status = 'accepted', accepted_at = datetime('now'), deadline_at = ?, updated_at = datetime('now')
+     WHERE id = ? AND status IN ('pending', 'matching')`,
   ).run(expertId, deadlineAt, sessionId);
+
+  if (result.changes === 0) return null; // Another expert already accepted
 
   auditLog('session', sessionId, 'accepted', { expertId });
 
