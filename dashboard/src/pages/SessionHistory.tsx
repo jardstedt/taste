@@ -20,14 +20,14 @@ export function SessionHistory() {
               key={session.id}
               className="session-card"
               onClick={() => navigate(`/dashboard/session/${session.id}`)}
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
             >
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>Job #{completed.length - i}</span>
-                  <JobStatusBadge status={session.status} />
+                <div style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>Job #{completed.length - i}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>{date} · {formatOffering(session.offeringType)}</span>
+                  <JobStatusBadge status={session.status} acceptedAt={session.acceptedAt} />
                 </div>
-                <div style={{ fontSize: 12, color: '#9CA3AF' }}>{date} · {formatOffering(session.offeringType)}</div>
               </div>
               <div style={{ color: isSuccess ? '#059669' : '#9CA3AF', fontWeight: 600 }}>
                 ${session.expertPayoutUsdc.toFixed(2)}

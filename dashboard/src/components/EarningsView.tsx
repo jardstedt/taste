@@ -107,7 +107,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
                 className="input input-full"
                 style={{ fontFamily: 'monospace' }}
               />
-              <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>Base L2 (USDC)</div>
+              <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>Base (USDC)</div>
             </div>
             {walletError && <div style={{ color: '#EF4444', fontSize: 12, marginBottom: 8 }}>{walletError}</div>}
             <button type="submit" disabled={walletSaving} className="btn btn-primary btn-sm">
@@ -121,7 +121,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
           <div className="wallet-address-display" style={{ fontFamily: 'monospace', fontSize: 13, color: '#1A1A2E', wordBreak: 'break-all' }}>
             {user.walletAddress}
           </div>
-          <div style={{ color: '#9CA3AF', fontSize: 11, marginTop: 4 }}>Base L2</div>
+          <div style={{ color: '#9CA3AF', fontSize: 11, marginTop: 4 }}>Base</div>
         </div>
       )}
 
@@ -129,7 +129,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
       <div className="earnings-withdrawal mb-xl">
         <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 8 }}>Available for withdrawal</div>
         <div className="earnings-balance">${user.earningsUsdc.toFixed(2)}</div>
-        <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 16 }}>USDC on Base L2</div>
+        <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 16 }}>USDC on Base</div>
         <button
           className="btn-green"
           disabled={!user.walletAddress || user.earningsUsdc < 1}

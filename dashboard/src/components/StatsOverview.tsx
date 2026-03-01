@@ -179,16 +179,16 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
                   key={session.id}
                   className="session-card"
                   onClick={() => onNavigateSession(session.id)}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
                 >
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>
-                        {formatOffering(session.offeringType)} for {truncateAddress(session.buyerAgent)}
-                      </span>
-                      <JobStatusBadge status={session.status} />
+                    <div style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>
+                      {formatOffering(session.offeringType)} for {truncateAddress(session.buyerAgent)}
                     </div>
-                    <div style={{ color: '#9CA3AF', fontSize: 12 }}>{date}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      <span style={{ color: '#9CA3AF', fontSize: 12 }}>{date}</span>
+                      <JobStatusBadge status={session.status} acceptedAt={session.acceptedAt} />
+                    </div>
                   </div>
                   <div style={{ color: isSuccess ? '#059669' : '#9CA3AF', fontSize: 15, fontWeight: 600, flexShrink: 0 }}>
                     ${session.expertPayoutUsdc.toFixed(2)}

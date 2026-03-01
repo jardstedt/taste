@@ -173,7 +173,7 @@ function AdminPanel() {
                 </div>
               </div>
               <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#6B7280', marginBottom: 8, wordBreak: 'break-all' }}>
-                {w.walletAddress} ({w.walletChain === 'base' ? 'Base L2' : 'Ethereum'})
+                {w.walletAddress} ({w.walletChain === 'base' ? 'Base' : 'Ethereum'})
               </div>
               <div style={{
                 fontSize: 11, fontWeight: 600, marginBottom: 12,
@@ -286,60 +286,54 @@ function AdminPanel() {
         </form>
       )}
 
-      <table className="table table-hover">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Role</th>
-            <th>Domains</th>
-            <th>Status</th>
-            <th>Jobs</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {experts.map(expert => (
-            <tr key={expert.id} style={expert.deactivatedAt ? { opacity: 0.5 } : undefined}>
-              <td className="text-bold">{expert.name}</td>
-              <td style={{ textTransform: 'capitalize' }}>{expert.role}</td>
-              <td>
-                <div className="flex gap-sm" style={{ flexWrap: 'wrap' }}>
-                  {expert.domains.map(d => (
-                    <span key={d} className="chip">{d}</span>
-                  ))}
-                </div>
-              </td>
-              <td>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {experts.map(expert => (
+          <div key={expert.id} className="card" style={{ padding: 16, opacity: expert.deactivatedAt ? 0.5 : 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="text-bold">{expert.name}</span>
+                <span style={{
+                  fontSize: 11, fontWeight: 600, textTransform: 'capitalize',
+                  padding: '1px 6px', borderRadius: 4,
+                  background: '#F3E8FF', color: '#6B21A8',
+                }}>{expert.role}</span>
+              </div>
+              <div>
                 {expert.deactivatedAt ? (
-                  <span className="text-sm" style={{ color: 'var(--color-error, #DC2626)' }}>Deactivated</span>
+                  <span style={{ color: 'var(--color-error, #DC2626)', fontSize: 12, fontWeight: 600 }}>Deactivated</span>
                 ) : (
-                  <div className="flex items-center gap-sm">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span className={`status-dot status-dot-${expert.availability}`} />
-                    <span style={{ textTransform: 'capitalize' }}>{expert.availability}</span>
+                    <span style={{ textTransform: 'capitalize', fontSize: 12 }}>{expert.availability}</span>
                   </div>
                 )}
-              </td>
-              <td>{expert.completedJobs}</td>
-              <td>
-                {expert.role !== 'admin' && !expert.deactivatedAt && (
-                  <button
-                    onClick={async () => {
-                      if (!confirm(`Deactivate ${expert.name}? They will no longer be able to log in.`)) return;
-                      await api.deleteExpert(expert.id);
-                      const res = await api.getExperts();
-                      if (res.success && res.data) setExperts(res.data as typeof experts);
-                    }}
-                    className="btn btn-ghost btn-sm"
-                    style={{ color: 'var(--color-error, #DC2626)', fontSize: 12, padding: '3px 10px' }}
-                  >
-                    Remove
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+              {expert.domains.map(d => (
+                <span key={d} className="chip">{d}</span>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: '#9CA3AF' }}>{expert.completedJobs} jobs completed</span>
+              {expert.role !== 'admin' && !expert.deactivatedAt && (
+                <button
+                  onClick={async () => {
+                    if (!confirm(`Deactivate ${expert.name}? They will no longer be able to log in.`)) return;
+                    await api.deleteExpert(expert.id);
+                    const res = await api.getExperts();
+                    if (res.success && res.data) setExperts(res.data as typeof experts);
+                  }}
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: 'var(--color-error, #DC2626)', fontSize: 12, padding: '3px 10px' }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
