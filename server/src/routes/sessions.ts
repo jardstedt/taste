@@ -279,7 +279,9 @@ router.post('/:id/decline', validate(declineSessionSchema), (req, res) => {
   // Immediately reject on ACP so the agent gets refunded without waiting for polling
   if (declined.acpJobId) {
     import('../services/acp.js').then(({ rejectSessionOnAcp }) => {
-      rejectSessionOnAcp(session.id, reason).catch(() => {/* polling will retry */});
+      rejectSessionOnAcp(session.id, reason).catch(err => {
+        console.error(`[ACP] Inline rejection failed for session ${session.id} — reconciler will retry:`, err);
+      });
     });
   }
 

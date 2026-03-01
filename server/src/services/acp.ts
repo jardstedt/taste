@@ -881,7 +881,7 @@ export async function relayExpertMessageToAcp(
 
 export async function rejectSessionOnAcp(internalSessionId: string, reason?: string): Promise<boolean> {
   if (!_acpClient) {
-    console.log('[ACP] Not connected — rejection stored locally only');
+    console.log('[ACP] Not connected — rejection stored locally only, reconciler will retry');
     return false;
   }
 
@@ -894,16 +894,29 @@ export async function rejectSessionOnAcp(internalSessionId: string, reason?: str
 
   try {
     const acpJob = await _acpClient.getJobById(Number(session.acpJobId));
-    if (acpJob && acpJob.phase === AcpJobPhases.TRANSACTION) {
+    if (!acpJob) {
+      console.log(`[ACP] Job ${session.acpJobId} not found — reconciler will retry`);
+      return false;
+    }
+
+    if (acpJob.phase === AcpJobPhases.TRANSACTION) {
       await acpJob.reject(message);
       console.log(`[ACP] Rejected session ${internalSessionId} (${session.status}) — agent refunded`);
       return true;
     }
-  } catch (err) {
-    console.error(`[ACP] Failed to reject session ${internalSessionId}`);
-  }
 
-  return false;
+    if (acpJob.phase === AcpJobPhases.NEGOTIATION) {
+      await acpJob.reject(message);
+      console.log(`[ACP] Rejected session ${internalSessionId} in NEGOTIATION phase (pre-payment decline)`);
+      return true;
+    }
+
+    console.log(`[ACP] Cannot reject session ${internalSessionId} — job ${session.acpJobId} in unexpected phase: ${acpJob.phase}. Reconciler will retry if applicable.`);
+    return false;
+  } catch (err) {
+    console.error(`[ACP] Failed to reject session ${internalSessionId}:`, err);
+    return false;
+  }
 }
 
 // ── Stuck-State Reconciliation ──
