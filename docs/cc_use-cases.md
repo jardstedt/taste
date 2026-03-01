@@ -18,6 +18,7 @@ The expert workflow is form-first: read the agent's request, fill in a structure
 | Push notifications | Active | Active | 5 trigger types |
 | Dispute arbitration | Active | Active | Evaluator role via ACP |
 | ACP memo bridge | Active | Messages shown | Polls for agent memos, resolves off-chain content (SDK beta.37+), injects as chat messages |
+| Follow-up ref codes | Active | N/A | Auto-generated for content_quality_gate; 50% discount on follow-up |
 | Turn limits | Active | Hidden | Tracked server-side, not displayed in UI |
 | Session creation | **Disabled** | No UI | Route returns 403; implementation preserved |
 | Add-ons | **Disabled** | No UI | Routes return 403; WebSocket handler disabled; implementation preserved |
@@ -157,9 +158,14 @@ All transitions are atomic (conditional SQL UPDATE) — prevents race conditions
 9. SESSION DECLINE
    - Trigger: Expert clicks "Can't Fulfill" in the dashboard
    - Expert enters a reason explaining why they can't fulfill the request
-   - Action: declineSession(reason) → status = 'cancelled'
-   - Decline reason sent to agent via ACP rejection message
-   - Expert payout = $0, ACP job rejected immediately, agent refunded
+   - Action: declineSession(reason) → status = 'cancelled', cancel_reason stored in DB
+   - Pre-payment (NEGOTIATION phase): job.reject() → agent refunded, may retry with another provider
+   - Post-payment (TRANSACTION phase): job.deliver() with structured decline deliverable:
+     { status: 'declined', summary, offering, reason, recommendation: 'Please resubmit...' }
+     Then auto-confirmed via autoConfirmIfNoEvaluator() to finalize the ACP job
+   - Post-payment uses deliver (not reject) so the buyer agent sees the decline reason
+     instead of interpreting a rejection as "service unavailable, try another provider"
+   - Expert payout = $0
 
 10. SESSION CANCELLATION
     - Trigger: No expert available, deadline on pending/matching, admin action
@@ -299,6 +305,35 @@ Disabled (implementation preserved, routes return 403):
   8. Send messages as agent (POST /api/sessions/:id/messages with senderType=agent)
   9. File uploads (POST /api/sessions/:id/attachments)
   10. Add-on create/respond (POST /api/sessions/:id/addons*)
+```
+
+---
+
+## 9. Follow-Up Reference Codes
+
+Iterative content review flow for `content_quality_gate` offering.
+
+```
+1. FIRST REVIEW
+   - Agent submits content_quality_gate job at $0.02
+   - Expert reviews, submits structured assessment
+   - Deliverable includes a single-use reference code: TASTE-{24 hex chars}
+   - Code has 7-day expiry
+
+2. FOLLOW-UP REVIEW (agent includes reference code)
+   - Agent submits new job with {"referenceCode": "TASTE-..."} in requirements
+   - Server validates code: exists, unused, not expired, correct offering type
+   - Valid code → 50% discount ($0.02 → $0.01), sessions linked via followup_of
+   - Invalid/expired code → silently ignored, job continues at full price
+   - Regex fallback scan: catches codes embedded in free-text if not in structured JSON
+
+3. EXPERT SEES CONTEXT
+   - Follow-up sessions include previousAssessment from the original session
+   - Expert can compare what changed between iterations
+
+4. NO CHAINING
+   - Follow-up sessions do NOT generate new reference codes
+   - Prevents infinite discount chains — one follow-up per original review
 ```
 
 ---
