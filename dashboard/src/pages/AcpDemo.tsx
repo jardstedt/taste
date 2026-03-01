@@ -85,9 +85,9 @@ export function AcpDemo() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
-  // ── Agent messaging ──
-  const [agentMsg, setAgentMsg] = useState('');
-  const [sendingMsg, setSendingMsg] = useState(false);
+  // ── Agent messaging (disabled until memo bridge is reliable) ──
+  // const [agentMsg, setAgentMsg] = useState('');
+  // const [sendingMsg, setSendingMsg] = useState(false);
 
   // ── Job filtering ──
   const [showFinishedJobs, setShowFinishedJobs] = useState(false);
@@ -320,13 +320,13 @@ export function AcpDemo() {
     setJobLoading(false);
   };
 
-  const handleSendAgentMessage = async () => {
-    if (!selectedSessionId || !agentMsg.trim()) return;
-    setSendingMsg(true);
-    await api.sendSessionMessage(selectedSessionId, agentMsg.trim(), 'agent');
-    setAgentMsg('');
-    setSendingMsg(false);
-  };
+  // const handleSendAgentMessage = async () => {
+  //   if (!selectedSessionId || !agentMsg.trim()) return;
+  //   setSendingMsg(true);
+  //   await api.sendSessionMessage(selectedSessionId, agentMsg.trim(), 'agent');
+  //   setAgentMsg('');
+  //   setSendingMsg(false);
+  // };
 
   // Auto-fill requirement JSON from offering's example data when selection changes
   const handleOfferingChange = useCallback((idx: number) => {
@@ -407,7 +407,7 @@ export function AcpDemo() {
             </div>
           )}
 
-          {/* Agent messaging (below chat) */}
+          {/* Agent messaging — disabled until memo bridge is reliable
           {selectedSessionId && (
             <div className="card" style={{ padding: 12, marginTop: 12 }}>
               <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#6B7280' }}>Send as Agent</h4>
@@ -429,13 +429,9 @@ export function AcpDemo() {
                   Send
                 </button>
               </div>
-
-              {/* Addons disabled for ACP sessions — agents don't support mid-session upsells */}
-              <h4 style={{ margin: '12px 0 8px', fontSize: 13, color: '#9CA3AF' }}>
-                Add-ons <span style={{ fontSize: 11, fontWeight: 400 }}>(disabled for ACP sessions)</span>
-              </h4>
             </div>
           )}
+          */}
         </div>
 
         {/* ── RIGHT: Agent Control Panel ── */}
