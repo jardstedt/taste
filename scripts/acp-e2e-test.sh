@@ -39,6 +39,9 @@ SESSION_ID=""
 CURRENT_PHASE=""
 OFFERING_NAME=""
 SCENARIO=""
+AUTO_MODE=false
+OFFERINGS_JSON=""
+SAMPLES_JSON=""
 
 # Colors
 RED='\033[0;31m'
@@ -510,6 +513,219 @@ do_final_report() {
   echo -e "Log file: ${CYAN}$LOG_FILE${NC}"
 }
 
+# ── Auto-Mode Helpers ──
+
+do_auto_create_job() {
+  local array_idx="$1"
+  log_step "Create ACP buyer job (auto: offering #$array_idx)"
+
+  OFFERING_NAME=$(json_field "$OFFERINGS_JSON" "(o.data ?? [])[$array_idx]?.name ?? ''")
+  local offering_index=$(json_field "$OFFERINGS_JSON" "(o.data ?? [])[$array_idx]?.index ?? -1")
+
+  if [ -z "$OFFERING_NAME" ] || [ "$offering_index" = "-1" ]; then
+    log_result "false" "Invalid offering index $array_idx"
+    return 1
+  fi
+
+  OFFERING_NAME=$(echo "$OFFERING_NAME" | tr -cd 'a-zA-Z0-9_')
+  echo -e "  Selected: ${BOLD}$OFFERING_NAME${NC} (on-chain index: $offering_index)"
+
+  local sample_input=$(echo "$SAMPLES_JSON" | node -e "
+    let d='';process.stdin.on('data',c=>d+=c);
+    process.stdin.on('end',()=>{
+      const o=JSON.parse(d);
+      const match=(o.data ?? []).find(s => s.name === '$OFFERING_NAME');
+      process.stdout.write(JSON.stringify(match?.data ?? {}));
+    });
+  ")
+  echo -e "  ${DIM}Using sample data${NC}"
+
+  local body="{\"offeringIndex\":$offering_index,\"requirement\":$sample_input}"
+  api_post "/api/agent-sim/jobs" "$body"
+
+  if is_success "$RESP_BODY"; then
+    JOB_ID=$(json_field "$RESP_BODY" "o.data?.jobId ?? ''")
+    log_result "true" "Job created — ACP Job ID: $JOB_ID"
+    echo -e "  ${BOLD}Job ID: $JOB_ID${NC}"
+    return 0
+  else
+    local err=$(json_field "$RESP_BODY" "o.error ?? 'unknown'")
+    log_result "false" "Job creation failed: $err"
+    return 1
+  fi
+}
+
+do_auto_accept_session() {
+  log_step "Accept session as expert (auto)"
+  api_post "/api/sessions/$SESSION_ID/accept" "{}"
+  if is_success "$RESP_BODY"; then
+    log_result "true" "Session accepted"
+  else
+    log_result "false" "Accept failed: $(json_field "$RESP_BODY" "o.error ?? ''")"
+  fi
+}
+
+do_auto_send_expert_message() {
+  local msg="$1"
+  local escaped=$(json_escape "$msg")
+  log_step "Send expert message (auto)"
+  api_post "/api/sessions/$SESSION_ID/messages" "{\"content\":$escaped}"
+  if is_success "$RESP_BODY"; then
+    log_result "true" "Expert message sent: ${msg:0:60}"
+  else
+    log_result "false" "Send failed: $(json_field "$RESP_BODY" "o.error ?? ''")"
+  fi
+}
+
+do_auto_send_agent_message() {
+  local msg="$1"
+  local escaped=$(json_escape "$msg")
+  log_step "Send agent message (auto)"
+  api_post "/api/sessions/$SESSION_ID/messages" "{\"content\":$escaped,\"senderType\":\"agent\"}"
+  if is_success "$RESP_BODY"; then
+    log_result "true" "Agent message sent: ${msg:0:60}"
+  else
+    log_result "false" "Send failed: $(json_field "$RESP_BODY" "o.error ?? ''")"
+  fi
+}
+
+do_auto_complete_session() {
+  log_step "Complete session (auto)"
+  api_post "/api/sessions/$SESSION_ID/complete" "{}"
+  if is_success "$RESP_BODY"; then
+    log_result "true" "Session completed"
+  else
+    log_result "false" "Complete failed: $(json_field "$RESP_BODY" "o.error ?? ''")"
+  fi
+}
+
+do_auto_decline_session() {
+  local reason="${1:-E2E test: expert decline scenario}"
+  local escaped=$(json_escape "$reason")
+  log_step "Decline session (auto)"
+  api_post "/api/sessions/$SESSION_ID/decline" "{\"reason\":$escaped}"
+  if is_success "$RESP_BODY"; then
+    log_result "true" "Session declined"
+  else
+    log_result "false" "Decline failed: $(json_field "$RESP_BODY" "o.error ?? ''")"
+  fi
+}
+
+do_wait_for_evaluation() {
+  log_step "Wait for EVALUATION phase (deliverable delivery)"
+  local max_wait=120
+  local waited=0
+
+  while [ $waited -lt $max_wait ]; do
+    api_get "/api/agent-sim/jobs/$JOB_ID"
+    local phase=$(json_field "$RESP_BODY" "o.data?.phase ?? 'unknown'")
+
+    if [ "$phase" = "EVALUATION" ] || [ "$phase" = "COMPLETED" ]; then
+      log_result "true" "Job reached $phase phase"
+      CURRENT_PHASE="$phase"
+      return 0
+    fi
+
+    echo -ne "  Waiting for EVALUATION... ${waited}s (phase: $phase)  \r"
+    sleep 10
+    waited=$((waited + 10))
+  done
+
+  log_result "false" "Timed out waiting for EVALUATION (${max_wait}s)"
+  return 1
+}
+
+do_auto_accept_deliverable() {
+  log_step "Accept deliverable on-chain (auto)"
+  api_post "/api/agent-sim/jobs/$JOB_ID/accept" "{}"
+  if is_success "$RESP_BODY"; then
+    log_result "true" "Deliverable accepted on-chain"
+  else
+    log_result "false" "Accept failed: $(json_field "$RESP_BODY" "o.error ?? ''")"
+  fi
+}
+
+do_wait_for_timeout() {
+  log_step "Wait for session timeout (auto)"
+
+  api_get "/api/sessions/$SESSION_ID"
+  local deadline=$(json_field "$RESP_BODY" "o.data?.session?.deadlineAt ?? o.data?.deadlineAt ?? ''")
+  log "Session deadline: $deadline"
+  echo -e "  ${DIM}Session deadline: $deadline${NC}"
+  echo -e "  ${DIM}Polling every 30s until timeout...${NC}"
+
+  local max_wait=900
+  local waited=0
+
+  while [ $waited -lt $max_wait ]; do
+    api_get "/api/sessions/$SESSION_ID"
+    local sess_status=$(json_field "$RESP_BODY" "o.data?.session?.status ?? o.data?.status ?? 'unknown'")
+
+    if [ "$sess_status" = "timeout" ] || [ "$sess_status" = "cancelled" ]; then
+      echo ""
+      log_result "true" "Session timed out as expected ($sess_status)"
+
+      do_poll_status "ACP job status after timeout"
+      if [ "$CURRENT_PHASE" = "REJECTED" ]; then
+        log_result "true" "ACP job rejected — buyer will be refunded"
+      fi
+
+      api_get "/api/sessions/$SESSION_ID/messages"
+      local cancel_msg=$(echo "$RESP_BODY" | node -e "
+        let d='';process.stdin.on('data',c=>d+=c);
+        process.stdin.on('end',()=>{
+          const o=JSON.parse(d);
+          const msgs=o.data ?? [];
+          const cancel=msgs.find(m => m.messageType === 'system_notice' && (m.content ?? '').includes('expired'));
+          process.stdout.write(cancel?.content ?? 'No cancellation message found');
+        });
+      ")
+      log ""
+      log "CANCELLATION MESSAGE: $cancel_msg"
+      return 0
+    fi
+
+    local now_epoch=$(date +%s)
+    local deadline_epoch=$(node -e "console.log(Math.floor(new Date('$deadline').getTime()/1000))" 2>/dev/null || echo "0")
+    local remaining=$((deadline_epoch - now_epoch))
+    if [ $remaining -gt 0 ]; then
+      echo -ne "  Waiting... ${waited}s (~${remaining}s until deadline)  \r"
+    else
+      echo -ne "  Deadline passed, waiting for timeout check... ${waited}s  \r"
+    fi
+
+    sleep 30
+    waited=$((waited + 30))
+  done
+
+  log_result "false" "Timed out waiting for session timeout (${max_wait}s)"
+  return 1
+}
+
+do_wait_for_rejected() {
+  log_step "Wait for ACP job REJECTED phase"
+  local max_wait=120
+  local waited=0
+
+  while [ $waited -lt $max_wait ]; do
+    api_get "/api/agent-sim/jobs/$JOB_ID"
+    local phase=$(json_field "$RESP_BODY" "o.data?.phase ?? 'unknown'")
+
+    if [ "$phase" = "REJECTED" ]; then
+      log_result "true" "Job rejected on-chain as expected"
+      CURRENT_PHASE="$phase"
+      return 0
+    fi
+
+    echo -ne "  Waiting for REJECTED... ${waited}s (phase: $phase)  \r"
+    sleep 10
+    waited=$((waited + 10))
+  done
+
+  log_result "false" "Timed out waiting for REJECTED (${max_wait}s)"
+  return 1
+}
+
 # ════════════════════════════════════════════════════════════
 # SCENARIO 1: Happy Path
 # ════════════════════════════════════════════════════════════
@@ -836,6 +1052,169 @@ run_timeout() {
 }
 
 # ════════════════════════════════════════════════════════════
+# AUTO-MODE SCENARIO RUNNERS
+# ════════════════════════════════════════════════════════════
+
+run_happy_path_auto() {
+  SCENARIO="happy_path"
+  LOG_FILE="$RESULTS_DIR/${TIMESTAMP}_happy_path_${OFFERING_NAME}.log"
+  log_header "ACP E2E Test — Scenario: HAPPY PATH (AUTO)"
+  log "Date:     $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  log "Server:   $BASE"
+  log "Offering: $OFFERING_NAME"
+  log "Scenario: Full lifecycle — create → accept → pay → complete → deliver → accept (automated)"
+
+  do_poll_status "Initial job status"
+
+  if ! do_wait_for_negotiation; then
+    do_final_report; return 1
+  fi
+
+  if ! do_pay; then
+    do_final_report; return 1
+  fi
+
+  do_poll_status "Status after payment"
+
+  if ! do_find_session; then
+    do_final_report; return 1
+  fi
+
+  do_auto_accept_session
+  sleep 2
+
+  do_auto_send_expert_message "E2E auto test: This is my expert evaluation for the $OFFERING_NAME offering."
+  sleep 2
+
+  do_auto_complete_session
+
+  echo -e "  ${DIM}Waiting 15s for deliverable to reach ACP...${NC}"
+  sleep 15
+
+  if do_wait_for_evaluation; then
+    do_auto_accept_deliverable
+  fi
+
+  do_final_report
+}
+
+run_expert_decline_auto() {
+  SCENARIO="expert_decline"
+  LOG_FILE="$RESULTS_DIR/${TIMESTAMP}_expert_decline_${OFFERING_NAME}.log"
+  log_header "ACP E2E Test — Scenario: EXPERT DECLINE (AUTO)"
+  log "Date:     $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  log "Server:   $BASE"
+  log "Offering: $OFFERING_NAME"
+  log "Scenario: Expert declines session → job rejected → buyer refunded (automated)"
+
+  do_poll_status "Initial job status"
+
+  if ! do_wait_for_negotiation; then
+    do_final_report; return 1
+  fi
+
+  if ! do_pay; then
+    do_final_report; return 1
+  fi
+
+  do_poll_status "Status after payment"
+
+  if ! do_find_session; then
+    do_final_report; return 1
+  fi
+
+  do_auto_decline_session "E2E auto test: expert decline scenario"
+
+  do_wait_for_rejected
+
+  do_final_report
+}
+
+run_messaging_auto() {
+  SCENARIO="messaging"
+  LOG_FILE="$RESULTS_DIR/${TIMESTAMP}_messaging_${OFFERING_NAME}.log"
+  log_header "ACP E2E Test — Scenario: MESSAGING (AUTO)"
+  log "Date:     $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  log "Server:   $BASE"
+  log "Offering: $OFFERING_NAME"
+  log "Scenario: Agent and expert exchange messages, then complete (automated)"
+
+  do_poll_status "Initial job status"
+
+  if ! do_wait_for_negotiation; then
+    do_final_report; return 1
+  fi
+
+  if ! do_pay; then
+    do_final_report; return 1
+  fi
+
+  do_poll_status "Status after payment"
+
+  if ! do_find_session; then
+    do_final_report; return 1
+  fi
+
+  do_auto_accept_session
+  sleep 2
+
+  do_auto_send_agent_message "Hello, I am an AI agent requesting a $OFFERING_NAME evaluation."
+  sleep 2
+  do_auto_send_expert_message "Understood, I am reviewing your request now."
+  sleep 2
+  do_auto_send_agent_message "Here is additional context for the evaluation."
+  sleep 2
+  do_auto_send_expert_message "Thank you. Based on my analysis, here is my professional assessment."
+  sleep 2
+
+  log_step "View session messages"
+  api_get "/api/sessions/$SESSION_ID/messages"
+  local msg_count=$(json_field "$RESP_BODY" "(o.data ?? []).length")
+  log_result "true" "Total messages in session: $msg_count"
+
+  do_auto_complete_session
+
+  echo -e "  ${DIM}Waiting 15s for deliverable to reach ACP...${NC}"
+  sleep 15
+
+  if do_wait_for_evaluation; then
+    do_auto_accept_deliverable
+  fi
+
+  do_final_report
+}
+
+run_timeout_auto() {
+  SCENARIO="auto_timeout"
+  LOG_FILE="$RESULTS_DIR/${TIMESTAMP}_timeout_${OFFERING_NAME}.log"
+  log_header "ACP E2E Test — Scenario: AUTO TIMEOUT (AUTO)"
+  log "Date:     $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  log "Server:   $BASE"
+  log "Offering: $OFFERING_NAME"
+  log "Scenario: Session created → no expert action → deadline expires → auto-cancel (automated)"
+
+  do_poll_status "Initial job status"
+
+  if ! do_wait_for_negotiation; then
+    do_final_report; return 1
+  fi
+
+  if ! do_pay; then
+    do_final_report; return 1
+  fi
+
+  do_poll_status "Status after payment"
+
+  if ! do_find_session; then
+    do_final_report; return 1
+  fi
+
+  do_wait_for_timeout
+
+  do_final_report
+}
+
+# ════════════════════════════════════════════════════════════
 # Main
 # ════════════════════════════════════════════════════════════
 
@@ -861,68 +1240,134 @@ main() {
   echo -e "  ${YELLOW}[2]${NC} Expert decline   — Expert declines session, buyer gets ACP refund"
   echo -e "  ${CYAN}[3]${NC} Messaging        — Back-and-forth memos between agent and expert"
   echo -e "  ${RED}[4]${NC} Auto timeout     — No expert action, deadline expires, auto-refund"
-  echo -e "  ${MAGENTA}[a]${NC} Run ALL          — Run all 4 scenarios sequentially"
+  echo -e "  ${MAGENTA}[a]${NC} Run ALL (auto)   — Happy path for ALL offerings + edge cases, fully automated"
   echo ""
   read -rp "  Choose: " scenario_choice
 
-  # Build list of scenarios to run
-  local scenarios=()
-  case "$scenario_choice" in
-    1) scenarios=("happy") ;;
-    2) scenarios=("decline") ;;
-    3) scenarios=("messaging") ;;
-    4) scenarios=("timeout") ;;
-    a|A) scenarios=("happy" "decline" "messaging" "timeout") ;;
-    *) echo "Invalid choice"; exit 1 ;;
-  esac
+  if [[ "$scenario_choice" =~ ^[aA]$ ]]; then
+    # ── Fully automated run-all mode ──
+    AUTO_MODE=true
 
-  for scenario in "${scenarios[@]}"; do
-    # Reset per-scenario state
-    JOB_ID=""
-    SESSION_ID=""
-    CURRENT_PHASE=""
-    step_num=0
+    # Cache offerings and samples
+    api_get "/api/agent-sim/offerings"
+    OFFERINGS_JSON="$RESP_BODY"
+    api_get "/api/agent-sim/samples"
+    SAMPLES_JSON="$RESP_BODY"
 
-    if [ ${#scenarios[@]} -gt 1 ]; then
-      echo ""
-      echo -e "${BOLD}$(printf '═%.0s' {1..50})${NC}"
-      echo -e "${BOLD}  Starting scenario: $scenario${NC}"
-      echo -e "${BOLD}$(printf '═%.0s' {1..50})${NC}"
-    fi
+    local offering_count=$(json_field "$OFFERINGS_JSON" "(o.data ?? []).length")
 
-    # Each scenario needs its own job
-    do_select_and_create_job
-
-    # Remove temp log
-    local temp_log="$LOG_FILE"
-
-    case "$scenario" in
-      happy)     run_happy_path ;;
-      decline)   run_expert_decline ;;
-      messaging) run_messaging ;;
-      timeout)   run_timeout ;;
-    esac
-
-    if [ -f "$temp_log" ] && [ "$temp_log" != "$LOG_FILE" ]; then
-      rm -f "$temp_log"
-    fi
-
-    if [ ${#scenarios[@]} -gt 1 ]; then
-      echo ""
-      echo -e "${DIM}Scenario $scenario complete. Continuing...${NC}"
-      echo ""
-    fi
-  done
-
-  rm -f "$COOKIE_FILE"
-
-  if [ ${#scenarios[@]} -gt 1 ]; then
     echo ""
-    echo -e "${GREEN}${BOLD}All scenarios complete.${NC}"
+    echo -e "${BOLD}${MAGENTA}AUTO MODE: Happy path for all $offering_count offerings + 3 edge cases${NC}"
+    echo -e "${DIM}No further prompts — sit back and watch.${NC}"
+    echo ""
+
+    local pass_count=0
+    local fail_count=0
+
+    # ── Happy path for each offering ──
+    for ((i=0; i<offering_count; i++)); do
+      JOB_ID=""
+      SESSION_ID=""
+      CURRENT_PHASE=""
+      step_num=0
+
+      echo ""
+      echo -e "${BOLD}$(printf '═%.0s' {1..50})${NC}"
+      echo -e "${BOLD}  HAPPY PATH — Offering $((i+1))/$offering_count${NC}"
+      echo -e "${BOLD}$(printf '═%.0s' {1..50})${NC}"
+
+      LOG_FILE=$(mktemp)
+      if do_auto_create_job "$i"; then
+        local temp_log="$LOG_FILE"
+        run_happy_path_auto
+        if [ -f "$temp_log" ] && [ "$temp_log" != "$LOG_FILE" ]; then
+          rm -f "$temp_log"
+        fi
+        pass_count=$((pass_count + 1))
+      else
+        fail_count=$((fail_count + 1))
+        echo -e "  ${RED}Skipping — job creation failed${NC}"
+      fi
+
+      echo -e "${DIM}Offering $((i+1)) done. Continuing...${NC}"
+    done
+
+    # ── Edge cases — use first offering ──
+    for edge_scenario in "decline" "messaging" "timeout"; do
+      JOB_ID=""
+      SESSION_ID=""
+      CURRENT_PHASE=""
+      step_num=0
+
+      echo ""
+      echo -e "${BOLD}$(printf '═%.0s' {1..50})${NC}"
+      echo -e "${BOLD}  EDGE CASE: $edge_scenario${NC}"
+      echo -e "${BOLD}$(printf '═%.0s' {1..50})${NC}"
+
+      LOG_FILE=$(mktemp)
+      if do_auto_create_job 0; then
+        local temp_log="$LOG_FILE"
+        case "$edge_scenario" in
+          decline)   run_expert_decline_auto ;;
+          messaging) run_messaging_auto ;;
+          timeout)   run_timeout_auto ;;
+        esac
+        if [ -f "$temp_log" ] && [ "$temp_log" != "$LOG_FILE" ]; then
+          rm -f "$temp_log"
+        fi
+        pass_count=$((pass_count + 1))
+      else
+        fail_count=$((fail_count + 1))
+        echo -e "  ${RED}Skipping — job creation failed${NC}"
+      fi
+
+      echo -e "${DIM}Edge case $edge_scenario done. Continuing...${NC}"
+    done
+
+    rm -f "$COOKIE_FILE"
+
+    echo ""
+    echo -e "${GREEN}${BOLD}═══ ALL TESTS COMPLETE ═══${NC}"
+    echo -e "  Passed: ${GREEN}$pass_count${NC}"
+    echo -e "  Failed: ${RED}$fail_count${NC}"
     echo -e "Results in: ${CYAN}$RESULTS_DIR/${NC}"
     ls -1 "$RESULTS_DIR/${TIMESTAMP}_"* 2>/dev/null | while read -r f; do
       echo -e "  ${DIM}$(basename "$f")${NC}"
     done
+
+  else
+    # ── Interactive single-scenario mode ──
+    local scenarios=()
+    case "$scenario_choice" in
+      1) scenarios=("happy") ;;
+      2) scenarios=("decline") ;;
+      3) scenarios=("messaging") ;;
+      4) scenarios=("timeout") ;;
+      *) echo "Invalid choice"; exit 1 ;;
+    esac
+
+    for scenario in "${scenarios[@]}"; do
+      JOB_ID=""
+      SESSION_ID=""
+      CURRENT_PHASE=""
+      step_num=0
+
+      do_select_and_create_job
+      local temp_log="$LOG_FILE"
+
+      case "$scenario" in
+        happy)     run_happy_path ;;
+        decline)   run_expert_decline ;;
+        messaging) run_messaging ;;
+        timeout)   run_timeout ;;
+      esac
+
+      if [ -f "$temp_log" ] && [ "$temp_log" != "$LOG_FILE" ]; then
+        rm -f "$temp_log"
+      fi
+    done
+
+    rm -f "$COOKIE_FILE"
   fi
 }
 
