@@ -130,10 +130,10 @@ const TEST_DATA: Record<string, Record<string, string>> = {
     suggestedImprovements: 'Add source for whale wallet data (e.g., Nansen, Arkham, or on-chain data)\nReframe price target as a range with caveats rather than a single number\nInclude risk factors and bearish scenarios for balance',
   },
   option_ranking: {
-    topPick: 'Option C — Ethena sUSDe staking at 8.5% APY',
-    summary: 'For moderate risk tolerance, Ethena sUSDe offers the best balance: solid yield at 8.5% without the impermanent loss risk of LP positions or the low returns of pure lending. The delta-neutral strategy backing sUSDe provides yield without directional exposure.',
-    rankings: 'C — Ethena sUSDe at 8.5% APY (best risk-adjusted return for moderate risk)\nA — Aave USDC lending at 4.2% APY (safest but underwhelming yield)\nB — Uniswap V3 ETH/USDC LP at ~15% APY (highest yield but IL risk is real)',
-    tradeoffs: 'Aave (A) is battle-tested and safe but 4.2% barely keeps pace with stablecoin opportunity cost\nUniswap V3 LP (B) has the highest quoted APY but impermanent loss in volatile ETH moves can eat 5-10%+ of that — requires active management\nEthena sUSDe (C) is newer and carries smart contract / basis trade risk, but the delta-neutral design specifically targets moderate-risk profiles',
+    topPick: 'Option A — Quit and start fresh',
+    summary: 'Quitting is the only option that preserves your dignity and mental health. Trying to get fired is risky and stressful, and keying the car is a felony. A clean exit lets you leave on your own terms with references intact.',
+    rankings: 'A — Quit your job (cleanest exit, preserves references and self-respect)\nB — Try to get fired (risky — could backfire, unemployment not guaranteed)\nC — Key the boss\'s car (cathartic for 5 seconds, felony for the rest of your life)',
+    tradeoffs: 'Quitting (A) means no unemployment benefits but you control the narrative and timing\nGetting fired (B) might get you unemployment but could result in a "terminated for cause" record that follows you\nKeying the car (C) is criminal property damage — potential arrest, lawsuit, and a record that makes future employment harder',
   },
   content_quality_gate: {
     verdict: 'needs_changes',
