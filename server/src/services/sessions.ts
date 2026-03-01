@@ -280,13 +280,10 @@ setOnExpertOnlineHook((expertId: string) => {
     const offering = getSessionOffering(session.offeringType);
     const domains = offering?.relevantDomains ?? ['general'];
     if (domains.some(d => expert.domains.includes(d))) {
+      // Only send WebSocket event to refresh the dashboard UI.
+      // Push notification was already sent when the session was created —
+      // sending it again here causes duplicate notifications.
       try { notifyExpert(expertId, 'session:new', session); } catch {}
-      sendPushToExpert(expertId, {
-        title: 'New Session Request',
-        body: `${offering?.name ?? session.offeringType} — $${session.priceUsdc} USDC`,
-        tag: `session-${session.id}`,
-        data: { url: `/dashboard/session/${session.id}`, sessionId: session.id, type: 'session_request' },
-      }).catch(() => {});
     }
   }
 });
