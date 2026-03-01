@@ -89,6 +89,9 @@ export function AcpDemo() {
   const [agentMsg, setAgentMsg] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
 
+  // ── Job filtering ──
+  const [showFinishedJobs, setShowFinishedJobs] = useState(false);
+
   // ── Polling ref ──
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -549,35 +552,57 @@ export function AcpDemo() {
           )}
 
           {/* Active Jobs */}
-          {trackedJobs.length > 0 && (
-            <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-              <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Active Jobs</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {trackedJobs.map(j => (
-                  <button
-                    key={j.jobId}
-                    onClick={() => handleSelectJob(j.jobId)}
-                    className={selectedJobId === j.jobId ? 'card' : ''}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '8px 12px',
-                      background: selectedJobId === j.jobId ? 'var(--color-primary-light, #EEF2FF)' : '#F9FAFB',
-                      border: selectedJobId === j.jobId ? '1px solid var(--color-primary, #4F46E5)' : '1px solid #E5E7EB',
-                      borderRadius: 6,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      width: '100%',
-                    }}
-                  >
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>Job #{j.jobId}</span>
-                    {phaseBadge(j.phase)}
-                  </button>
-                ))}
+          {trackedJobs.length > 0 && (() => {
+            const activeJobs = trackedJobs.filter(j => j.phase !== 'REJECTED' && j.phase !== 'COMPLETED');
+            const finishedJobs = trackedJobs.filter(j => j.phase === 'REJECTED' || j.phase === 'COMPLETED');
+            const visibleJobs = showFinishedJobs ? trackedJobs : activeJobs;
+            return (
+              <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <h3 style={{ margin: 0, fontSize: 15 }}>Jobs</h3>
+                  {finishedJobs.length > 0 && (
+                    <button
+                      onClick={() => setShowFinishedJobs(!showFinishedJobs)}
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 11 }}
+                    >
+                      {showFinishedJobs ? 'Hide finished' : `Show finished (${finishedJobs.length})`}
+                    </button>
+                  )}
+                </div>
+                {visibleJobs.length === 0 ? (
+                  <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>
+                    No active jobs {finishedJobs.length > 0 && `(${finishedJobs.length} finished)`}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {visibleJobs.map(j => (
+                      <button
+                        key={j.jobId}
+                        onClick={() => handleSelectJob(j.jobId)}
+                        className={selectedJobId === j.jobId ? 'card' : ''}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '8px 12px',
+                          background: selectedJobId === j.jobId ? 'var(--color-primary-light, #EEF2FF)' : '#F9FAFB',
+                          border: selectedJobId === j.jobId ? '1px solid var(--color-primary, #4F46E5)' : '1px solid #E5E7EB',
+                          borderRadius: 6,
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          width: '100%',
+                        }}
+                      >
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>Job #{j.jobId}</span>
+                        {phaseBadge(j.phase)}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Job Detail + Actions */}
           {selectedJobId !== null && (
