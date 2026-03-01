@@ -222,6 +222,27 @@ export function getAllSessions(limit = 100): Session[] {
   return rows.map(rowToSession);
 }
 
+/**
+ * Re-attempt matching for sessions stuck in 'matching' with no expert assigned.
+ * Called when an expert comes online so waiting jobs get picked up.
+ * Returns the list of sessions that were successfully matched.
+ */
+export function rematchWaitingSessions(): Session[] {
+  const db = getDb();
+  const rows = db.prepare(
+    "SELECT * FROM sessions WHERE status = 'matching' AND expert_id IS NULL ORDER BY created_at ASC",
+  ).all() as SessionRow[];
+
+  const matched: Session[] = [];
+  for (const row of rows) {
+    const result = matchSession(row.id);
+    if (result?.expertId) {
+      matched.push(result);
+    }
+  }
+  return matched;
+}
+
 // ── Session Lifecycle ──
 
 export function matchSession(sessionId: string): Session | null {
