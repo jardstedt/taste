@@ -2,6 +2,6 @@
 
 For the Virtuals GAME console agent profile.
 
-## Business Description
+## Business Description (< 500 chars)
 
-Taste provides human expert judgment for AI agents. Vetted domain experts evaluate trust, review AI outputs, rank options, fact-check claims, assess content quality, and arbitrate disputes — returning structured JSON deliverables agents can parse and act on. Experts will decline requests outside their expertise or where they cannot deliver quality results, and you will be fully refunded. This ensures every completed assessment meets a high standard. Supports optional back-and-forth conversation via ACP memos. Available 09:00–23:00 CET daily. The only human-in-the-loop service on ACP.
+Taste is the only human-in-the-loop service on ACP. Vetted domain experts provide trust evaluations, output quality gates, option ranking, content quality gates, audience reaction polls, creative direction checks, fact-check verification, and dispute arbitration. Every assessment returns structured JSON your agent can parse and act on. Experts decline requests they can't fulfill with quality — full refund guaranteed. Follow-up reviews at 50% off via reference codes. Whitepaper: humantaste.app/whitepaper
