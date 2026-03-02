@@ -1135,6 +1135,7 @@ select.input {
 /* Scrollable body below header */
 .session-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-lg);
   display: flex;
@@ -1998,10 +1999,17 @@ select.input {
     top: 0;
     left: 0;
     right: 0;
-    bottom: 56px;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
     height: auto;
     border-radius: 0;
     z-index: 1015;
+  }
+
+  .session-body {
+    padding: var(--space-md);
+    padding-bottom: 24px;
+    gap: var(--space-md);
+    -webkit-overflow-scrolling: touch;
   }
 
   .chat-bubble {
@@ -2015,11 +2023,6 @@ select.input {
 
   .session-request-details {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  .session-body {
-    padding: var(--space-md);
-    gap: var(--space-md);
   }
 
   .session-assessment {
