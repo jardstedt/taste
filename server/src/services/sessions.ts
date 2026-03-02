@@ -989,10 +989,10 @@ export function cancelSessionFromAcp(sessionId: string, reason: string): void {
 }
 
 /** Get completed/cancelled/timeout sessions not yet delivered to ACP */
-export function getStuckAcpSessions(): Array<{ id: string; acpJobId: string; status: string; cancelReason: string | null }> {
+export function getStuckAcpSessions(): Array<{ id: string; acpJobId: string; status: string; cancelReason: string | null; offeringType: string }> {
   const db = getDb();
   const rows = db.prepare(
-    "SELECT id, acp_job_id, status, cancel_reason FROM sessions WHERE acp_job_id IS NOT NULL AND status IN ('completed', 'cancelled', 'timeout') AND completed_at < datetime('now', '-2 minutes')",
-  ).all() as Array<{ id: string; acp_job_id: string; status: string; cancel_reason: string | null }>;
-  return rows.map(r => ({ id: r.id, acpJobId: r.acp_job_id, status: r.status, cancelReason: r.cancel_reason }));
+    "SELECT id, acp_job_id, status, cancel_reason, offering_type FROM sessions WHERE acp_job_id IS NOT NULL AND status IN ('completed', 'cancelled', 'timeout') AND completed_at < datetime('now', '-2 minutes')",
+  ).all() as Array<{ id: string; acp_job_id: string; status: string; cancel_reason: string | null; offering_type: string }>;
+  return rows.map(r => ({ id: r.id, acpJobId: r.acp_job_id, status: r.status, cancelReason: r.cancel_reason, offeringType: r.offering_type }));
 }

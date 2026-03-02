@@ -1000,11 +1000,21 @@ async function reconcileStuckSessions(): Promise<void> {
         console.log(`[ACP] Reconciled: delivered decline for session ${row.id}: ${row.cancelReason}`);
         await autoConfirmIfNoEvaluator(acpJob, row.id);
       } else {
-        const reason = row.status === 'timeout'
-          ? 'Expert ran out of time and could not complete the review. Funds fully refunded. Please resubmit — a different expert will be assigned.'
-          : 'No expert was available or the task was not completed in time. Funds fully refunded. Please resubmit.';
-        await acpJob.reject(reason);
-        console.log(`[ACP] Reconciled: rejected stuck session ${row.id} (${row.status})`);
+        // Timeouts and cancellations: deliver a structured response so Butler
+        // sees the reason instead of interpreting a reject() as "try again".
+        const timeoutReason = row.status === 'timeout'
+          ? 'Expert ran out of time and could not complete the review.'
+          : 'No expert was available or the task was not completed in time.';
+        const timeoutDeliverable = {
+          status: row.status === 'timeout' ? 'timeout' : 'cancelled',
+          summary: timeoutReason,
+          offering: row.offeringType ?? 'unknown',
+          reason: timeoutReason,
+          recommendation: 'Please resubmit the job — a different expert will be assigned. You are fully refunded.',
+        };
+        await acpJob.deliver(JSON.stringify(timeoutDeliverable));
+        console.log(`[ACP] Reconciled: delivered ${row.status} for session ${row.id}`);
+        await autoConfirmIfNoEvaluator(acpJob, row.id);
       }
 
       _reconciledSessionIds.add(row.id);
