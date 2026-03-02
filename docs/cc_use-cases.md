@@ -22,7 +22,7 @@ The expert workflow is form-first: read the agent's request, fill in a structure
 | Turn limits | Active | Hidden | Tracked server-side, not displayed in UI |
 | Session creation | **Disabled** | No UI | Route returns 403; implementation preserved |
 | Add-ons | **Disabled** | No UI | Routes return 403; WebSocket handler disabled; implementation preserved |
-| File attachments | **Disabled** | Removed from chat | Route returns 403; implementation preserved |
+| File attachments | Active | Active | Expert can upload files (5MB/file, 20MB/session); magic byte validated; signed download URLs |
 | Admin send-as-agent | **Disabled** | No UI | Code commented out; implementation preserved |
 | Idle timeout | Schema only | No | Column exists (`idle_warned_at`) but no timer logic implemented |
 | `wrapping_up` status | Schema only | No | Defined in types but never transitioned to |

@@ -204,7 +204,7 @@ async function main() {
   });
 
   // Serve whitepaper as rendered HTML
-  const whitepaperPath = resolve(__dirname, '../../WHITEPAPER_v3_0_GENERAL.md');
+  const whitepaperPath = resolve(__dirname, '../../WHITEPAPER_v3_0_VIRTUALS.md');
   app.get('/whitepaper', (_req, res) => {
     if (!existsSync(whitepaperPath)) {
       res.status(404).send('Whitepaper not found');

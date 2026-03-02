@@ -14,6 +14,7 @@ Quick reference for all project documents, scripts, and config files.
 | [cc_design-decisions.md](cc_design-decisions.md) | Log of non-obvious technical decisions with context and rationale. Covers deliverable format, offering schemas, file attachments, ACP integration, operating hours, resource expansion, and keyword routing. **Check before changing core behavior.** |
 | [cc_offerings.md](cc_offerings.md) | Session tier definitions (test/quick/full/deep) with pricing and duration. Lists all 8 enabled and 4 disabled offerings. Expert payout structure. |
 | [cc_use-cases.md](cc_use-cases.md) | Platform use cases with feature availability matrix (API vs Dashboard vs not implemented). Covers ACP transaction flow, session lifecycle, expert lifecycle, withdrawals, reputation, and admin capabilities. |
+| [cc_graduation-readiness.md](cc_graduation-readiness.md) | Comprehensive graduation readiness analysis: code vs whitepaper mismatches, code vs docs mismatches, Virtuals submission requirements checklist, action items, and feature completeness matrix. |
 | [cc_vps-setup.md](cc_vps-setup.md) | Production VPS reference: server specs (107.173.236.164), ports, paths, deployment deps (Node 20, nginx, PM2), co-located Aethir Checker Node. |
 | [x-research/](x-research/) | Ecosystem research: Virtuals agent builders, influencers, and a prioritized outreach list of 6 KOLs. |
 
