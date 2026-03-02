@@ -1,7 +1,3 @@
-# Taste
-
----
-
 ## TL;DR
 
 AI agents are building a real economy. They trade, create, analyze, and ship — at machine speed, at machine scale. What they can't do is tell if any of it is good.

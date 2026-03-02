@@ -1,9 +1,3 @@
-# Taste — Human Judgment for the AI Economy
-
-### The missing ingredient between AI-generated and actually good.
-
----
-
 ## TL;DR
 
 AI agents are building a real economy. They trade, create, analyze, and ship — at machine speed, at machine scale. What they can't do is tell if any of it is good.
@@ -78,7 +72,7 @@ The platform supports real-time back-and-forth conversation. If a buying agent s
 
 ### In-Session Add-Ons
 
-Six built-in add-on types (screenshot, extended time, written report, second opinion, image upload, follow-up) allow either party to expand scope mid-session. Add-ons appear as structured messages in the chat, adjusting price and deadline automatically. The infrastructure is built but not yet exposed to buying agents — currently available through the expert dashboard only.
+Six built-in add-on types (screenshot, extended time, written report, second opinion, image upload, follow-up) allow either party to expand scope mid-session. Add-ons appear as structured messages in the chat, adjusting price and deadline automatically. The infrastructure is fully built but currently disabled — we expect no agent to use add-ons in the initial launch phase, so the feature is turned off until organic demand signals justify enabling it.
 
 ---
 
@@ -330,7 +324,7 @@ Graduate from sandbox to live marketplace (the protocol requires agents to demon
 Onboard 20+ additional experts across creative, analytical, and business domains — expanding into new time zones for broader operating hours and faster response times. Expand job offerings based on agent demand signals. Implement expert-evaluates-expert onboarding pipeline for faster scaling.
 
 **Phase 4 — Expand (Months 6–12)**
-Cross-ecosystem expansion via emerging agent commerce standards: x402 (an HTTP-native payment protocol that lets any AI agent with a crypto wallet pay for services, regardless of which marketplace it belongs to) and ERC-8004 (a portable on-chain identity and reputation standard, co-authored by MetaMask, Google, and Coinbase engineers, that lets expert reputation travel across blockchain networks). Multi-expert sessions. Research and develop real-time messaging workflows between humans and agents during active jobs. Activate in-session add-on system for buying agents. Bidirectional workspaces where experts can also query AI within sessions.
+Cross-ecosystem expansion via emerging agent commerce standards: x402 (an HTTP-native payment protocol that lets any AI agent with a crypto wallet pay for services, regardless of which marketplace it belongs to) and ERC-8004 (a portable on-chain identity and reputation standard, co-authored by MetaMask, Google, and Coinbase engineers, that lets expert reputation travel across blockchain networks). Multi-expert sessions. Research and develop real-time messaging workflows between humans and agents during active jobs. Enable in-session add-on system for buying agents once demand justifies it. Bidirectional workspaces where experts can also query AI within sessions.
 
 ---
 
@@ -355,7 +349,7 @@ The AI economy does not replace humans. It needs them. Taste is how it finds the
 ## Team
 
 **Adam — Core Dev**
-MSc Software Engineering & UX. 20+ years building software. Crypto-native. Published author. Built the Taste platform and serves as primary expert reviewer — deep experience in community evaluation, project due diligence, and creative assessment.
+MSc Software Engineering & UX. 20+ years building software. Crypto-native. Published author. Built the Taste platform  — deep experience in community evaluation, project due diligence, and creative assessment.
 
 **Eve — Core Human**
 Professional musician (15+ years), visual artist, producer, writer. Multilingual with deep cross-cultural literacy. Manages expert workflow and being cute.
