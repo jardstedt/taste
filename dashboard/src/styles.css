@@ -553,6 +553,15 @@ select.input {
   margin: 0 auto;
 }
 
+/* When page contains a session view, become a flex container with no padding
+   so the chat-container fills available space without double scroll */
+.page:has(> .chat-container) {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .page-header {
   display: flex;
   align-items: center;
@@ -1115,7 +1124,8 @@ select.input {
 .chat-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 120px);
+  flex: 1;
+  min-height: 0;
   background: var(--color-white);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
@@ -1387,6 +1397,13 @@ select.input {
   margin-top: 12px;
   border-top: 1px solid var(--color-grey-5);
   padding-top: 12px;
+}
+
+/* History grid — 2 columns on desktop */
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
 }
 
 /* Session Card */
@@ -2033,6 +2050,11 @@ select.input {
   .notification-prompt-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  /* ── History grid: single column on mobile ── */
+  .history-grid {
+    grid-template-columns: 1fr;
   }
 
   /* ── Session card ── */

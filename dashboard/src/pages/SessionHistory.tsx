@@ -11,7 +11,7 @@ export function SessionHistory() {
     <div>
       {loading && <p className="text-grey">Loading...</p>}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="history-grid">
         {completed.map((session, i) => {
           const date = new Date(session.completedAt || session.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           const isSuccess = session.status === 'completed';
