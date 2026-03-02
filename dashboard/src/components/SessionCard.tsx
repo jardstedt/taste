@@ -18,19 +18,19 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
     >
       <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>
+          <span style={{ color: '#E8E2DA', fontSize: 14, fontWeight: 500 }}>
             {formatOffering(session.offeringType)} for {truncateAddress(session.buyerAgent)}
           </span>
           {awaitingPayment && (
             <span style={{
-              background: '#FEF3C7', color: '#92400E', fontWeight: 600,
+              background: 'rgba(251, 146, 60, 0.12)', color: '#FB923C', fontWeight: 600,
               padding: '1px 6px', borderRadius: 4, fontSize: 10, whiteSpace: 'nowrap',
             }}>Awaiting Payment</span>
           )}
         </div>
-        <div style={{ color: '#9CA3AF', fontSize: 12 }}>{date}</div>
+        <div style={{ color: '#7A7670', fontSize: 12 }}>{date}</div>
       </div>
-      <div style={{ color: '#059669', fontSize: 15, fontWeight: 600, flexShrink: 0 }}>
+      <div style={{ color: '#2DD4BF', fontSize: 15, fontWeight: 600, flexShrink: 0 }}>
         ${session.expertPayoutUsdc.toFixed(2)}
       </div>
     </div>

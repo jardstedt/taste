@@ -12,7 +12,7 @@ interface StatsOverviewProps {
   onAcceptSession: (sessionId: string) => void;
 }
 
-function CircularScore({ score, max = 100, size = 80, color = '#6B21A8', label }: {
+function CircularScore({ score, max = 100, size = 80, color = '#2DD4BF', label }: {
   score: number; max?: number; size?: number; color?: string; label?: string;
 }) {
   const pct = (score / max) * 100;
@@ -23,7 +23,7 @@ function CircularScore({ score, max = 100, size = 80, color = '#6B21A8', label }
     <div className="circular-score">
       <div style={{ position: 'relative', width: size, height: size }}>
         <svg width={size} height={size} className="circular-score-svg">
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F0F0F5" strokeWidth="6" />
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#2A2A2E" strokeWidth="6" />
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="6"
             strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" />
         </svg>
@@ -64,7 +64,7 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
     .slice(0, 4);
 
   const reputationEntries = Object.entries(reputation);
-  const reputationColors = ['#6B21A8', '#3B82F6', '#059669', '#D97706', '#EC4899'];
+  const reputationColors = ['#2DD4BF', '#F472B6', '#5EEAD4', '#FB923C', '#EC4899'];
   const avgReputation = reputationEntries.length > 0
     ? Math.round(reputationEntries.reduce((sum, [, v]) => sum + v, 0) / reputationEntries.length)
     : 0;
@@ -100,7 +100,7 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
         <div className="grid-2col mb-xl">
           {/* Reputation by Domain */}
           <div className="card" style={{ padding: 20 }}>
-            <div style={{ color: '#6B21A8', fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Reputation by Domain</div>
+            <div style={{ color: '#2DD4BF', fontSize: 10, fontWeight: 600, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Reputation by Domain</div>
             {reputationEntries.length > 0 ? (
               <div className="reputation-scroll" style={{ display: 'flex', justifyContent: 'space-around', gap: 8 }}>
                 {reputationEntries.map(([domain, score], i) => (
@@ -114,7 +114,7 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
                 ))}
               </div>
             ) : (
-              <div style={{ color: '#9CA3AF', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
+              <div style={{ color: '#7A7670', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
                 Complete jobs to build reputation
               </div>
             )}
@@ -122,7 +122,7 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
 
           {/* Session Breakdown */}
           <div className="card" style={{ padding: 20 }}>
-            <div style={{ color: '#6B21A8', fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Job Breakdown</div>
+            <div style={{ color: '#2DD4BF', fontSize: 10, fontWeight: 600, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Job Breakdown</div>
             {breakdownItems.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {breakdownItems.map(([label, count], i) => {
@@ -130,8 +130,8 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
                   return (
                     <div key={label} className="breakdown-item">
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontSize: 13, color: '#1A1A2E' }}>{label}</span>
-                        <span style={{ fontSize: 12, color: '#9CA3AF' }}>{count} jobs</span>
+                        <span style={{ fontSize: 13, color: '#E8E2DA' }}>{label}</span>
+                        <span style={{ fontSize: 12, color: '#7A7670' }}>{count} jobs</span>
                       </div>
                       <div className="breakdown-bar">
                         <div className="breakdown-fill" style={{ width: `${pct}%`, opacity: 1 - i * 0.15 }} />
@@ -141,7 +141,7 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
                 })}
               </div>
             ) : (
-              <div style={{ color: '#9CA3AF', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
+              <div style={{ color: '#7A7670', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
                 No jobs yet
               </div>
             )}
@@ -182,15 +182,15 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
                 >
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>
+                    <div style={{ color: '#E8E2DA', fontSize: 14, fontWeight: 500 }}>
                       {formatOffering(session.offeringType)} for {truncateAddress(session.buyerAgent)}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                      <span style={{ color: '#9CA3AF', fontSize: 12 }}>{date}</span>
+                      <span style={{ color: '#7A7670', fontSize: 12 }}>{date}</span>
                       <JobStatusBadge status={session.status} acceptedAt={session.acceptedAt} />
                     </div>
                   </div>
-                  <div style={{ color: isSuccess ? '#059669' : '#9CA3AF', fontSize: 15, fontWeight: 600, flexShrink: 0 }}>
+                  <div style={{ color: isSuccess ? '#2DD4BF' : '#7A7670', fontSize: 15, fontWeight: 600, flexShrink: 0 }}>
                     ${session.expertPayoutUsdc.toFixed(2)}
                   </div>
                 </div>
@@ -203,7 +203,7 @@ export function StatsOverview({ onNavigateSession, onAcceptSession }: StatsOverv
       {sessions.length === 0 && !loading && (
         <div className="empty-state">
           <div className="empty-state-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7A7670" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
           </div>

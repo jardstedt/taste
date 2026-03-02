@@ -118,35 +118,35 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
             <div className="text-bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {formatOffering(session.offeringType)} for {truncateAddress(session.buyerAgent)}
             </div>
-            <div style={{ fontSize: 11, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 11, color: '#7A7670', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               {isActive ? (
                 <>
-                  <span style={{ color: '#059669', fontWeight: 600 }}>Live</span>
+                  <span style={{ color: '#2DD4BF', fontWeight: 600 }}>Live</span>
                   {session.acpJobId && (
                     <>
-                      <span style={{ color: '#D1D5DB' }}>&middot;</span>
+                      <span style={{ color: '#4A4A4E' }}>&middot;</span>
                       <span style={{
-                        background: '#DBEAFE', color: '#1D4ED8', fontWeight: 600,
+                        background: 'rgba(59, 130, 246, 0.12)', color: '#60A5FA', fontWeight: 600,
                         padding: '1px 5px', borderRadius: 4, fontSize: 10,
                       }}>ACP Agent</span>
                     </>
                   )}
                   {awaitingPayment && (
                     <>
-                      <span style={{ color: '#D1D5DB' }}>&middot;</span>
+                      <span style={{ color: '#4A4A4E' }}>&middot;</span>
                       <span style={{
-                        background: '#FEF3C7', color: '#92400E', fontWeight: 600,
+                        background: 'rgba(251, 146, 60, 0.12)', color: '#FB923C', fontWeight: 600,
                         padding: '1px 5px', borderRadius: 4, fontSize: 10,
                       }}>Awaiting Payment</span>
                     </>
                   )}
-                  <span style={{ color: '#D1D5DB' }}>&middot;</span>
+                  <span style={{ color: '#4A4A4E' }}>&middot;</span>
                   {deadline && (
                     <>
                       <span className={remainingMins <= 5 ? 'chat-timer-urgent' : ''} style={{ fontWeight: 500 }}>
                         {remainingMins}min left
                       </span>
-                      <span style={{ color: '#D1D5DB' }}>&middot;</span>
+                      <span style={{ color: '#4A4A4E' }}>&middot;</span>
                     </>
                   )}
                   <span>${session.priceUsdc.toFixed(2)} escrowed</span>
@@ -163,8 +163,8 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
             disabled={expiring}
             title="Force expire this session (demo)"
             style={{
-              background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6,
-              color: '#DC2626', fontSize: 11, fontWeight: 600, padding: '4px 8px',
+              background: 'rgba(239, 68, 68, 0.06)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: 6,
+              color: '#EF4444', fontSize: 11, fontWeight: 600, padding: '4px 8px',
               cursor: expiring ? 'wait' : 'pointer', flexShrink: 0,
             }}
           >
@@ -174,7 +174,7 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
         {onBack && (
           <button onClick={onBack} aria-label="Close" style={{
             background: 'none', border: 'none', cursor: 'pointer', padding: 8,
-            color: '#9CA3AF', fontSize: 18, lineHeight: 1, flexShrink: 0,
+            color: '#7A7670', fontSize: 18, lineHeight: 1, flexShrink: 0,
           }}>&times;</button>
         )}
       </div>
@@ -186,25 +186,25 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '10px 14px', borderRadius: 8,
-            background: session.status === 'completed' ? '#F0FDF4'
-              : session.status === 'cancelled' ? '#FEF2F2' : '#F9FAFB',
-            border: `1px solid ${session.status === 'completed' ? '#BBF7D0'
-              : session.status === 'cancelled' ? '#FECACA' : '#E5E7EB'}`,
+            background: session.status === 'completed' ? 'rgba(45, 212, 191, 0.06)'
+              : session.status === 'cancelled' ? 'rgba(239, 68, 68, 0.06)' : 'rgba(122, 118, 112, 0.06)',
+            border: `1px solid ${session.status === 'completed' ? 'rgba(45, 212, 191, 0.2)'
+              : session.status === 'cancelled' ? 'rgba(239, 68, 68, 0.2)' : '#2A2A2E'}`,
           }}>
             <span style={{
               width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-              background: session.status === 'completed' ? '#22C55E'
-                : session.status === 'cancelled' ? '#EF4444' : '#9CA3AF',
+              background: session.status === 'completed' ? '#2DD4BF'
+                : session.status === 'cancelled' ? '#EF4444' : '#7A7670',
             }} />
             <span style={{
               fontSize: 13, fontWeight: 600,
-              color: session.status === 'completed' ? '#15803D'
-                : session.status === 'cancelled' ? '#991B1B' : '#6B7280',
+              color: session.status === 'completed' ? '#2DD4BF'
+                : session.status === 'cancelled' ? '#EF4444' : '#7A7670',
             }}>
               {session.status === 'completed' ? 'Completed' : session.status === 'cancelled' ? 'Declined' : 'Timed out'}
             </span>
             {session.completedAt && (
-              <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 'auto' }}>
+              <span style={{ fontSize: 11, color: '#7A7670', marginLeft: 'auto' }}>
                 {new Date(session.completedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -214,7 +214,7 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
         {/* ── Request section ── */}
         {desc.raw && (
           <div className="session-request">
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#7A7670', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
               Request &middot; {session.offeringType.replace(/_/g, ' ')}
             </div>
             {desc.isJson ? (
@@ -223,14 +223,14 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
                   const spanFull = desc.pairs.length === 1 || label.toLowerCase().includes('note');
                   return (
                     <div key={label} style={spanFull ? { gridColumn: '1 / -1' } : undefined}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 2 }}>{label}</div>
-                      <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}><LinkifyText text={value} /></div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: '#7A7670', marginBottom: 2 }}>{label}</div>
+                      <div style={{ fontSize: 13, color: '#E8E2DA', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}><LinkifyText text={value} /></div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 13, color: '#E8E2DA', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.5 }}>
                 <LinkifyText text={desc.raw} />
               </div>
             )}
@@ -249,7 +249,7 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
         {/* ── Assessment form (inline, when active) ── */}
         {isActive && !isLocked && (
           <div className="session-assessment">
-            <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: '#1A1A2E' }}>Assessment</h3>
+            <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: '#E8E2DA' }}>Assessment</h3>
 
             {/* Requirements checklist (collapsible) */}
             <div style={{ marginBottom: 16 }}>
@@ -258,17 +258,17 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
                 className="chat-collapse-toggle"
               >
                 <span>Requirements {checkedCount}/{totalItems}</span>
-                <span style={{ fontSize: 10, color: '#9CA3AF' }}>{showRequirements ? '\u25B2' : '\u25BC'}</span>
+                <span style={{ fontSize: 10, color: '#7A7670' }}>{showRequirements ? '\u25B2' : '\u25BC'}</span>
               </button>
               {showRequirements && (
                 <div style={{ padding: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {checklistItems.map((item, i) => (
-                    <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: checkedItems[i] ? '#9CA3AF' : '#1A1A2E', cursor: 'pointer' }}>
+                    <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: checkedItems[i] ? '#7A7670' : '#E8E2DA', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
                         checked={!!checkedItems[i]}
                         onChange={() => setCheckedItems(prev => ({ ...prev, [i]: !prev[i] }))}
-                        style={{ accentColor: '#6B21A8', width: 16, height: 16 }}
+                        style={{ accentColor: '#2DD4BF', width: 16, height: 16 }}
                       />
                       <span style={{ textDecoration: checkedItems[i] ? 'line-through' : 'none' }}>{item}</span>
                     </label>
@@ -279,10 +279,10 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
 
             {showDeclineDialog ? (
               <div style={{
-                background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8,
+                background: 'rgba(239, 68, 68, 0.06)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: 8,
                 padding: 16,
               }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#991B1B', marginBottom: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#EF4444', marginBottom: 8 }}>
                   Why can't you fulfill this request?
                 </div>
                 <textarea
@@ -308,7 +308,7 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
                     onClick={handleDecline}
                     disabled={declining}
                     className="btn"
-                    style={{ fontSize: 13, background: '#DC2626', color: '#fff', border: 'none' }}
+                    style={{ fontSize: 13, background: '#EF4444', color: '#0D0D0D', border: 'none' }}
                   >
                     {declining ? 'Declining...' : 'Confirm Decline'}
                   </button>
@@ -327,7 +327,7 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
 
         {/* ── Locked state ── */}
         {isActive && isLocked && (
-          <div className="chat-ended" style={{ color: 'var(--color-error, #DC2626)', margin: 16, borderRadius: 8 }}>
+          <div className="chat-ended" style={{ color: 'var(--color-error, #EF4444)', margin: 16, borderRadius: 8 }}>
             Grace period exhausted — please complete or decline the job.
           </div>
         )}
@@ -339,9 +339,9 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
             {deliverable && Object.keys(deliverable).length > 0 && (
               <div style={{
                 padding: 16,
-                background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10,
+                background: 'rgba(45, 212, 191, 0.06)', border: '1px solid rgba(45, 212, 191, 0.2)', borderRadius: 10,
               }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: '#2DD4BF', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 10 }}>
                   Expert Assessment
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -353,8 +353,8 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
                       : JSON.stringify(value);
                     return (
                       <div key={key}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 2 }}>{label}</div>
-                        <div style={{ fontSize: 13, color: '#1A1A2E', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.5 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#7A7670', marginBottom: 2 }}>{label}</div>
+                        <div style={{ fontSize: 13, color: '#E8E2DA', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.5 }}>
                           <LinkifyText text={display} />
                         </div>
                       </div>
@@ -381,11 +381,11 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
                   <span className="chat-collapse-badge">{userMessages}</span>
                 )}
               </span>
-              <span style={{ fontSize: 10, color: '#9CA3AF' }}>{showChat ? '\u25B2' : '\u25BC'}</span>
+              <span style={{ fontSize: 10, color: '#7A7670' }}>{showChat ? '\u25B2' : '\u25BC'}</span>
             </button>
             {showChat && (
               <div className="chat-collapse-body">
-                <div style={{ fontSize: 12, color: '#9CA3AF', padding: '4px 0 8px', fontStyle: 'italic' }}>
+                <div style={{ fontSize: 12, color: '#7A7670', padding: '4px 0 8px', fontStyle: 'italic' }}>
                   You can send messages to the agent. Responses are not guaranteed.
                 </div>
                 <div className="chat-messages" style={{ maxHeight: 300, flex: 'none' }}>
@@ -472,7 +472,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
               <span>{meta.filename ?? 'attachment'}</span>
             )}
             {meta.fileSize && (
-              <span style={{ color: '#9CA3AF', fontSize: 11 }}>
+              <span style={{ color: '#7A7670', fontSize: 11 }}>
                 {meta.fileSize < 1024 ? `${meta.fileSize}B` : meta.fileSize < 1024 * 1024 ? `${(meta.fileSize / 1024).toFixed(1)}KB` : `${(meta.fileSize / (1024 * 1024)).toFixed(1)}MB`}
               </span>
             )}

@@ -280,7 +280,7 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
     <form onSubmit={handleSubmit} style={inline ? { padding: 0 } : { padding: 20 }}>
       {error && (
         <div style={{
-          background: '#FEF2F2', color: '#DC2626', padding: '8px 12px',
+          background: 'rgba(239, 68, 68, 0.1)', color: '#F87171', padding: '8px 12px',
           borderRadius: 6, fontSize: 13, marginBottom: 16,
         }}>
           {error}
@@ -294,7 +294,7 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
             type="button"
             onClick={() => setValues(TEST_DATA[session.offeringType])}
             className="btn btn-ghost"
-            style={{ fontSize: 12, color: '#6B21A8' }}
+            style={{ fontSize: 12, color: '#2DD4BF' }}
           >
             Fill with test data
           </button>
@@ -303,7 +303,7 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
               type="button"
               onClick={() => setValues(FOLLOWUP_TEST_DATA[session.offeringType])}
               className="btn btn-ghost"
-              style={{ fontSize: 12, color: '#059669' }}
+              style={{ fontSize: 12, color: '#5EEAD4' }}
             >
               Fill follow-up (issues resolved)
             </button>
@@ -314,8 +314,8 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
       {/* Dynamic fields */}
       {fields.map(field => (
         <div key={field.key} style={{ marginBottom: 14 }}>
-          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-            {field.label} {field.required && <span style={{ color: '#DC2626' }}>*</span>}
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#E8E2DA', marginBottom: 4 }}>
+            {field.label} {field.required && <span style={{ color: '#F472B6' }}>*</span>}
           </label>
           {field.type === 'select' ? (
             <select
@@ -353,7 +353,7 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
               />
               <span style={{
                 minWidth: 28, textAlign: 'center', fontSize: 14, fontWeight: 700,
-                color: '#6B21A8', background: '#F3E8FF', borderRadius: 6, padding: '2px 6px',
+                color: '#2DD4BF', background: 'rgba(45, 212, 191, 0.12)', borderRadius: 6, padding: '2px 6px',
               }}>
                 {values[field.key] || field.min || 1}
               </span>
@@ -387,7 +387,7 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
 
       {/* Summary */}
       <div style={{ marginBottom: 14 }}>
-        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#E8E2DA', marginBottom: 4 }}>
           Additional Notes
         </label>
         <textarea
@@ -402,7 +402,7 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
 
       {/* Attachments */}
       <div style={{ marginBottom: 16 }}>
-        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+        <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#E8E2DA', marginBottom: 6 }}>
           Evidence & Attachments
         </label>
 
@@ -411,20 +411,20 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
             {attachments.map(att => (
               <div key={att.id} style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                padding: '6px 10px', background: '#F9FAFB', borderRadius: 6,
-                border: '1px solid #E5E7EB', fontSize: 12,
+                padding: '6px 10px', background: '#1E1E22', borderRadius: 6,
+                border: '1px solid #2A2A2E', fontSize: 12,
               }}>
-                <span style={{ color: '#6B7280' }}>
+                <span style={{ color: '#7A7670' }}>
                   {att.mimeType.startsWith('image/') ? '\uD83D\uDDBC\uFE0F' : '\uD83D\uDCC4'}
                 </span>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#E8E2DA' }}>
                   {att.originalFilename}
                 </span>
-                <span style={{ color: '#9CA3AF', flexShrink: 0 }}>{formatSize(att.fileSizeBytes)}</span>
+                <span style={{ color: '#7A7670', flexShrink: 0 }}>{formatSize(att.fileSizeBytes)}</span>
                 <span style={{
                   fontSize: 10, padding: '1px 5px', borderRadius: 4,
-                  background: att.uploadContext === 'chat' ? '#DBEAFE' : '#F3E8FF',
-                  color: att.uploadContext === 'chat' ? '#1D4ED8' : '#6B21A8',
+                  background: att.uploadContext === 'chat' ? 'rgba(45, 212, 191, 0.12)' : 'rgba(244, 114, 182, 0.12)',
+                  color: att.uploadContext === 'chat' ? '#2DD4BF' : '#F472B6',
                 }}>
                   {att.uploadContext}
                 </span>
@@ -435,8 +435,8 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
 
         <label style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          padding: '10px 16px', border: '2px dashed #D1D5DB', borderRadius: 8,
-          cursor: uploading ? 'wait' : 'pointer', color: '#6B7280', fontSize: 13,
+          padding: '10px 16px', border: '2px dashed #2A2A2E', borderRadius: 8,
+          cursor: uploading ? 'wait' : 'pointer', color: '#7A7670', fontSize: 13,
           transition: 'border-color 0.15s',
         }}>
           <input
@@ -449,7 +449,7 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
           />
           {uploading ? 'Uploading...' : '+ Add files (images, PDF, text)'}
         </label>
-        <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>
+        <div style={{ fontSize: 11, color: '#7A7670', marginTop: 4 }}>
           Max 5MB per file, 20MB total per session
         </div>
       </div>
@@ -458,10 +458,10 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
       <div style={{
         display: 'flex', gap: 8,
         justifyContent: inline ? 'space-between' : 'flex-end',
-        borderTop: '1px solid #E5E7EB', paddingTop: 16,
+        borderTop: '1px solid #2A2A2E', paddingTop: 16,
       }}>
         {inline && onDecline ? (
-          <button type="button" onClick={onDecline} className="btn btn-ghost" style={{ fontSize: 13, color: 'var(--color-error, #DC2626)' }}>
+          <button type="button" onClick={onDecline} className="btn btn-ghost" style={{ fontSize: 13, color: 'var(--color-error, #EF4444)' }}>
             Can't Fulfill
           </button>
         ) : !inline && onCancel ? (
@@ -492,25 +492,26 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
       padding: 16,
     }}>
       <div style={{
-        background: '#fff', borderRadius: 12, maxWidth: 560, width: '100%',
-        maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+        background: '#161618', borderRadius: 12, maxWidth: 560, width: '100%',
+        maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+        border: '1px solid #2A2A2E',
       }}>
         {/* Header */}
         <div style={{
-          padding: '16px 20px', borderBottom: '1px solid #E5E7EB',
+          padding: '16px 20px', borderBottom: '1px solid #2A2A2E',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          position: 'sticky', top: 0, background: '#fff', zIndex: 1, borderRadius: '12px 12px 0 0',
+          position: 'sticky', top: 0, background: '#161618', zIndex: 1, borderRadius: '12px 12px 0 0',
         }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16 }}>Complete Session</h3>
-            <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+            <h3 style={{ margin: 0, fontSize: 16, color: '#E8E2DA' }}>Complete Session</h3>
+            <div style={{ fontSize: 12, color: '#7A7670', marginTop: 2 }}>
               {session.offeringType.replace(/_/g, ' ')} &middot; ${session.priceUsdc.toFixed(0)} USDC
             </div>
           </div>
           {onCancel && (
             <button onClick={onCancel} style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: 20, color: '#9CA3AF', padding: 4, lineHeight: 1,
+              fontSize: 20, color: '#7A7670', padding: 4, lineHeight: 1,
             }}>&times;</button>
           )}
         </div>

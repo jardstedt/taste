@@ -4,10 +4,10 @@ interface JobStatusBadgeProps {
 }
 
 const STATUS_STYLES: Record<string, { label: string; bg: string; fg: string }> = {
-  completed: { label: 'Completed', bg: '#D1FAE5', fg: '#065F46' },
-  declined: { label: 'Declined', bg: '#FEE2E2', fg: '#991B1B' },
-  expired: { label: 'Expired', bg: '#FEF3C7', fg: '#92400E' },
-  timeout: { label: 'Timed Out', bg: '#F3F4F6', fg: '#6B7280' },
+  completed: { label: 'Completed', bg: 'rgba(45, 212, 191, 0.12)', fg: '#2DD4BF' },
+  declined: { label: 'Declined', bg: 'rgba(239, 68, 68, 0.12)', fg: '#EF4444' },
+  expired: { label: 'Expired', bg: 'rgba(251, 146, 60, 0.12)', fg: '#FB923C' },
+  timeout: { label: 'Timed Out', bg: 'rgba(122, 118, 112, 0.12)', fg: '#7A7670' },
 };
 
 export function JobStatusBadge({ status, acceptedAt }: JobStatusBadgeProps) {

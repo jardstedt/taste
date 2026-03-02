@@ -23,13 +23,13 @@ export function SessionHistory() {
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}
             >
               <div>
-                <div style={{ color: '#1A1A2E', fontSize: 14, fontWeight: 500 }}>Job #{completed.length - i}</div>
+                <div style={{ color: '#5EEAD4', fontSize: 14, fontWeight: 500 }}>Job #{completed.length - i}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>{date} · {formatOffering(session.offeringType)}</span>
+                  <span style={{ fontSize: 12, color: '#7A7670' }}>{date} · {formatOffering(session.offeringType)}</span>
                   <JobStatusBadge status={session.status} acceptedAt={session.acceptedAt} />
                 </div>
               </div>
-              <div style={{ color: isSuccess ? '#059669' : '#9CA3AF', fontWeight: 600 }}>
+              <div style={{ color: isSuccess ? '#2DD4BF' : '#7A7670', fontWeight: 600 }}>
                 ${session.expertPayoutUsdc.toFixed(2)}
               </div>
             </div>
@@ -40,7 +40,7 @@ export function SessionHistory() {
       {!loading && completed.length === 0 && (
         <div className="empty-state">
           <div className="empty-state-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7A7670" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
             </svg>
           </div>

@@ -77,7 +77,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
 
   const statusColor = (status: string) => {
     switch (status) {
-      case 'completed': return '#10B981';
+      case 'completed': return '#2DD4BF';
       case 'rejected': return '#EF4444';
       case 'approved': case 'processing': return '#3B82F6';
       default: return '#F59E0B';
@@ -93,15 +93,15 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
     <div>
       {/* Total Earnings */}
       <div className="card mb-xl" style={{ padding: 20 }}>
-        <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 8 }}>Total earnings</div>
-        <div style={{ color: '#1A1A2E', fontSize: 24, fontWeight: 700 }}>${totalPayout.toFixed(2)}</div>
-        <div style={{ color: '#9CA3AF', fontSize: 12 }}>{completed.length} completed sessions</div>
+        <div style={{ color: '#7A7670', fontSize: 12, marginBottom: 8 }}>Total earnings</div>
+        <div style={{ color: '#E8E2DA', fontSize: 24, fontWeight: 700 }}>${totalPayout.toFixed(2)}</div>
+        <div style={{ color: '#7A7670', fontSize: 12 }}>{completed.length} completed sessions</div>
       </div>
 
       {/* Wallet Setup */}
       {!user.walletAddress ? (
         <div className="card mb-xl" style={{ padding: 20 }}>
-          <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 12 }}>Set your wallet address</div>
+          <div style={{ color: '#7A7670', fontSize: 13, marginBottom: 12 }}>Set your wallet address</div>
           <form onSubmit={handleSetWallet}>
             <div style={{ marginBottom: 8 }}>
               <input
@@ -114,9 +114,9 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
                 className="input input-full"
                 style={{ fontFamily: 'monospace' }}
               />
-              <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>Base (USDC)</div>
+              <div style={{ fontSize: 11, color: '#7A7670', marginTop: 4 }}>Base (USDC)</div>
             </div>
-            {walletError && <div style={{ color: '#EF4444', fontSize: 12, marginBottom: 8 }}>{walletError}</div>}
+            {walletError && <div style={{ color: '#F87171', fontSize: 12, marginBottom: 8 }}>{walletError}</div>}
             <button type="submit" disabled={walletSaving} className="btn btn-primary btn-sm">
               {walletSaving ? 'Saving...' : 'Save Wallet'}
             </button>
@@ -124,19 +124,19 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
         </div>
       ) : (
         <div className="card mb-xl" style={{ padding: 20 }}>
-          <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Wallet</div>
-          <div className="wallet-address-display" style={{ fontFamily: 'monospace', fontSize: 13, color: '#1A1A2E', wordBreak: 'break-all' }}>
+          <div style={{ color: '#7A7670', fontSize: 12, marginBottom: 4 }}>Wallet</div>
+          <div className="wallet-address-display" style={{ fontFamily: 'monospace', fontSize: 13, color: '#E8E2DA', wordBreak: 'break-all' }}>
             {user.walletAddress}
           </div>
-          <div style={{ color: '#9CA3AF', fontSize: 11, marginTop: 4 }}>Base</div>
+          <div style={{ color: '#7A7670', fontSize: 11, marginTop: 4 }}>Base</div>
         </div>
       )}
 
       {/* Withdrawal Card */}
       <div className="earnings-withdrawal mb-xl">
-        <div style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 8 }}>Available for withdrawal</div>
+        <div style={{ color: '#7A7670', fontSize: 13, marginBottom: 8 }}>Available for withdrawal</div>
         <div className="earnings-balance">${user.earningsUsdc.toFixed(2)}</div>
-        <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 16 }}>USDC on Base</div>
+        <div style={{ color: '#7A7670', fontSize: 12, marginBottom: 16 }}>USDC on Base</div>
         <button
           className="btn-green"
           disabled={!user.walletAddress || user.earningsUsdc < 1}
@@ -148,7 +148,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
 
       {/* Withdraw Modal */}
       {showWithdrawModal && (
-        <div className="card mb-xl" style={{ padding: 20, border: '1px solid #D97706' }}>
+        <div className="card mb-xl" style={{ padding: 20, border: '1px solid rgba(251, 146, 60, 0.3)' }}>
           <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Request Withdrawal</div>
           <form onSubmit={handleWithdraw}>
             <div className="form-group">
@@ -165,7 +165,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
                 placeholder={`Max: $${user.earningsUsdc.toFixed(2)}`}
               />
             </div>
-            {withdrawError && <div style={{ color: '#EF4444', fontSize: 12, marginBottom: 8 }}>{withdrawError}</div>}
+            {withdrawError && <div style={{ color: '#F87171', fontSize: 12, marginBottom: 8 }}>{withdrawError}</div>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="submit" disabled={withdrawing} className="btn btn-primary btn-sm">
                 {withdrawing ? 'Submitting...' : 'Submit Request'}
@@ -206,7 +206,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
                       {w.status}
                     </span>
                     {w.adminNotes && (
-                      <div style={{ color: '#9CA3AF', fontSize: 11 }}>{w.adminNotes}</div>
+                      <div style={{ color: '#7A7670', fontSize: 11 }}>{w.adminNotes}</div>
                     )}
                   </td>
                   <td>
@@ -215,12 +215,12 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
                         href={baseScanUrl(w.txHash, w.walletChain)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ color: '#3B82F6', fontSize: 12 }}
+                        style={{ color: '#5EEAD4', fontSize: 12 }}
                       >
                         View TX
                       </a>
                     ) : (
-                      <span style={{ color: '#9CA3AF', fontSize: 12 }}>—</span>
+                      <span style={{ color: '#7A7670', fontSize: 12 }}>—</span>
                     )}
                   </td>
                 </tr>
@@ -233,7 +233,7 @@ export function EarningsView({ user, onRefresh }: EarningsViewProps) {
       {completed.length === 0 && withdrawals.length === 0 && (
         <div className="empty-state" style={{ marginTop: 32 }}>
           <div className="empty-state-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7A7670" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
             </svg>
           </div>

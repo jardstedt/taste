@@ -35,14 +35,14 @@ interface JobDetail {
 // Phase badge colors
 function phaseBadge(phase: string) {
   const colors: Record<string, { bg: string; fg: string }> = {
-    REQUEST: { bg: '#FEF3C7', fg: '#92400E' },
-    NEGOTIATION: { bg: '#DBEAFE', fg: '#1E40AF' },
-    TRANSACTION: { bg: '#E0E7FF', fg: '#3730A3' },
-    EVALUATION: { bg: '#FDE68A', fg: '#92400E' },
-    COMPLETED: { bg: '#D1FAE5', fg: '#065F46' },
-    REJECTED: { bg: '#FEE2E2', fg: '#991B1B' },
+    REQUEST: { bg: 'rgba(251, 146, 60, 0.12)', fg: '#FB923C' },
+    NEGOTIATION: { bg: 'rgba(59, 130, 246, 0.12)', fg: '#3B82F6' },
+    TRANSACTION: { bg: 'rgba(251, 146, 60, 0.12)', fg: '#FB923C' },
+    EVALUATION: { bg: 'rgba(244, 114, 182, 0.12)', fg: '#F472B6' },
+    COMPLETED: { bg: 'rgba(45, 212, 191, 0.12)', fg: '#2DD4BF' },
+    REJECTED: { bg: 'rgba(239, 68, 68, 0.12)', fg: '#EF4444' },
   };
-  const c = colors[phase] ?? { bg: '#F3F4F6', fg: '#374151' };
+  const c = colors[phase] ?? { bg: '#2A2A2E', fg: '#7A7670' };
   return (
     <span style={{
       display: 'inline-block',
@@ -351,7 +351,7 @@ export function AcpDemo() {
   return (
     <div>
       <h2 className="page-title" style={{ marginBottom: 16 }}>ACP Demo</h2>
-      <p style={{ color: '#6B7280', fontSize: 13, marginBottom: 20 }}>
+      <p style={{ color: '#7A7670', fontSize: 13, marginBottom: 20 }}>
         Test the full ACP flow: create onchain jobs as a buyer agent, then complete them as an expert.
       </p>
 
@@ -368,7 +368,7 @@ export function AcpDemo() {
           <div className="card" style={{ padding: 16, marginBottom: 16 }}>
             <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Expert Chat</h3>
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: '#6B7280', display: 'block', marginBottom: 4 }}>Session</label>
+              <label style={{ fontSize: 12, color: '#7A7670', display: 'block', marginBottom: 4 }}>Session</label>
               <select
                 value={selectedSessionId ?? ''}
                 onChange={e => setSelectedSessionId(e.target.value || null)}
@@ -395,14 +395,14 @@ export function AcpDemo() {
           </div>
 
           {selectedSessionId ? (
-            <div style={{ border: '1px solid #E5E7EB', borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ border: '1px solid #2A2A2E', borderRadius: 8, overflow: 'hidden' }}>
               <ChatView
                 sessionId={selectedSessionId}
                 onBack={() => setSelectedSessionId(null)}
               />
             </div>
           ) : (
-            <div className="card" style={{ padding: 32, textAlign: 'center', color: '#9CA3AF' }}>
+            <div className="card" style={{ padding: 32, textAlign: 'center', color: '#7A7670' }}>
               Select a session to view the expert chat
             </div>
           )}
@@ -410,7 +410,7 @@ export function AcpDemo() {
           {/* Agent messaging — disabled until memo bridge is reliable
           {selectedSessionId && (
             <div className="card" style={{ padding: 12, marginTop: 12 }}>
-              <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#6B7280' }}>Send as Agent</h4>
+              <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#7A7670' }}>Send as Agent</h4>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
                   type="text"
@@ -455,12 +455,12 @@ export function AcpDemo() {
               )}
             </div>
             {status?.wallet && (
-              <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#6B7280', marginBottom: 4, wordBreak: 'break-all' }}>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#7A7670', marginBottom: 4, wordBreak: 'break-all' }}>
                 Wallet: {status.wallet}
               </div>
             )}
             {status?.gasPrice !== null && status?.gasPrice !== undefined && (
-              <div style={{ fontSize: 11, color: status.gasPrice > 0.5 ? '#DC2626' : '#059669' }}>
+              <div style={{ fontSize: 11, color: status.gasPrice > 0.5 ? '#EF4444' : '#2DD4BF' }}>
                 Gas: {status.gasPrice.toFixed(4)} gwei {status.gasPrice > 0.5 ? '(HIGH)' : '(OK)'}
               </div>
             )}
@@ -487,7 +487,7 @@ export function AcpDemo() {
               ) : (
                 <>
                   <div style={{ marginBottom: 12 }}>
-                    <label style={{ fontSize: 12, color: '#6B7280', display: 'block', marginBottom: 4 }}>Offering</label>
+                    <label style={{ fontSize: 12, color: '#7A7670', display: 'block', marginBottom: 4 }}>Offering</label>
                     <select
                       value={selectedOffering}
                       onChange={e => handleOfferingChange(parseInt(e.target.value, 10))}
@@ -505,15 +505,15 @@ export function AcpDemo() {
                   {/* Requirement field descriptions from Virtuals registration */}
                   {offerings.find(o => o.index === selectedOffering)?.requirementFields && (
                     <div style={{
-                      marginBottom: 8, padding: '8px 10px', background: '#F0FDF4', borderRadius: 6,
-                      fontSize: 11, color: '#065F46', lineHeight: 1.5,
+                      marginBottom: 8, padding: '8px 10px', background: 'rgba(45, 212, 191, 0.12)', borderRadius: 6,
+                      fontSize: 11, color: '#2DD4BF', lineHeight: 1.5,
                     }}>
                       <strong>Fields:</strong> {offerings.find(o => o.index === selectedOffering)!.requirementFields}
                     </div>
                   )}
 
                   <div style={{ marginBottom: 12 }}>
-                    <label style={{ fontSize: 12, color: '#6B7280', display: 'block', marginBottom: 4 }}>
+                    <label style={{ fontSize: 12, color: '#7A7670', display: 'block', marginBottom: 4 }}>
                       Requirement JSON (pre-filled from Virtuals offering)
                     </label>
                     <textarea
@@ -567,7 +567,7 @@ export function AcpDemo() {
                   )}
                 </div>
                 {visibleJobs.length === 0 ? (
-                  <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>
+                  <div style={{ fontSize: 12, color: '#7A7670', fontStyle: 'italic' }}>
                     No active jobs {finishedJobs.length > 0 && `(${finishedJobs.length} finished)`}
                   </div>
                 ) : (
@@ -582,8 +582,8 @@ export function AcpDemo() {
                           justifyContent: 'space-between',
                           alignItems: 'center',
                           padding: '8px 12px',
-                          background: selectedJobId === j.jobId ? 'var(--color-primary-light, #EEF2FF)' : '#F9FAFB',
-                          border: selectedJobId === j.jobId ? '1px solid var(--color-primary, #4F46E5)' : '1px solid #E5E7EB',
+                          background: selectedJobId === j.jobId ? 'rgba(45, 212, 191, 0.12)' : '#1E1E22',
+                          border: selectedJobId === j.jobId ? '1px solid #2DD4BF' : '1px solid #2A2A2E',
                           borderRadius: 6,
                           cursor: 'pointer',
                           textAlign: 'left',
@@ -611,7 +611,7 @@ export function AcpDemo() {
               </div>
 
               {jobLoading ? (
-                <p style={{ color: '#9CA3AF', fontSize: 13 }}>Loading...</p>
+                <p style={{ color: '#7A7670', fontSize: 13 }}>Loading...</p>
               ) : jobDetail ? (
                 <>
                   <div style={{ marginBottom: 12 }}>
@@ -619,7 +619,7 @@ export function AcpDemo() {
                       <span style={{ fontSize: 13 }}>Phase:</span>
                       {phaseBadge(jobDetail.phase)}
                     </div>
-                    <div style={{ fontSize: 13, color: '#6B7280' }}>
+                    <div style={{ fontSize: 13, color: '#7A7670' }}>
                       Price: {jobDetail.price} USDC
                     </div>
                   </div>
@@ -627,13 +627,13 @@ export function AcpDemo() {
                   {/* Memos */}
                   {jobDetail.memos.length > 0 && (
                     <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>
+                      <div style={{ fontSize: 12, color: '#7A7670', marginBottom: 4 }}>
                         Memos ({jobDetail.memos.length})
                       </div>
                       <div style={{
                         maxHeight: 150,
                         overflow: 'auto',
-                        background: '#F9FAFB',
+                        background: '#1E1E22',
                         borderRadius: 6,
                         padding: 8,
                         fontSize: 11,
@@ -650,7 +650,7 @@ export function AcpDemo() {
 
                   {/* Linked session */}
                   {linkedSession && (
-                    <div style={{ marginBottom: 12, padding: '6px 10px', background: '#EEF2FF', borderRadius: 6, fontSize: 12 }}>
+                    <div style={{ marginBottom: 12, padding: '6px 10px', background: 'rgba(45, 212, 191, 0.12)', borderRadius: 6, fontSize: 12 }}>
                       Job: <strong>{formatOffering(linkedSession.offeringType)}</strong> ({linkedSession.status})
                       {selectedSessionId !== linkedSession.id && (
                         <button
@@ -676,31 +676,31 @@ export function AcpDemo() {
                         <button onClick={handleAccept} className="btn-green btn-sm">
                           Accept Deliverable
                         </button>
-                        <button onClick={handleReject} className="btn btn-secondary btn-sm" style={{ color: '#DC2626' }}>
+                        <button onClick={handleReject} className="btn btn-secondary btn-sm" style={{ color: '#EF4444' }}>
                           Reject
                         </button>
                       </>
                     )}
                     {(jobDetail.phase === 'COMPLETED' || jobDetail.phase === 'REJECTED') && (
-                      <span style={{ fontSize: 12, color: '#6B7280', fontStyle: 'italic' }}>
+                      <span style={{ fontSize: 12, color: '#7A7670', fontStyle: 'italic' }}>
                         Job finished ({jobDetail.phase.toLowerCase()})
                       </span>
                     )}
                     {(jobDetail.phase === 'REQUEST' || jobDetail.phase === 'TRANSACTION') && (
-                      <span style={{ fontSize: 12, color: '#6B7280', fontStyle: 'italic' }}>
+                      <span style={{ fontSize: 12, color: '#7A7670', fontStyle: 'italic' }}>
                         Waiting for {jobDetail.phase === 'REQUEST' ? 'provider to accept' : 'expert to complete'}...
                       </span>
                     )}
                   </div>
                 </>
               ) : (
-                <p style={{ color: '#9CA3AF', fontSize: 13 }}>Select a job to view details</p>
+                <p style={{ color: '#7A7670', fontSize: 13 }}>Select a job to view details</p>
               )}
             </div>
           )}
 
           {/* Safety info */}
-          <div style={{ fontSize: 11, color: '#9CA3AF', padding: '0 4px' }}>
+          <div style={{ fontSize: 11, color: '#7A7670', padding: '0 4px' }}>
             Safety: max fee 0.01 USDC, gas cap 0.5 gwei. All signing server-side.
           </div>
         </div>

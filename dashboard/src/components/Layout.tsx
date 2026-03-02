@@ -101,11 +101,9 @@ export function Layout({ children, user, onLogout, onRefresh }: LayoutProps) {
   return (
     <div className="dashboard" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)' }}>
       {/* Row 1: Logo + user controls */}
-      <header className="header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
+      <header className="header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <img src="/logo-64.png" alt="Taste" className="header-logo-box" />
-          <span style={{ fontSize: 18, fontWeight: 700, color: '#1A1A2E', letterSpacing: '-0.3px' }}>Taste</span>
-          <span className="header-subtitle">Expert Dashboard</span>
+          <span style={{ fontSize: 15, fontWeight: 600, color: '#E8E2DA', letterSpacing: '0.5px' }}>Expert Dashboard</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {onRefresh && <AvailabilityToggle user={user} onUpdate={onRefresh} />}

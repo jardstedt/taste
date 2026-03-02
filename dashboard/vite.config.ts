@@ -15,10 +15,10 @@ export default defineConfig({
         name: 'Taste Expert Dashboard',
         short_name: 'Taste',
         description: 'Expert dashboard for the Taste Human Judgment Oracle',
-        theme_color: '#6B21A8',
-        background_color: '#F5F5FA',
+        theme_color: '#0D0D0D',
+        background_color: '#0D0D0D',
         display: 'standalone',
-        scope: '/dashboard',
+        scope: '/',
         start_url: '/dashboard',
         icons: [
           {
@@ -36,7 +36,7 @@ export default defineConfig({
         ],
       },
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,jpg,woff2}'],
       },
       devOptions: {
         enabled: true,

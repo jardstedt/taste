@@ -36,11 +36,11 @@ interface AcpJobInspection {
 const PHASE_COLORS: Record<string, string> = {
   REQUEST: '#F59E0B',
   NEGOTIATION: '#3B82F6',
-  TRANSACTION: '#8B5CF6',
-  EVALUATION: '#10B981',
-  COMPLETED: '#059669',
+  TRANSACTION: '#FB923C',
+  EVALUATION: '#F472B6',
+  COMPLETED: '#2DD4BF',
   REJECTED: '#EF4444',
-  EXPIRED: '#6B7280',
+  EXPIRED: '#7A7670',
 };
 
 function truncateAddress(addr: string): string {
@@ -64,9 +64,9 @@ function JsonBlock({ data, label }: { data: unknown; label?: string }) {
 
   return (
     <div style={{ marginTop: 4 }}>
-      {label && <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, marginBottom: 2 }}>{label}</div>}
+      {label && <div style={{ fontSize: 11, color: '#7A7670', fontWeight: 600, marginBottom: 2 }}>{label}</div>}
       <pre style={{
-        background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 6,
+        background: '#1E1E22', border: '1px solid #2A2A2E', borderRadius: 6,
         padding: '8px 10px', fontSize: 11, fontFamily: 'monospace',
         whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0,
         maxHeight: expanded ? 'none' : 160, overflow: 'hidden',
@@ -78,7 +78,7 @@ function JsonBlock({ data, label }: { data: unknown; label?: string }) {
         <button
           onClick={() => setExpanded(!expanded)}
           style={{
-            background: 'none', border: 'none', color: '#6B21A8', cursor: 'pointer',
+            background: 'none', border: 'none', color: '#2DD4BF', cursor: 'pointer',
             fontSize: 11, padding: '2px 0', fontWeight: 600,
           }}
         >
@@ -94,32 +94,32 @@ function MemoCard({ memo }: { memo: AcpMemoInspection }) {
 
   return (
     <div style={{
-      padding: '10px 12px', background: '#fff', border: '1px solid #E5E7EB',
+      padding: '10px 12px', background: '#161618', border: '1px solid #2A2A2E',
       borderRadius: 8, marginBottom: 8,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{
-            background: '#EDE9FE', color: '#6B21A8', fontWeight: 600,
+            background: 'rgba(45, 212, 191, 0.12)', color: '#2DD4BF', fontWeight: 600,
             padding: '1px 6px', borderRadius: 4, fontSize: 10,
           }}>
             #{memo.id}
           </span>
           <span style={{
-            background: '#DBEAFE', color: '#1D4ED8', fontWeight: 600,
+            background: 'rgba(59, 130, 246, 0.12)', color: '#3B82F6', fontWeight: 600,
             padding: '1px 6px', borderRadius: 4, fontSize: 10,
           }}>
             {memo.type}
           </span>
           <span style={{
-            background: memo.status === 'APPROVED' ? '#D1FAE5' : memo.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7',
-            color: memo.status === 'APPROVED' ? '#065F46' : memo.status === 'REJECTED' ? '#991B1B' : '#92400E',
+            background: memo.status === 'APPROVED' ? 'rgba(45, 212, 191, 0.12)' : memo.status === 'REJECTED' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(251, 146, 60, 0.12)',
+            color: memo.status === 'APPROVED' ? '#2DD4BF' : memo.status === 'REJECTED' ? '#EF4444' : '#FB923C',
             fontWeight: 600, padding: '1px 6px', borderRadius: 4, fontSize: 10,
           }}>
             {memo.status}
           </span>
         </div>
-        <span style={{ fontSize: 10, color: '#9CA3AF' }}>
+        <span style={{ fontSize: 10, color: '#7A7670' }}>
           {truncateAddress(memo.senderAddress)}
         </span>
       </div>
@@ -127,14 +127,14 @@ function MemoCard({ memo }: { memo: AcpMemoInspection }) {
         <JsonBlock data={parsed} />
       ) : (
         <div style={{
-          fontSize: 12, color: '#374151', marginTop: 4,
+          fontSize: 12, color: '#E8E2DA', marginTop: 4,
           maxHeight: 100, overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {memo.content.slice(0, 500)}{memo.content.length > 500 ? '...' : ''}
         </div>
       )}
       {memo.txHash && (
-        <div style={{ fontSize: 10, color: '#6B7280', marginTop: 4, fontFamily: 'monospace' }}>
+        <div style={{ fontSize: 10, color: '#7A7670', marginTop: 4, fontFamily: 'monospace' }}>
           TX: {memo.txHash.slice(0, 20)}...
         </div>
       )}
@@ -144,12 +144,12 @@ function MemoCard({ memo }: { memo: AcpMemoInspection }) {
 
 function JobCard({ job, defaultExpanded }: { job: AcpJobInspection; defaultExpanded?: boolean }) {
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
-  const phaseColor = PHASE_COLORS[job.phase] ?? '#6B7280';
+  const phaseColor = PHASE_COLORS[job.phase] ?? '#7A7670';
 
   return (
     <div style={{
-      border: '1px solid #E5E7EB', borderRadius: 10, marginBottom: 12,
-      background: '#fff', overflow: 'hidden',
+      border: '1px solid #2A2A2E', borderRadius: 10, marginBottom: 12,
+      background: '#161618', overflow: 'hidden',
     }}>
       {/* Header */}
       <div
@@ -157,11 +157,11 @@ function JobCard({ job, defaultExpanded }: { job: AcpJobInspection; defaultExpan
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '12px 16px', cursor: 'pointer',
-          borderBottom: expanded ? '1px solid #E5E7EB' : 'none',
+          borderBottom: expanded ? '1px solid #2A2A2E' : 'none',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontWeight: 700, fontSize: 15, color: '#1A1A2E' }}>
+          <span style={{ fontWeight: 700, fontSize: 15, color: '#E8E2DA' }}>
             Job #{job.acpJobId}
           </span>
           <span style={{
@@ -172,7 +172,7 @@ function JobCard({ job, defaultExpanded }: { job: AcpJobInspection; defaultExpan
           </span>
           {job.localSession && (
             <span style={{
-              background: '#F3E8FF', color: '#6B21A8', fontWeight: 600,
+              background: 'rgba(45, 212, 191, 0.12)', color: '#2DD4BF', fontWeight: 600,
               padding: '2px 8px', borderRadius: 6, fontSize: 11,
             }}>
               {job.localSession.offeringType.replace(/_/g, ' ')}
@@ -181,11 +181,11 @@ function JobCard({ job, defaultExpanded }: { job: AcpJobInspection; defaultExpan
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {job.price > 0 ? (
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#059669' }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#2DD4BF' }}>
               {job.price} USDC
             </span>
           ) : null}
-          <span style={{ fontSize: 12, color: '#9CA3AF' }}>
+          <span style={{ fontSize: 12, color: '#7A7670' }}>
             {expanded ? '\u25B2' : '\u25BC'}
           </span>
         </div>
@@ -200,20 +200,20 @@ function JobCard({ job, defaultExpanded }: { job: AcpJobInspection; defaultExpan
             gap: 8, marginBottom: 16,
           }}>
             <div>
-              <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>Client (Buyer)</div>
-              <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#374151', wordBreak: 'break-all' }}>
+              <div style={{ fontSize: 10, color: '#7A7670', fontWeight: 600, textTransform: 'uppercase' }}>Client (Buyer)</div>
+              <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#E8E2DA', wordBreak: 'break-all' }}>
                 {job.clientAddress}
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>Provider (Us)</div>
-              <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#374151', wordBreak: 'break-all' }}>
+              <div style={{ fontSize: 10, color: '#7A7670', fontWeight: 600, textTransform: 'uppercase' }}>Provider (Us)</div>
+              <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#E8E2DA', wordBreak: 'break-all' }}>
                 {job.providerAddress}
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase' }}>Evaluator</div>
-              <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#374151', wordBreak: 'break-all' }}>
+              <div style={{ fontSize: 10, color: '#7A7670', fontWeight: 600, textTransform: 'uppercase' }}>Evaluator</div>
+              <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#E8E2DA', wordBreak: 'break-all' }}>
                 {job.evaluatorAddress}
               </div>
             </div>
@@ -222,19 +222,19 @@ function JobCard({ job, defaultExpanded }: { job: AcpJobInspection; defaultExpan
           {/* Local session link */}
           {job.localSession && (
             <div style={{
-              background: '#F3E8FF', borderRadius: 8, padding: '8px 12px', marginBottom: 16,
+              background: 'rgba(45, 212, 191, 0.12)', borderRadius: 8, padding: '8px 12px', marginBottom: 16,
               display: 'flex', alignItems: 'center', gap: 10,
             }}>
-              <span style={{ fontSize: 12, color: '#6B21A8', fontWeight: 600 }}>Local Session:</span>
+              <span style={{ fontSize: 12, color: '#2DD4BF', fontWeight: 600 }}>Local Session:</span>
               <a
                 href={`/dashboard/session/${job.localSession.id}`}
-                style={{ fontSize: 12, color: '#6B21A8', fontFamily: 'monospace' }}
+                style={{ fontSize: 12, color: '#2DD4BF', fontFamily: 'monospace' }}
               >
                 {job.localSession.id.slice(0, 12)}...
               </a>
               <span style={{
-                background: '#fff', padding: '1px 6px', borderRadius: 4,
-                fontSize: 10, fontWeight: 600, color: '#6B21A8',
+                background: '#161618', padding: '1px 6px', borderRadius: 4,
+                fontSize: 10, fontWeight: 600, color: '#2DD4BF',
               }}>
                 {job.localSession.status}
               </span>
@@ -259,17 +259,17 @@ function JobCard({ job, defaultExpanded }: { job: AcpJobInspection; defaultExpan
           {/* Rejection reason */}
           {job.rejectionReason && (
             <div style={{
-              marginTop: 12, background: '#FEE2E2', borderRadius: 8, padding: '8px 12px',
+              marginTop: 12, background: 'rgba(239, 68, 68, 0.12)', borderRadius: 8, padding: '8px 12px',
             }}>
-              <div style={{ fontSize: 10, color: '#991B1B', fontWeight: 600, textTransform: 'uppercase' }}>Rejection Reason</div>
-              <div style={{ fontSize: 12, color: '#991B1B', marginTop: 2 }}>{job.rejectionReason}</div>
+              <div style={{ fontSize: 10, color: '#EF4444', fontWeight: 600, textTransform: 'uppercase' }}>Rejection Reason</div>
+              <div style={{ fontSize: 12, color: '#EF4444', marginTop: 2 }}>{job.rejectionReason}</div>
             </div>
           )}
 
           {/* Memos */}
           {job.memos.length > 0 && (
             <div style={{ marginTop: 16 }}>
-              <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: '#7A7670', fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>
                 Memos ({job.memos.length})
               </div>
               {job.memos.map(memo => (
