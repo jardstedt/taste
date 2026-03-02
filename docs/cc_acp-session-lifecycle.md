@@ -8,7 +8,10 @@ How jobs flow from a buying agent through Taste to an expert and back.
 Buying Agent (ACP)          Taste Server              Expert Dashboard
 ─────────────────          ────────────              ────────────────
 initiateJob(req)  ──────►  handleNewTask()
+                           - resolve offering type
                            - extract requirements
+                           - check operating hours
+                           - validate requirements
                            - accept job
                            - create session
                            - seed first chat message
@@ -42,7 +45,7 @@ evaluate(true)    ──────►  handleEvaluate(COMPLETED)
 
 | Phase | # | What happens |
 |-------|---|-------------|
-| REQUEST | 0 | Buyer sends `initiateJob(requirementData)`. Taste auto-accepts. |
+| REQUEST | 0 | Buyer sends `initiateJob(requirementData)`. Taste validates (offering type, operating hours, requirements) then accepts or rejects. |
 | NEGOTIATION | 1 | Taste creates a payment requirement. Buyer pays. |
 | TRANSACTION | 2 | Session is active. Expert and agent converse. Memo bridge runs. |
 | EVALUATION | 3 | Expert completed session. Taste delivers result. Buyer reviews. |
@@ -181,6 +184,7 @@ File upload routes are currently disabled (return 403). Implementation preserved
 
 ## Safety Guards
 
+- **Operating hours gate**: Jobs arriving outside 09:00–23:00 CET are rejected with schedule and next-open ETA (prevents unattended timeouts)
 - **Fee limit**: MAX_FEE_USDC = 0.01 per offering
 - **Gas price cap**: MAX_GAS_PRICE_GWEI = 0.5 (checked before onchain operations)
 - **Memo size**: Content capped at 2000 chars (inbound + outbound)

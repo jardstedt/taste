@@ -390,3 +390,11 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 **Context:** `acceptSession` only checked session status, not expert status. A deactivated expert or one who hadn't accepted the agreement could accept sessions via direct API call or race condition.
 
 **Decision:** Added explicit checks: expert must exist, not be deactivated, and have accepted the agreement. Mirrors the checks already in `findExpertsForDomain` for consistency.
+
+### 2026-03-02: Reject jobs outside operating hours (supersedes queuing)
+
+**Context:** The original design (2026-02-26) kept Taste online 24/7 and queued jobs arriving outside 09:00–23:00 CET. In practice, queued jobs inevitably timed out because no expert came online before the SLA deadline. This wasted the buyer's gas/time and counted as failures against Taste's reliability metrics (10 consecutive failures = ungraduated).
+
+**Decision:** Jobs arriving outside operating hours are now rejected immediately in `handleNewTask()` with a clear message: schedule, next-open time, and instruction to resubmit. The check runs after offering type resolution but before `job.accept()`, so the buyer never enters the payment flow.
+
+**Rationale:** A clean rejection with an ETA is strictly better than a silent timeout. The buyer gets immediate feedback, saves gas on the payment transaction, and can retry at the right time. Taste's success rate improves because timeouts from unattended jobs are eliminated. The resource availability endpoint still exposes `operatingHours.currentlyOpen` and `nextOpenAt` for agents that check proactively, but the server-side gate catches agents that don't.

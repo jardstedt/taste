@@ -18,7 +18,7 @@ const OPERATING_HOURS = {
   timezone: 'Europe/Stockholm',
   dailyStart: 9,   // 09:00 local
   dailyEnd: 23,     // 23:00 local
-  description: 'Experts available 09:00–23:00 CET daily. Jobs submitted outside hours are queued and matched when experts come online.',
+  description: 'Experts available 09:00–23:00 CET daily. Jobs submitted outside hours are rejected with next-open ETA — resubmit when experts are online.',
 };
 
 interface DomainAvailability {
@@ -150,7 +150,7 @@ export function getResourceAvailability(): ResourceAvailability {
  * Compute current operating hours status with next-open time.
  * Uses IANA timezone for reliable DST handling.
  */
-function getOperatingHours(): OperatingHours {
+export function getOperatingHours(): OperatingHours {
   const { timezone, dailyStart, dailyEnd, description } = OPERATING_HOURS;
 
   // Get current hour in the expert timezone

@@ -20,6 +20,7 @@ import {
 import { notifyExpert, emitToSession } from './socket.js';
 import { sendPushToExpert } from './push.js';
 import { validateReferenceCode, redeemReferenceCode } from './referral.js';
+import { getOperatingHours } from './resource.js';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -375,6 +376,15 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
       }
 
       console.log(`[ACP] Offering type: ${offeringType}, requirement keys: ${Object.keys(requirements).join(', ')}`);
+
+      // Reject if outside operating hours — no expert will be online to handle it
+      const hours = getOperatingHours();
+      if (!hours.currentlyOpen) {
+        const msg = `Experts are currently offline (${hours.schedule}). Next available: ${hours.nextOpenAt}. Please resubmit after that time.`;
+        console.log(`[ACP] Job ${job.id} rejected — outside operating hours (next open: ${hours.nextOpenAt})`);
+        await job.reject(msg);
+        return;
+      }
 
       // Validate requirements (disabled offerings, empty input, token ops, compliance)
       const rejectionReason = _testValidateJobRequirements(requirements, offeringType);
