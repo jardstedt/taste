@@ -216,6 +216,19 @@ async function main() {
     res.send(html);
   });
 
+  // Serve general whitepaper as rendered HTML
+  const whitepaperGeneralPath = resolve(__dirname, '../../WHITEPAPER_v3_0_GENERAL.md');
+  app.get('/whitepaper_general', (_req, res) => {
+    if (!existsSync(whitepaperGeneralPath)) {
+      res.status(404).send('Whitepaper not found');
+      return;
+    }
+    const md = readFileSync(whitepaperGeneralPath, 'utf-8');
+    const html = renderWhitepaperHtml(md);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  });
+
   // Serve dashboard static files in production
   const dashboardDist = resolve(__dirname, '../../dashboard/dist');
   if (existsSync(dashboardDist)) {
