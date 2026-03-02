@@ -40,7 +40,7 @@ export function initDb(): Database.Database {
   return _db;
 }
 
-const KNOWN_TABLES = ['experts', 'withdrawals', 'sessions', 'messages', 'addons', 'reputation_events', 'audit_log', 'session_deliverables', 'session_attachments', 'reference_codes'];
+const KNOWN_TABLES = ['experts', 'withdrawals', 'sessions', 'messages', 'addons', 'reputation_events', 'audit_log', 'session_deliverables', 'session_attachments', 'reference_codes', 'expert_applications'];
 
 function hasColumn(db: Database.Database, table: string, column: string): boolean {
   if (!KNOWN_TABLES.includes(table)) throw new Error(`Unknown table: ${table}`);
@@ -144,6 +144,21 @@ function runMigrations(db: Database.Database): void {
     db.exec('ALTER TABLE experts ADD COLUMN email_hash TEXT');
     db.exec('CREATE INDEX IF NOT EXISTS idx_experts_email_hash ON experts(email_hash)');
   }
+
+  // v1.8: expert applications table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS expert_applications (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      domains TEXT NOT NULL DEFAULT '[]',
+      portfolio_url TEXT,
+      bio TEXT NOT NULL,
+      motivation TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
 }
 
 export function closeDb(): void {

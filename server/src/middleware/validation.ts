@@ -69,6 +69,17 @@ export const rejectWithdrawalSchema = z.object({
   reason: z.string().min(1, 'Rejection reason is required').max(500),
 });
 
+// ── Expert Application Schema ──
+
+export const expertApplicationSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  email: z.string().email(),
+  domains: z.array(z.enum(['crypto', 'music', 'art', 'design', 'culture', 'community', 'business', 'general'])).min(1, 'Select at least one domain'),
+  portfolioUrl: z.string().url().optional().or(z.literal('')),
+  bio: z.string().min(1, 'Bio is required').max(1000),
+  motivation: z.string().min(1, 'Motivation is required').max(500),
+});
+
 // ── Session Schemas (v1.1) ──
 
 export const createSessionSchema = z.object({

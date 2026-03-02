@@ -84,6 +84,16 @@ export function acceptAgreement(id: string) {
   return request(`/experts/${id}/accept-agreement`, { method: 'POST', body: JSON.stringify({ accepted: true }) });
 }
 
+// ── Expert Applications ──
+
+export function getApplications() {
+  return request('/applications');
+}
+
+export function updateApplication(id: string, status: string) {
+  return request(`/applications/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+}
+
 // ── Wallets & Withdrawals ──
 
 export function setWallet(expertId: string, walletAddress: string, walletChain: string = 'base') {

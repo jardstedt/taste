@@ -33,6 +33,7 @@ import {
   getPendingWithdrawals,
 } from '../services/withdrawals.js';
 import { getExpertReputationScores, getExpertReputationHistory } from '../services/reputation.js';
+import { getDb } from '../db/database.js';
 import { getOfferingDefinitions, inspectAcpJob, inspectSessionAcp, listAcpJobs, claimAllCompletedJobs } from '../services/acp.js';
 import type { Domain, ExpertCredentials, WalletChain } from '../types/index.js';
 import { withdrawalLimiter, passwordLimiter, uploadLimiter } from '../middleware/rateLimit.js';
@@ -212,6 +213,43 @@ router.post('/experts/:id/accept-agreement', validate(acceptAgreementSchema), (r
   }
 
   acceptAgreement(param(req.params.id));
+  res.json({ success: true });
+});
+
+// ── Expert Applications (admin) ──
+
+interface ApplicationRow {
+  id: string; name: string; email: string; domains: string;
+  portfolio_url: string | null; bio: string; motivation: string;
+  status: string; created_at: string;
+}
+
+// GET /api/applications — list all applications (admin only)
+router.get('/applications', requireRole('admin'), (_req, res) => {
+  const db = getDb();
+  const rows = db.prepare('SELECT * FROM expert_applications ORDER BY created_at DESC').all() as ApplicationRow[];
+  const data = rows.map(r => ({
+    id: r.id, name: r.name, email: r.email,
+    domains: JSON.parse(r.domains) as string[],
+    portfolioUrl: r.portfolio_url, bio: r.bio, motivation: r.motivation,
+    status: r.status, createdAt: r.created_at,
+  }));
+  res.json({ success: true, data });
+});
+
+// PATCH /api/applications/:id — update application status (admin only)
+router.patch('/applications/:id', requireRole('admin'), (req, res) => {
+  const db = getDb();
+  const { status } = req.body as { status: string };
+  if (!['approved', 'rejected'].includes(status)) {
+    res.status(400).json({ success: false, error: 'Invalid status' });
+    return;
+  }
+  const result = db.prepare('UPDATE expert_applications SET status = ? WHERE id = ?').run(status, param(req.params.id));
+  if (result.changes === 0) {
+    res.status(404).json({ success: false, error: 'Application not found' });
+    return;
+  }
   res.json({ success: true });
 });
 

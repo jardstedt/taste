@@ -14,12 +14,12 @@ import { createServer } from 'http';
 import cookieParser from 'cookie-parser';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import { loadEnv, getEnv } from './config/env.js';
-import { initDb, closeDb } from './db/database.js';
+import { initDb, closeDb, getDb } from './db/database.js';
 import { seedAdminExpert } from './services/experts.js';
 import { initAcp, stopAcp } from './services/acp.js';
 import { initSocketServer } from './services/socket.js';
 import { createHelmet, createCors } from './middleware/security.js';
-import { globalLimiter } from './middleware/rateLimit.js';
+import { globalLimiter, authLimiter } from './middleware/rateLimit.js';
 import { createRequestLogger } from './middleware/logger.js';
 import authRoutes from './routes/auth.js';
 import apiRoutes from './routes/api.js';
@@ -28,6 +28,8 @@ import { getExpertPublic, getAllExpertsPublic, getAllExperts } from './services/
 import { getAllSessions } from './services/sessions.js';
 import { getResourceAvailability, getOfferingCatalog, getSampleDeliverables } from './services/resource.js';
 import { getAttachmentById, readFile, readAvatar, verifySignedUrl, sanitizeFilename } from './services/storage.js';
+import { validate, expertApplicationSchema } from './middleware/validation.js';
+import { generateId } from './db/database.js';
 
 async function main() {
   // Load and validate environment
@@ -189,6 +191,26 @@ async function main() {
       return;
     }
     res.json({ success: true, data: expert });
+  });
+
+  // Public expert application
+  app.post('/api/public/apply', authLimiter, validate(expertApplicationSchema), (req, res, next) => {
+    try {
+      const { name, email, domains, portfolioUrl, bio, motivation } = req.body as {
+        name: string; email: string; domains: string[];
+        portfolioUrl?: string; bio: string; motivation: string;
+      };
+      const db = getDb();
+      const id = generateId();
+      db.prepare(`
+        INSERT INTO expert_applications (id, name, email, domains, portfolio_url, bio, motivation)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(id, name, email, JSON.stringify(domains), portfolioUrl || null, bio, motivation);
+      console.log(`[Applications] New application from ${name} (${email})`);
+      res.json({ success: true, data: { id } });
+    } catch (err) {
+      next(err);
+    }
   });
 
   // Auth routes
@@ -375,29 +397,41 @@ function renderWhitepaperHtml(md: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Taste — Human Judgment for the AI Economy</title>
 <meta name="description" content="Whitepaper for Taste, the human judgment oracle for AI agents.">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #0a0a0a; --fg: #e0e0e0; --muted: #888; --accent: #c0a0ff; --border: #2a2a2a; --code-bg: #151515; }
+  :root { --bg: #0D0D0D; --surface: #161618; --fg: #E8E2DA; --muted: #7A7670; --accent: #2DD4BF; --accent2: #F472B6; --border: #2A2A2E; --code-bg: #161618; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.7; max-width: 720px; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
-  h1 { font-size: 2rem; margin: 2rem 0 0.5rem; color: #fff; }
-  h2 { font-size: 1.5rem; margin: 2.5rem 0 0.75rem; color: #fff; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
-  h3 { font-size: 1.15rem; margin: 1.8rem 0 0.5rem; color: var(--accent); }
+  body { font-family: 'JetBrains Mono', monospace; background: var(--bg); color: var(--fg); line-height: 1.8; max-width: 720px; margin: 0 auto; padding: 0 1.5rem 6rem; font-size: 13px; }
+  .wp-nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; margin-bottom: 2rem; border-bottom: 1px solid var(--border); }
+  .wp-nav a { color: var(--muted); text-decoration: none; font-size: 12px; letter-spacing: 0.5px; transition: color 0.2s; }
+  .wp-nav a:hover { color: var(--accent); }
+  .wp-brand { font-size: 14px; font-weight: 600; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.3px; }
+  h1 { font-size: 1.8rem; margin: 2rem 0 0.5rem; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  h2 { font-size: 1.3rem; margin: 2.5rem 0 0.75rem; color: #F5E6D3; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  h3 { font-size: 1rem; margin: 1.8rem 0 0.5rem; color: var(--accent); }
+  h4 { font-size: 0.9rem; margin: 1.2rem 0 0.4rem; color: var(--accent2); }
   p { margin: 0.75rem 0; }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
-  strong { color: #fff; }
+  strong { color: #F5E6D3; }
+  em { color: var(--muted); font-style: italic; }
   hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
   li { margin: 0.3rem 0 0.3rem 1.5rem; }
-  code { font-family: 'JetBrains Mono', 'Fira Code', monospace; background: var(--code-bg); padding: 0.15em 0.4em; border-radius: 3px; font-size: 0.9em; }
-  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
-  pre code { background: none; padding: 0; font-size: 0.85em; }
-  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  code { font-family: 'JetBrains Mono', monospace; background: var(--code-bg); padding: 0.15em 0.4em; border-radius: 3px; font-size: 0.9em; color: var(--accent); border: 1px solid var(--border); }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+  pre code { background: none; padding: 0; font-size: 0.85em; border: none; color: var(--fg); }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.85rem; }
   th, td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
-  th { background: var(--code-bg); color: #fff; font-weight: 600; }
-  @media (max-width: 600px) { body { padding: 1.5rem 1rem 4rem; } h1 { font-size: 1.5rem; } h2 { font-size: 1.25rem; } }
+  th { background: var(--code-bg); color: var(--accent); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
+  td { color: var(--fg); }
+  @media (max-width: 600px) { body { padding: 0 1rem 4rem; font-size: 12px; } h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; } }
 </style>
 </head>
 <body>
+<nav class="wp-nav">
+  <span class="wp-brand">Taste</span>
+  <a href="/">&larr; Back to home</a>
+</nav>
 ${html}
 </body>
 </html>`;

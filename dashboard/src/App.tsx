@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth.js';
-import { LoginForm } from './components/LoginForm.js';
 import { Layout } from './components/Layout.js';
 import { ProfileCard } from './components/ProfileCard.js';
 import { StatsOverview } from './components/StatsOverview.js';
@@ -15,23 +14,26 @@ import { ExpertDirectory } from './pages/ExpertDirectory.js';
 import { ExpertProfile } from './pages/ExpertProfile.js';
 import { AcpDemo } from './pages/AcpDemo.js';
 import { AcpInspector } from './pages/AcpInspector.js';
+import { Landing } from './pages/Landing.js';
+import { LoginPage } from './pages/LoginPage.js';
+import { ApplyPage } from './pages/ApplyPage.js';
 import { useState, useEffect } from 'react';
 import * as api from './api/client.js';
 
 function AppContent() {
-  const { user, loading: authLoading, login, logout, refresh: refreshAuth } = useAuth();
+  const { user, loading: authLoading, logout, refresh: refreshAuth } = useAuth();
   const navigate = useNavigate();
 
   if (authLoading) {
     return (
-      <div className="login-page" style={{ color: '#A855F7' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0D0D0D', color: '#2DD4BF', fontFamily: "'JetBrains Mono', monospace" }}>
         Loading...
       </div>
     );
   }
 
   if (!user) {
-    return <LoginForm onLogin={login} />;
+    return <Navigate to="/login" replace />;
   }
 
   const handleAcceptSession = async (sessionId: string) => {
@@ -95,6 +97,20 @@ function AdminPanel() {
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
   const [processingId, setProcessingId] = useState<string | null>(null);
 
+  // Applications
+  const [applications, setApplications] = useState<Array<{
+    id: string; name: string; email: string; domains: string[];
+    portfolioUrl: string | null; bio: string; motivation: string;
+    status: string; createdAt: string;
+  }>>([]);
+
+  const loadApplications = async () => {
+    const res = await api.getApplications();
+    if (res.success && res.data) {
+      setApplications(res.data as typeof applications);
+    }
+  };
+
   const loadWithdrawals = async () => {
     const res = await api.getPendingWithdrawals();
     if (res.success && res.data) {
@@ -109,6 +125,7 @@ function AdminPanel() {
       }
     });
     loadWithdrawals();
+    loadApplications();
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -178,8 +195,51 @@ function AdminPanel() {
     return expert?.name ?? expertId.slice(0, 8);
   };
 
+  const pendingApps = applications.filter(a => a.status === 'pending');
+
   return (
     <div>
+      {/* Expert Applications */}
+      {pendingApps.length > 0 && (
+        <div style={{ marginBottom: 32 }}>
+          <h2 className="page-title" style={{ marginBottom: 16 }}>Applications ({pendingApps.length})</h2>
+          {pendingApps.map(app => (
+            <div key={app.id} className="card mb-md" style={{ padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div>
+                  <span className="text-bold">{app.name}</span>
+                  <span style={{ fontSize: 12, marginLeft: 8, opacity: 0.6 }}>{app.email}</span>
+                </div>
+                <span style={{ fontSize: 11, opacity: 0.5 }}>
+                  {new Date(app.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
+                {app.domains.map(d => <span key={d} className="chip">{d}</span>)}
+              </div>
+              <div style={{ fontSize: 13, marginBottom: 8, lineHeight: 1.5 }}>{app.bio}</div>
+              <div style={{ fontSize: 12, fontStyle: 'italic', opacity: 0.7, marginBottom: 12 }}>{app.motivation}</div>
+              {app.portfolioUrl && (
+                <a href={app.portfolioUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
+                  {app.portfolioUrl}
+                </a>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={async () => { await api.updateApplication(app.id, 'approved'); loadApplications(); }}
+                  className="btn btn-primary btn-sm"
+                >Approve</button>
+                <button
+                  onClick={async () => { await api.updateApplication(app.id, 'rejected'); loadApplications(); }}
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: 'var(--color-error, #EF4444)' }}
+                >Reject</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Pending Withdrawals */}
       {pendingWithdrawals.length > 0 && (
         <div style={{ marginBottom: 32 }}>
@@ -189,20 +249,20 @@ function AdminPanel() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <div>
                   <span className="text-bold">{expertName(w.expertId)}</span>
-                  <span style={{ color: '#9CA3AF', fontSize: 12, marginLeft: 8 }}>
+                  <span style={{ color: '#7A7670', fontSize: 12, marginLeft: 8 }}>
                     {new Date(w.requestedAt).toLocaleString()}
                   </span>
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#D97706' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#FB923C' }}>
                   ${w.amountUsdc.toFixed(2)}
                 </div>
               </div>
-              <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#6B7280', marginBottom: 8, wordBreak: 'break-all' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#7A7670', marginBottom: 8, wordBreak: 'break-all' }}>
                 {w.walletAddress} ({w.walletChain === 'base' ? 'Base' : 'Ethereum'})
               </div>
               <div style={{
                 fontSize: 11, fontWeight: 600, marginBottom: 12,
-                color: w.status === 'approved' ? '#3B82F6' : '#F59E0B',
+                color: w.status === 'approved' ? '#5EEAD4' : '#FB923C',
                 textTransform: 'capitalize',
               }}>
                 Status: {w.status}
@@ -293,7 +353,7 @@ function AdminPanel() {
                       ...prev,
                       domains: e.target.checked ? [...prev.domains, d] : prev.domains.filter(x => x !== d),
                     }))}
-                    style={{ accentColor: '#6B21A8' }}
+                    style={{ accentColor: '#2DD4BF' }}
                   />
                   {d.charAt(0).toUpperCase() + d.slice(1)}
                 </label>
@@ -312,8 +372,8 @@ function AdminPanel() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
                 width: 48, height: 48, borderRadius: '50%', overflow: 'hidden',
-                background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, fontWeight: 700, color: '#6B21A8', flexShrink: 0,
+                background: '#1E1E22', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, fontWeight: 700, color: '#2DD4BF', flexShrink: 0,
               }}>
                 {avatarPreview ? (
                   <img src={avatarPreview} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -343,7 +403,7 @@ function AdminPanel() {
             <input type="text" value={form.twitterHandle} onChange={e => setForm(prev => ({ ...prev, twitterHandle: e.target.value }))} maxLength={50} className="input input-full" placeholder="handle (without @)" />
           </div>
           <div className="form-group">
-            <label className="form-label">Bio <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 400 }}>({form.bio.length}/1000)</span></label>
+            <label className="form-label">Bio <span style={{ fontSize: 11, color: '#7A7670', fontWeight: 400 }}>({form.bio.length}/1000)</span></label>
             <textarea value={form.bio} onChange={e => setForm(prev => ({ ...prev, bio: e.target.value }))} maxLength={1000} rows={3} className="input input-full" placeholder="Brief professional background..." style={{ resize: 'vertical' }} />
           </div>
 
@@ -359,11 +419,11 @@ function AdminPanel() {
             {/* Row 1: Avatar + Name/Tagline/Twitter + Status */}
             <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
               {/* Avatar with upload overlay */}
-              <div style={{ position: 'relative', flexShrink: 0 }}>
+              <div style={{ position: 'relative', flexShrink: 0, width: 44, height: 44 }}>
                 <div style={{
-                  width: 40, height: 40, borderRadius: '50%', overflow: 'hidden',
-                  background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 16, fontWeight: 700, color: '#6B21A8',
+                  width: 44, height: 44, borderRadius: '50%', overflow: 'hidden',
+                  background: '#1E1E22', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 16, fontWeight: 700, color: '#2DD4BF',
                 }}>
                   {expert.credentials?.profileImageUrl ? (
                     <img src={expert.credentials.profileImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -387,10 +447,10 @@ function AdminPanel() {
                   }}
                   title="Change avatar"
                   style={{
-                    position: 'absolute', bottom: -2, right: -2,
-                    width: 18, height: 18, borderRadius: '50%',
-                    background: '#6B21A8', color: '#fff', border: '2px solid #fff',
-                    fontSize: 12, lineHeight: '12px', cursor: 'pointer',
+                    position: 'absolute', bottom: 0, right: 0,
+                    width: 16, height: 16, borderRadius: '50%',
+                    background: '#2DD4BF', color: '#0D0D0D', border: '2px solid #161618',
+                    fontSize: 10, lineHeight: '10px', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: 0,
                   }}
@@ -404,18 +464,18 @@ function AdminPanel() {
                   <span style={{
                     fontSize: 11, fontWeight: 600, textTransform: 'capitalize',
                     padding: '1px 6px', borderRadius: 4,
-                    background: '#F3E8FF', color: '#6B21A8',
+                    background: '#1E1E22', color: '#2DD4BF',
                   }}>{expert.role}</span>
                 </div>
                 {expert.credentials?.tagline && (
-                  <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{expert.credentials.tagline}</div>
+                  <div style={{ fontSize: 12, color: '#7A7670', marginTop: 2 }}>{expert.credentials.tagline}</div>
                 )}
                 {expert.credentials?.twitterHandle && (
                   <a
                     href={`https://x.com/${expert.credentials.twitterHandle}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ fontSize: 12, color: '#7C3AED', textDecoration: 'none', marginTop: 1, display: 'inline-block' }}
+                    style={{ fontSize: 12, color: '#2DD4BF', textDecoration: 'none', marginTop: 1, display: 'inline-block' }}
                   >
                     @{expert.credentials.twitterHandle}
                   </a>
@@ -425,11 +485,11 @@ function AdminPanel() {
               {/* Status */}
               <div style={{ flexShrink: 0 }}>
                 {expert.deactivatedAt ? (
-                  <span style={{ color: 'var(--color-error, #DC2626)', fontSize: 12, fontWeight: 600 }}>Deactivated</span>
+                  <span style={{ color: 'var(--color-error, #EF4444)', fontSize: 12, fontWeight: 600 }}>Deactivated</span>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span className={`status-dot status-dot-${expert.availability}`} />
-                    <span style={{ textTransform: 'capitalize', fontSize: 12 }}>{expert.availability}</span>
+                    <span style={{ textTransform: 'capitalize', fontSize: 12, color: expert.availability === 'online' ? '#2DD4BF' : '#7A7670' }}>{expert.availability}</span>
                   </div>
                 )}
               </div>
@@ -437,7 +497,7 @@ function AdminPanel() {
 
             {/* Bio */}
             {expert.credentials?.bio && (
-              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8, lineHeight: 1.4 }}>
+              <div style={{ fontSize: 12, color: '#7A7670', marginBottom: 8, lineHeight: 1.4 }}>
                 {expert.credentials.bio.length > 150 ? expert.credentials.bio.slice(0, 150) + '...' : expert.credentials.bio}
               </div>
             )}
@@ -451,7 +511,7 @@ function AdminPanel() {
 
             {/* Footer */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 12, color: '#9CA3AF' }}>{expert.completedJobs} jobs completed</span>
+              <span style={{ fontSize: 12, color: '#7A7670' }}>{expert.completedJobs} jobs completed</span>
               {expert.role !== 'admin' && !expert.deactivatedAt && (
                 <button
                   onClick={async () => {
@@ -461,7 +521,7 @@ function AdminPanel() {
                     if (res.success && res.data) setExperts(res.data as typeof experts);
                   }}
                   className="btn btn-ghost btn-sm"
-                  style={{ color: 'var(--color-error, #DC2626)', fontSize: 12, padding: '3px 10px' }}
+                  style={{ color: 'var(--color-error, #EF4444)', fontSize: 12, padding: '3px 10px' }}
                 >
                   Remove
                 </button>
@@ -478,8 +538,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Redirect root to dashboard */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/apply" element={<ApplyPage />} />
         <Route path="/experts" element={<ExpertDirectory />} />
         <Route path="/expert/:id" element={<ExpertProfile />} />
         <Route path="/terms" element={<Terms />} />
