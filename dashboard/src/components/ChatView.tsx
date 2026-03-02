@@ -181,6 +181,36 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
 
       {/* ── Scrollable body ── */}
       <div className="session-body">
+        {/* ── Status badge (finished sessions) ── */}
+        {isFinished && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 14px', borderRadius: 8,
+            background: session.status === 'completed' ? '#F0FDF4'
+              : session.status === 'cancelled' ? '#FEF2F2' : '#F9FAFB',
+            border: `1px solid ${session.status === 'completed' ? '#BBF7D0'
+              : session.status === 'cancelled' ? '#FECACA' : '#E5E7EB'}`,
+          }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+              background: session.status === 'completed' ? '#22C55E'
+                : session.status === 'cancelled' ? '#EF4444' : '#9CA3AF',
+            }} />
+            <span style={{
+              fontSize: 13, fontWeight: 600,
+              color: session.status === 'completed' ? '#15803D'
+                : session.status === 'cancelled' ? '#991B1B' : '#6B7280',
+            }}>
+              {session.status === 'completed' ? 'Completed' : session.status === 'cancelled' ? 'Declined' : 'Timed out'}
+            </span>
+            {session.completedAt && (
+              <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 'auto' }}>
+                {new Date(session.completedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* ── Request section ── */}
         {desc.raw && (
           <div className="session-request">
@@ -302,20 +332,13 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
           </div>
         )}
 
-        {/* ── End states with deliverable + messages ── */}
+        {/* ── Deliverable (finished sessions) ── */}
         {isFinished && (
           <>
-            <div className="chat-ended" style={{
-              margin: 16, borderRadius: 8,
-              color: session.status === 'completed' ? undefined : session.status === 'cancelled' ? '#991B1B' : '#6B7280',
-            }}>
-              {session.status === 'completed' ? 'Job completed' : session.status === 'cancelled' ? 'Job declined' : 'Job timed out'}
-            </div>
-
             {/* Deliverable */}
             {deliverable && Object.keys(deliverable).length > 0 && (
               <div style={{
-                margin: '0 16px 16px', padding: 16,
+                padding: 16,
                 background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10,
               }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
