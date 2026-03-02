@@ -335,8 +335,7 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
         {/* ── Deliverable (finished sessions) ── */}
         {isFinished && (
           <>
-            {/* Deliverable */}
-            {deliverable && Object.keys(deliverable).length > 0 && (
+            {deliverable && Object.keys(deliverable).length > 0 ? (
               <div style={{
                 padding: 16,
                 background: 'rgba(45, 212, 191, 0.06)', border: '1px solid rgba(45, 212, 191, 0.2)', borderRadius: 10,
@@ -362,8 +361,41 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
                   })}
                 </div>
               </div>
-            )}
+            ) : session.status === 'completed' ? (
+              <div style={{
+                padding: 16,
+                background: 'rgba(122, 118, 112, 0.06)', border: '1px solid #2A2A2E', borderRadius: 10,
+                fontSize: 13, color: '#7A7670', fontStyle: 'italic',
+              }}>
+                No structured assessment recorded for this session.
+              </div>
+            ) : null}
 
+            {/* Show chat messages for finished sessions */}
+            {userMessages > 0 && (
+              <div className="chat-collapse-section">
+                <button
+                  onClick={() => setShowChat(!showChat)}
+                  className="chat-collapse-toggle"
+                  style={{ width: '100%' }}
+                >
+                  <span>
+                    Messages
+                    <span className="chat-collapse-badge">{userMessages}</span>
+                  </span>
+                  <span style={{ fontSize: 10, color: '#7A7670' }}>{showChat ? '\u25B2' : '\u25BC'}</span>
+                </button>
+                {showChat && (
+                  <div className="chat-collapse-body">
+                    <div className="chat-messages" style={{ maxHeight: 300, flex: 'none' }}>
+                      {messages.filter(m => m.messageType !== 'system_notice' || m.content !== messages[0]?.content).map(msg => (
+                        <ChatBubble key={msg.id} message={msg} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
 

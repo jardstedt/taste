@@ -20,7 +20,7 @@ export function useChat(sessionId: string | null) {
       setSession(data.session);
       setMessages(data.messages);
       setAddons(data.addons);
-      if (data.deliverable) setDeliverable(data.deliverable);
+      setDeliverable(data.deliverable ?? null);
     }
     setLoading(false);
   }, [sessionId]);
