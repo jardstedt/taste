@@ -23,6 +23,7 @@ vi.mock('../services/acp.js', () => ({
 /** Create an active ACP session of any offering type */
 async function createActiveAcpSession(offeringType: string, acpJobId = '12345') {
   const domains = offeringType === 'dispute_arbitration' ? ['general', 'crypto'] : ['crypto'];
+  const tags = offeringType === 'dispute_arbitration' ? ['evaluator'] : [];
   const expert = await createOnlineExpert('Alice', 'alice@test.com', domains);
   const session = createSession({
     offeringType,
@@ -31,6 +32,7 @@ async function createActiveAcpSession(offeringType: string, acpJobId = '12345') 
     buyerAgent: '0xAgent',
     acpJobId,
     priceUsdc: 0.01,
+    tags,
   });
   matchSession(session.id);
   acceptSession(session.id, expert.id);

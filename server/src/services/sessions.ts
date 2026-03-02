@@ -152,6 +152,9 @@ export function createSession(opts: {
   const tierId = opts.tierId ?? offering?.defaultTier ?? 'quick';
   const tier = getSessionTier(tierId);
   const price = opts.priceUsdc ?? offering?.basePrice ?? (tier ? tier.priceRange[0] : 1);
+  if (price <= 0) {
+    throw new Error('Session price must be greater than zero');
+  }
   const maxTurns = tier?.maxTurns ?? 20;
   const durationMins = tier ? tier.durationMinutes[1] : 30;
   const deadlineAt = new Date(Date.now() + durationMins * 60 * 1000).toISOString();
@@ -342,6 +345,11 @@ export function acceptSession(sessionId: string, expertId: string): Session | nu
   const session = getSessionById(sessionId);
   if (!session) return null;
   if (session.status !== 'pending' && session.status !== 'matching') return null;
+
+  // Verify expert is eligible to accept sessions
+  const expert = getExpertById(expertId);
+  if (!expert || expert.deactivatedAt) return null;
+  if (!expert.agreementAcceptedAt) return null;
 
   const db = getDb();
   const tier = getSessionTier(session.tierId);
@@ -857,7 +865,7 @@ export function formatSessionDeliverable(sessionId: string): Record<string, unkn
   // Generate signed URLs for attachments
   const attachments = getSessionAttachments(sessionId);
   const env = getEnv();
-  const baseUrl = (env as Record<string, string>).BASE_URL || env.CORS_ORIGIN;
+  const baseUrl = env.BASE_URL || env.CORS_ORIGIN;
   const attachmentUrls = attachments.map(a => ({
     filename: a.originalFilename,
     mimeType: a.mimeType,

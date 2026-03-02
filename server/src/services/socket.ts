@@ -3,6 +3,7 @@ import type { Server as HttpServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { getEnv } from '../config/env.js';
 import type { AuthPayload } from '../types/index.js';
+import { getExpertById } from './experts.js';
 import {
   acceptSession,
   addMessage,
@@ -77,7 +78,22 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
       }
 
       const env = getEnv();
-      const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as AuthPayload;
+      const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as AuthPayload & { iat?: number };
+
+      // Check if user has been deactivated since token was issued
+      const expert = getExpertById(payload.expertId);
+      if (!expert || expert.deactivatedAt) {
+        return next(new Error('Account deactivated'));
+      }
+
+      // Check if password was changed after token was issued
+      if (expert.passwordChangedAt && payload.iat) {
+        const changedAtSec = new Date(expert.passwordChangedAt).getTime() / 1000;
+        if (payload.iat < changedAtSec) {
+          return next(new Error('Token invalidated by password change'));
+        }
+      }
+
       (socket as any).auth = payload;
       next();
     } catch {

@@ -8,12 +8,14 @@ export const loginSchema = z.object({
   password: z.string().min(1).max(128),
 });
 
+const httpsUrl = z.string().url().refine(u => /^https?:\/\//.test(u), 'Must be an HTTP(S) URL');
+
 const credentialsSchema = z.object({
   bio: z.string().max(1000).optional(),
-  profileImageUrl: z.string().url().optional().or(z.literal('')),
+  profileImageUrl: httpsUrl.optional().or(z.literal('')),
   twitterHandle: z.string().max(50).optional(),
-  linkedinUrl: z.string().url().optional().or(z.literal('')),
-  portfolioUrl: z.string().url().optional().or(z.literal('')),
+  linkedinUrl: httpsUrl.optional().or(z.literal('')),
+  portfolioUrl: httpsUrl.optional().or(z.literal('')),
   location: z.string().max(100).optional(),
   tagline: z.string().max(200).optional(),
 }).optional();

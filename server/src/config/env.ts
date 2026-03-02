@@ -11,8 +11,8 @@ const envSchema = z.object({
   // Server
   PORT: z.string().default('3001'),
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
-  ADMIN_EMAIL: z.string().email(),
-  ADMIN_PASSWORD: z.string().min(8, 'ADMIN_PASSWORD must be at least 8 characters'),
+  ADMIN_EMAIL: z.string().email().optional(),
+  ADMIN_PASSWORD: z.string().min(8, 'ADMIN_PASSWORD must be at least 8 characters').optional(),
 
   // Database
   DB_PATH: z.string().default('./data/taste.db'),
@@ -21,6 +21,9 @@ const envSchema = z.object({
   UPLOAD_DIR: z.string().default('./data/uploads'),
   BASE_URL: z.string().optional(),
   FILE_SIGNING_SECRET: z.string().min(16).optional(),
+
+  // Proxy
+  TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
 
   // Security
   EMAIL_ENCRYPTION_KEY: z.string().length(64, 'EMAIL_ENCRYPTION_KEY must be 64 hex characters (32 bytes)').optional()

@@ -116,7 +116,7 @@ export function sanitizeFilename(filename: string): string {
 
 function getUploadDir(): string {
   const env = getEnv();
-  return (env as Record<string, string>).UPLOAD_DIR || './data/uploads';
+  return env.UPLOAD_DIR || './data/uploads';
 }
 
 function ensureSessionDir(sessionId: string): string {
@@ -334,6 +334,10 @@ function ensureAvatarDir(): string {
 }
 
 export function deleteAvatar(expertId: string): boolean {
+  // Validate expertId doesn't contain path separators
+  if (expertId.includes('/') || expertId.includes('\\') || expertId.includes('..')) {
+    return false;
+  }
   const dir = ensureAvatarDir();
   // Remove any existing avatar file for this expert (any extension)
   const existing = readdirSync(dir).filter(f => f.startsWith(`${expertId}.`));
@@ -364,8 +368,11 @@ export function saveAvatar(
 
   const ext = MIME_TO_EXTENSION[declaredMime] || '.png';
   const dir = ensureAvatarDir();
-  const filePath = join(dir, `${expertId}${ext}`);
-  writeFileSync(filePath, buffer);
+  const safePath = resolve(dir, `${expertId}${ext}`);
+  if (!safePath.startsWith(dir)) {
+    throw new Error('Path traversal detected');
+  }
+  writeFileSync(safePath, buffer);
 
   return `/api/public/avatars/${expertId}`;
 }
@@ -376,9 +383,10 @@ export function readAvatar(expertId: string): { buffer: Buffer; mimeType: string
   for (const mime of AVATAR_MIME_TYPES) {
     const ext = MIME_TO_EXTENSION[mime];
     if (!ext) continue;
-    const filePath = join(dir, `${expertId}${ext}`);
-    if (existsSync(filePath)) {
-      return { buffer: readFileSync(filePath), mimeType: mime };
+    const safePath = resolve(dir, `${expertId}${ext}`);
+    if (!safePath.startsWith(dir)) return null; // Path traversal guard
+    if (existsSync(safePath)) {
+      return { buffer: readFileSync(safePath), mimeType: mime };
     }
   }
   return null;

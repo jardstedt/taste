@@ -22,13 +22,22 @@ export function verifyToken(req: Request, res: Response, next: NextFunction): vo
 
   try {
     const env = getEnv();
-    const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as AuthPayload;
+    const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as AuthPayload & { iat?: number };
 
     // Check if user has been deactivated since token was issued
     const expert = getExpertById(payload.expertId);
     if (!expert || expert.deactivatedAt) {
       res.status(401).json({ success: false, error: 'Account deactivated' });
       return;
+    }
+
+    // Check if password was changed after token was issued
+    if (expert.passwordChangedAt && payload.iat) {
+      const changedAtSec = new Date(expert.passwordChangedAt).getTime() / 1000;
+      if (payload.iat < changedAtSec) {
+        res.status(401).json({ success: false, error: 'Token invalidated by password change' });
+        return;
+      }
     }
 
     req.auth = payload;

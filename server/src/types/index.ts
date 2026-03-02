@@ -36,6 +36,7 @@ export interface Expert {
   earningsUsdc: number;
   walletAddress: string | null;
   walletChain: WalletChain;
+  passwordChangedAt: string | null;
   deactivatedAt: string | null;
   createdAt: string;
   updatedAt: string;

@@ -135,6 +135,11 @@ function runMigrations(db: Database.Database): void {
     db.exec('ALTER TABLE sessions ADD COLUMN cancel_reason TEXT');
   }
 
+  // v1.7: password change tracking for token invalidation
+  if (!hasColumn(db, 'experts', 'password_changed_at')) {
+    db.exec('ALTER TABLE experts ADD COLUMN password_changed_at TEXT');
+  }
+
   if (!hasColumn(db, 'experts', 'email_hash')) {
     db.exec('ALTER TABLE experts ADD COLUMN email_hash TEXT');
     db.exec('CREATE INDEX IF NOT EXISTS idx_experts_email_hash ON experts(email_hash)');

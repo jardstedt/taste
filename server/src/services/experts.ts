@@ -29,6 +29,7 @@ interface ExpertRow {
   earnings_usdc: number;
   wallet_address: string | null;
   wallet_chain: string;
+  password_changed_at: string | null;
   deactivated_at: string | null;
   created_at: string;
   updated_at: string;
@@ -51,6 +52,7 @@ function rowToExpert(row: ExpertRow): Expert {
     earningsUsdc: row.earnings_usdc,
     walletAddress: row.wallet_address,
     walletChain: (row.wallet_chain || 'base') as WalletChain,
+    passwordChangedAt: row.password_changed_at,
     deactivatedAt: row.deactivated_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -218,7 +220,7 @@ export function updateExpert(
 export async function setExpertPassword(id: string, password: string): Promise<void> {
   const db = getDb();
   const hash = await bcrypt.hash(password, 12);
-  db.prepare('UPDATE experts SET password_hash = ?, updated_at = datetime(\'now\') WHERE id = ?').run(hash, id);
+  db.prepare("UPDATE experts SET password_hash = ?, password_changed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(hash, id);
   auditLog('expert', id, 'password_set');
 }
 

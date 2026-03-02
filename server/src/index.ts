@@ -39,7 +39,7 @@ async function main() {
   console.log('[DB] Initialized');
 
   // Ensure upload directory exists
-  const uploadDir = resolve((env as Record<string, string>).UPLOAD_DIR || './data/uploads');
+  const uploadDir = resolve(env.UPLOAD_DIR || './data/uploads');
   if (!existsSync(uploadDir)) {
     mkdirSync(uploadDir, { recursive: true });
     console.log('[Storage] Created upload directory:', uploadDir);
@@ -48,16 +48,19 @@ async function main() {
   // Initialize push notifications
   initPush();
 
-  // Seed admin expert
-  await seedAdminExpert(env.ADMIN_EMAIL, env.ADMIN_PASSWORD);
-  console.log('[DB] Admin expert seeded');
+  // Seed admin expert (only if both email and password are configured)
+  if (env.ADMIN_EMAIL && env.ADMIN_PASSWORD) {
+    await seedAdminExpert(env.ADMIN_EMAIL, env.ADMIN_PASSWORD);
+    console.log('[DB] Admin expert seeded');
+  }
 
   // Create Express app
   const app = express();
 
   // Trust proxy chain (Cloudflare → Nginx) so Express sees real client IPs for rate limiting
-  if (process.env.NODE_ENV === 'production') {
-    app.set('trust proxy', 2);
+  const trustProxy = env.TRUST_PROXY;
+  if (trustProxy > 0) {
+    app.set('trust proxy', trustProxy);
   }
 
   // Request logging (before other middleware)

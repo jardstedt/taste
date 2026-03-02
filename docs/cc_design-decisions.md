@@ -360,3 +360,33 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 - **$0.02 base → $0.01 discount:** ACP minimum is $0.01. Bumping content_quality_gate to $0.02 via `basePrice` (not global tier change) keeps other offerings at $0.01 while making the 50% discount land exactly at the minimum.
 - **Regex fallback scan:** ACP agents may not use structured JSON fields consistently. A fallback regex scan of stringified requirements catches codes embedded in free-text. Invalid codes are silently ignored (job continues at full price).
 - **previousAssessment in deliverable:** Follow-up sessions include the original session's structured assessment so the expert can compare what changed.
+
+---
+
+## Security Hardening Batch (Trail of Bits methodology)
+
+### 2026-03-02: Token invalidation via passwordChangedAt
+
+**Context:** After a password change, existing JWT tokens remained valid until their natural expiry (2h). An attacker with a stolen token could continue using it even after the victim changed their password.
+
+**Decision:** Added `password_changed_at` column to experts. On password change, timestamp is set. Both HTTP auth middleware and WebSocket auth middleware compare JWT `iat` against `passwordChangedAt` — tokens issued before the password change are rejected.
+
+**Rationale:** JWT statelessness means we can't revoke individual tokens. Comparing `iat` vs `passwordChangedAt` is a lightweight per-request check that avoids a token blacklist while achieving the same effect.
+
+### 2026-03-02: TRUST_PROXY as env var (not hardcoded)
+
+**Context:** `trust proxy` was hardcoded to `2` in production. Different deployments may have different proxy chain lengths (direct, single reverse proxy, CDN + nginx, etc.). Wrong value = rate limiter sees proxy IPs instead of client IPs.
+
+**Decision:** `TRUST_PROXY` env var (default `0`, max `10`). Only set when `> 0`. Production `.env` should set `TRUST_PROXY=2` for Cloudflare → Nginx chain.
+
+### 2026-03-02: Optional ADMIN_PASSWORD after first seed
+
+**Context:** `ADMIN_PASSWORD` was required in env, meaning it stayed in `.env.production` permanently — a secret at rest on disk after it's no longer needed (admin already exists in DB).
+
+**Decision:** Both `ADMIN_EMAIL` and `ADMIN_PASSWORD` are now optional. Seed only runs when both are present. After first deploy, remove both from `.env.production`.
+
+### 2026-03-02: acceptSession eligibility checks
+
+**Context:** `acceptSession` only checked session status, not expert status. A deactivated expert or one who hadn't accepted the agreement could accept sessions via direct API call or race condition.
+
+**Decision:** Added explicit checks: expert must exist, not be deactivated, and have accepted the agreement. Mirrors the checks already in `findExpertsForDomain` for consistency.
