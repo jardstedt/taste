@@ -157,7 +157,7 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
             </div>
           </div>
         </div>
-        {user?.role === 'admin' && (isActive || session.status === 'matching' || session.status === 'pending') && (
+        {user?.role === 'admin' && session.offeringType === 'audience_reaction_poll' && (isActive || session.status === 'matching' || session.status === 'pending') && (
           <button
             onClick={handleExpire}
             disabled={expiring}

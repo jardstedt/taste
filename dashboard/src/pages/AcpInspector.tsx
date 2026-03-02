@@ -233,16 +233,10 @@ function JobCard({ job, defaultExpanded }: { job: AcpJobInspection; defaultExpan
                 {job.localSession.id.slice(0, 12)}...
               </a>
               <span style={{
-                background: job.localSession.status === 'timeout' || job.localSession.status === 'cancelled'
-                  ? '#FEE2E2' : '#fff',
-                padding: '1px 6px', borderRadius: 4,
-                fontSize: 10, fontWeight: 600,
-                color: job.localSession.status === 'timeout' || job.localSession.status === 'cancelled'
-                  ? '#991B1B' : '#6B21A8',
+                background: '#fff', padding: '1px 6px', borderRadius: 4,
+                fontSize: 10, fontWeight: 600, color: '#6B21A8',
               }}>
-                {job.localSession.status === 'timeout' ? 'REJECTED (timeout)'
-                  : job.localSession.status === 'cancelled' ? 'REJECTED (declined)'
-                  : job.localSession.status}
+                {job.localSession.status}
               </span>
             </div>
           )}
