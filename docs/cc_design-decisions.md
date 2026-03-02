@@ -398,3 +398,17 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 **Decision:** Jobs arriving outside operating hours are now rejected immediately in `handleNewTask()` with a clear message: schedule, next-open time, and instruction to resubmit. The check runs after offering type resolution but before `job.accept()`, so the buyer never enters the payment flow.
 
 **Rationale:** A clean rejection with an ETA is strictly better than a silent timeout. The buyer gets immediate feedback, saves gas on the payment transaction, and can retry at the right time. Taste's success rate improves because timeouts from unattended jobs are eliminated. The resource availability endpoint still exposes `operatingHours.currentlyOpen` and `nextOpenAt` for agents that check proactively, but the server-side gate catches agents that don't.
+
+### 2026-03-02: Expert application system — plain text email storage
+
+**Context:** The expert system encrypts emails at rest (`email_encrypted`, `email_hash`). The new `expert_applications` table stores applicant emails in plain text.
+
+**Decision:** Store application emails as plain text. Applications are public submissions from people who haven't been onboarded — no sensitive operational data is at risk. If approved, the admin manually creates the expert account (which encrypts the email). This avoids unnecessary complexity in a table that only admins read.
+
+### 2026-03-02: Visual redesign — CSS variable scoping under `.dashboard`
+
+**Context:** The dashboard needed a full dark theme overhaul (from light/purple to dark teal/pink). Many components use inline styles with hardcoded hex colors.
+
+**Decision:** Override CSS variables inside the `.dashboard` scope rather than rewriting the base theme. Created `theme.ts` as a shared token file for inline style references. Updated ~10 component files to use the new palette. Landing/login/apply pages use their own `.auth-page` class scope with the graffiti background.
+
+**Rationale:** Scoping to `.dashboard` means the base design system stays intact for any future public-facing pages that might want different styling. The `theme.ts` file gives TypeScript autocomplete for colors used in inline styles, preventing palette drift.
