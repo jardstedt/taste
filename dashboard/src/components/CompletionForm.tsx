@@ -462,7 +462,7 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
       }}>
         {inline && onDecline ? (
           <button type="button" onClick={onDecline} className="btn btn-ghost" style={{ fontSize: 13, color: 'var(--color-error, #EF4444)' }}>
-            Can't Fulfill
+            Decline
           </button>
         ) : !inline && onCancel ? (
           <button type="button" onClick={onCancel} className="btn btn-ghost" style={{ fontSize: 13 }}>
@@ -475,7 +475,7 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
           className="btn btn-primary"
           style={{ fontSize: 13 }}
         >
-          {submitting ? 'Submitting...' : 'Submit Assessment'}
+          {submitting ? 'Submitting...' : 'Submit'}
         </button>
       </div>
     </form>
