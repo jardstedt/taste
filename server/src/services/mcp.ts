@@ -28,7 +28,13 @@ const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const USDC_BASE_SEPOLIA = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 const USDC_DECIMALS = 6;
 
-// ── x402 Payment Helpers ──
+// ── Helpers ──
+
+/** Send a JSON response on raw HTTP ServerResponse */
+function sendJson(res: ServerResponse, status: number, body: object): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(body));
+}
 
 type X402Network = 'base' | 'base-sepolia';
 
@@ -67,12 +73,40 @@ function buildPaymentRequirements(
   };
 }
 
-// ── MCP Server ──
+/** Check if a JSON-RPC body is a tools/call for a specific tool */
+function isToolCall(body: unknown, toolName: string): boolean {
+  if (!body || typeof body !== 'object') return false;
+  const b = body as Record<string, unknown>;
+  if (b.method !== 'tools/call') return false;
+  const params = b.params as Record<string, unknown> | undefined;
+  return params?.name === toolName;
+}
 
-let mcpServer: McpServer | null = null;
+/** Extract offering info from a tools/call body */
+function extractOfferingFromToolCall(body: unknown) {
+  try {
+    const b = body as Record<string, unknown>;
+    const params = b.params as Record<string, unknown>;
+    const args = params.arguments as Record<string, unknown>;
+    const offeringType = args.offeringType as string;
+    return getSessionOffering(offeringType);
+  } catch {
+    return null;
+  }
+}
+
+// ── MCP Server Factory ──
+// Creates a fresh McpServer per request to avoid "Already connected" errors
+// when concurrent requests arrive (McpServer only supports one transport at a time).
+
 let httpServer: ReturnType<typeof createServer> | null = null;
+// Cached facilitator instance (stateless — safe to reuse across requests)
+let cachedFacilitator: ReturnType<typeof useFacilitator> | null = null;
 
 function createMcpServer(): McpServer {
+  // Derive offering enum from live config instead of hardcoding
+  const enabledTypes = getEnabledSessionOfferings().map(o => o.type) as [string, ...string[]];
+
   const server = new McpServer({
     name: 'taste-human-judgment',
     version: '1.0.0',
@@ -119,12 +153,8 @@ function createMcpServer(): McpServer {
     'request_evaluation',
     'Request a human expert evaluation. Requires x402 payment. Returns a session ID for polling results via get_result. Expert reviews typically complete within 5-30 minutes.',
     {
-      offeringType: z.enum([
-        'trust_evaluation', 'output_quality_gate', 'option_ranking',
-        'content_quality_gate', 'audience_reaction_poll',
-        'creative_direction_check', 'fact_check_verification',
-        'dispute_arbitration',
-      ]).describe('Type of evaluation to request. Call list_offerings to see available types.'),
+      offeringType: z.enum(enabledTypes)
+        .describe('Type of evaluation to request. Call list_offerings to see available types.'),
       description: z.string().min(10).max(5000)
         .describe('Detailed description of what you need evaluated. Be specific about context, criteria, and what outcome you expect.'),
       tier: z.enum(['test', 'quick', 'full', 'deep']).optional()
@@ -273,7 +303,6 @@ function createMcpServer(): McpServer {
 async function handleMcpRequest(
   req: IncomingMessage,
   res: ServerResponse,
-  server: McpServer,
   env: ReturnType<typeof getEnv>,
 ): Promise<void> {
   // Parse JSON body for POST requests (1MB limit to prevent memory exhaustion)
@@ -285,8 +314,7 @@ async function handleMcpRequest(
     for await (const chunk of req) {
       totalSize += (chunk as Buffer).length;
       if (totalSize > MAX_BODY_SIZE) {
-        res.writeHead(413, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Request body too large' }));
+        sendJson(res, 413, { error: 'Request body too large' });
         return;
       }
       chunks.push(chunk as Buffer);
@@ -294,33 +322,33 @@ async function handleMcpRequest(
     try {
       body = JSON.parse(Buffer.concat(chunks).toString());
     } catch {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      sendJson(res, 400, { error: 'Invalid JSON' });
       return;
     }
   }
 
   // x402 payment gate for request_evaluation tool
   if (req.method === 'POST' && env.MCP_WALLET_ADDRESS && body && isToolCall(body, 'request_evaluation')) {
+    // Extract offering once for both challenge and verification paths
+    const offering = extractOfferingFromToolCall(body);
+    if (!offering) {
+      sendJson(res, 400, { error: 'invalid_request', message: 'Could not determine offering type from request.' });
+      return;
+    }
+    const price = offering.basePrice ?? 0.01;
+    const resourceUrl = `https://${env.NODE_ENV === 'production' ? 'humantaste.app' : 'localhost:' + env.MCP_PORT}/mcp/request_evaluation`;
+    const requirements = buildPaymentRequirements(
+      env.MCP_WALLET_ADDRESS,
+      env.MCP_NETWORK as X402Network,
+      price,
+      resourceUrl,
+      `Human expert evaluation (${offering.name})`,
+    );
+
     const paymentHeader = req.headers['x-payment'] as string | undefined;
 
     if (!paymentHeader) {
       // Return 402 with payment requirements
-      const offering = extractOfferingFromToolCall(body);
-      if (!offering) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'invalid_request', message: 'Could not determine offering type from request.' }));
-        return;
-      }
-      const price = offering.basePrice ?? 0.01;
-      const requirements = buildPaymentRequirements(
-        env.MCP_WALLET_ADDRESS,
-        env.MCP_NETWORK as X402Network,
-        price,
-        `https://humantaste.app/mcp/request_evaluation`,
-        `Human expert evaluation (${offering?.name ?? 'standard'})`,
-      );
-
       res.writeHead(402, {
         'Content-Type': 'application/json',
         'X-Payment-Requirements': Buffer.from(JSON.stringify({
@@ -339,88 +367,44 @@ async function handleMcpRequest(
     // Verify payment via facilitator
     try {
       const payment = JSON.parse(Buffer.from(paymentHeader, 'base64').toString());
-      const offering = extractOfferingFromToolCall(body);
-      if (!offering) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'invalid_request', message: 'Could not determine offering type from request.' }));
-        return;
-      }
-      const price = offering.basePrice ?? 0.01;
-      const requirements = buildPaymentRequirements(
-        env.MCP_WALLET_ADDRESS,
-        env.MCP_NETWORK as X402Network,
-        price,
-        `https://humantaste.app/mcp/request_evaluation`,
-        `Human expert evaluation`,
-      );
 
-      const facilitator = useFacilitator({
-        url: env.MCP_FACILITATOR_URL as `${string}://${string}`,
-      });
-      const verification = await facilitator.verify(payment, requirements);
+      if (!cachedFacilitator) {
+        cachedFacilitator = useFacilitator({
+          url: env.MCP_FACILITATOR_URL as `${string}://${string}`,
+        });
+      }
+      const verification = await cachedFacilitator.verify(payment, requirements);
 
       if (!verification.isValid) {
-        res.writeHead(402, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'invalid_payment',
-          message: 'Payment verification failed.',
-          details: verification.invalidReason,
-        }));
+        sendJson(res, 402, { error: 'invalid_payment', message: 'Payment verification failed.', details: verification.invalidReason });
         return;
       }
 
       // Settle payment
-      const settlement = await facilitator.settle(payment, requirements);
+      const settlement = await cachedFacilitator.settle(payment, requirements);
       if (!settlement.success) {
-        res.writeHead(402, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'settlement_failed',
-          message: 'Payment settlement failed.',
-        }));
+        sendJson(res, 402, { error: 'settlement_failed', message: 'Payment settlement failed.' });
         return;
       }
 
       console.log(`[MCP] x402 payment settled: ${price} USDC from ${payment.payload?.authorization?.from ?? 'unknown'}`);
     } catch (err) {
       console.error('[MCP] x402 payment error:', err);
-      res.writeHead(402, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: 'payment_error',
-        message: 'Failed to process payment.',
-      }));
+      sendJson(res, 402, { error: 'payment_error', message: 'Failed to process payment.' });
       return;
     }
   }
 
-  // Handle MCP protocol request via StreamableHTTP transport (stateless — one per request)
+  // Create a fresh McpServer + transport per request to support concurrency.
+  // McpServer only supports one active transport at a time, so sharing a singleton
+  // would crash with "Already connected" on concurrent requests.
+  const server = createMcpServer();
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   await server.connect(transport);
   try {
     await transport.handleRequest(req, res, body);
   } finally {
     await transport.close();
-  }
-}
-
-/** Check if a JSON-RPC body is a tools/call for a specific tool */
-function isToolCall(body: unknown, toolName: string): boolean {
-  if (!body || typeof body !== 'object') return false;
-  const b = body as Record<string, unknown>;
-  if (b.method !== 'tools/call') return false;
-  const params = b.params as Record<string, unknown> | undefined;
-  return params?.name === toolName;
-}
-
-/** Extract offering info from a tools/call body */
-function extractOfferingFromToolCall(body: unknown) {
-  try {
-    const b = body as Record<string, unknown>;
-    const params = b.params as Record<string, unknown>;
-    const args = params.arguments as Record<string, unknown>;
-    const offeringType = args.offeringType as string;
-    return getSessionOffering(offeringType);
-  } catch {
-    return null;
   }
 }
 
@@ -434,7 +418,12 @@ export async function initMcp(): Promise<void> {
     return;
   }
 
-  mcpServer = createMcpServer();
+  // Pre-cache facilitator instance
+  if (env.MCP_WALLET_ADDRESS) {
+    cachedFacilitator = useFacilitator({
+      url: env.MCP_FACILITATOR_URL as `${string}://${string}`,
+    });
+  }
 
   httpServer = createServer((req, res) => {
     // CORS for MCP clients
@@ -449,11 +438,10 @@ export async function initMcp(): Promise<void> {
       return;
     }
 
-    handleMcpRequest(req, res, mcpServer!, env).catch(err => {
+    handleMcpRequest(req, res, env).catch(err => {
       console.error('[MCP] Request error:', err);
       if (!res.headersSent) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Internal server error' }));
+        sendJson(res, 500, { error: 'Internal server error' });
       }
     });
   });
@@ -473,8 +461,5 @@ export function stopMcp(): void {
     httpServer.close();
     httpServer = null;
   }
-  if (mcpServer) {
-    mcpServer.close();
-    mcpServer = null;
-  }
+  cachedFacilitator = null;
 }

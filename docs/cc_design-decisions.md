@@ -457,6 +457,22 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 
 **Rationale:** Zero schema changes — the tags field already exists as JSON array. ACP sessions have `acpJobId` set; MCP sessions have the `mcp` tag. Clean separation without new columns.
 
+### 2026-03-04: Per-request McpServer instantiation for concurrency safety
+
+**Context:** `McpServer.connect(transport)` sets `this._transport` and throws "Already connected" if called while a transport is active. Sharing a singleton `McpServer` across concurrent HTTP requests causes crashes.
+
+**Decision:** Create a fresh `McpServer` instance per request in `handleMcpRequest()` instead of sharing a module-level singleton. Tool registrations (via `server.tool()`) happen each time but are cheap (no I/O, just handler maps).
+
+**Rationale:** The MCP SDK's `Protocol.connect()` is single-transport by design. Per-request instantiation is the simplest correct approach for a stateless HTTP server. The alternative (transport pooling or queuing) adds complexity without benefit given the expected low concurrency of a payment-gated service.
+
+### 2026-03-04: Dynamic offering enum derived from config
+
+**Context:** The `request_evaluation` tool's `offeringType` parameter was hardcoded as a `z.enum([...])` with 8 values. Adding or enabling a new offering required updating both `domains.ts` and `mcp.ts`.
+
+**Decision:** Derive the enum at runtime from `getEnabledSessionOfferings()` so the MCP tool automatically reflects config changes.
+
+**Rationale:** Single source of truth. Eliminates silent rejection of newly enabled offerings.
+
 ### 2026-03-02: Visual redesign — CSS variable scoping under `.dashboard`
 
 **Context:** The dashboard needed a full dark theme overhaul (from light/purple to dark teal/pink). Many components use inline styles with hardcoded hex colors.
