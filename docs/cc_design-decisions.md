@@ -405,6 +405,58 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 
 **Decision:** Store application emails as plain text. Applications are public submissions from people who haven't been onboarded — no sensitive operational data is at risk. If approved, the admin manually creates the expert account (which encrypts the email). This avoids unnecessary complexity in a table that only admins read.
 
+---
+
+## MCP Server (x402 payment-gated)
+
+### 2026-03-04: MCP as second distribution channel alongside ACP
+
+**Context:** Taste is registered on Virtuals ACP for agent-to-agent evaluation services. MCP (Model Context Protocol) enables a second channel — any MCP-compatible client (Claude Desktop, Cursor, Windsurf) can discover and pay for evaluations. The two channels share the same expert pool, session logic, and database.
+
+**Decision:** Separate HTTP server on port 3002 using `@modelcontextprotocol/sdk` StreamableHTTP transport. NOT mounted inside the existing Express app.
+
+**Rationale:** The MCP SDK's StreamableHTTP transport manages its own HTTP handling with SSE streaming. Mounting inside Express would conflict with Helmet CSP headers, CORS, body parsing, and rate limiting — all of which interfere with the MCP protocol's 402 response flow. A separate lightweight HTTP server avoids any risk to the existing ACP/dashboard stack.
+
+### 2026-03-04: Three tools — list_offerings (free), request_evaluation (paid), get_result (free)
+
+**Context:** Taste evaluations are async — expert review takes 5-30 minutes. MCP tools are typically synchronous request-response.
+
+**Decision:** Two-tool async pattern: `request_evaluation` creates the session and returns a sessionId, `get_result` polls for the deliverable. Plus a free `list_offerings` for discovery.
+
+**Trade-off:** Polling is inefficient — the client must repeatedly call `get_result`. But MCP doesn't have a server-push mechanism for tool results. Future MCP specs may add notifications, at which point we can add a webhook-based approach.
+
+### 2026-03-04: Flat pricing ($0.01) for all offerings via single paid tool
+
+**Context:** `x402-mcp`'s `paidTool` requires a static price at registration. Our 8 offerings currently all cost $0.01 (test pricing).
+
+**Decision:** Single `request_evaluation` tool at $0.01. When prices diverge in production, split into per-offering tools (e.g., `request_trust_evaluation`, `request_content_quality_gate`).
+
+**Rationale:** Premature per-offering tools would mean 8 paid tools + 2 free = 10 tools. Cleaner to start with 3 tools and split when necessary.
+
+### 2026-03-04: x402 core package instead of x402-mcp wrapper
+
+**Context:** The `x402-mcp` npm package (ethanniser/x402-mcp) provides a convenience wrapper but pulls in the entire Vercel AI SDK (`ai@6.0.111`) which requires zod `^3.25.76`. Our project used zod 3.24.2.
+
+**Decision:** Use `x402` core package + `@modelcontextprotocol/sdk` directly. Handle x402 payment verification in our own HTTP request handler by inspecting the `X-Payment` header, verifying via `useFacilitator()`, and settling before passing the request to the MCP transport.
+
+**Rationale:** Avoids pulling in the heavy Vercel AI SDK (and its transitive deps) for a thin convenience wrapper. The x402 payment flow is simple enough to implement directly: check header → verify → settle → proceed.
+
+### 2026-03-04: xpay facilitator (zero-fee on Base)
+
+**Context:** x402 facilitators handle payment verification and settlement. Options: Coinbase CDP (1,000 tx/month free tier), xpay (zero fees on Base).
+
+**Decision:** Default to xpay at `https://x402.org/facilitator`. Configurable via `MCP_FACILITATOR_URL` env var.
+
+**Rationale:** Zero fees on Base mainnet. No rate limit concerns as volume grows. Can switch to Coinbase CDP or self-hosted facilitator by changing one env var.
+
+### 2026-03-04: MCP sessions tagged `['mcp']` for source tracking
+
+**Context:** Need to distinguish sessions created via MCP from ACP sessions for analytics and billing.
+
+**Decision:** Pass `tags: ['mcp']` to `createSession()`. The `get_result` tool checks this tag and refuses to return results for non-MCP sessions (prevents cross-channel data leakage).
+
+**Rationale:** Zero schema changes — the tags field already exists as JSON array. ACP sessions have `acpJobId` set; MCP sessions have the `mcp` tag. Clean separation without new columns.
+
 ### 2026-03-02: Visual redesign — CSS variable scoping under `.dashboard`
 
 **Context:** The dashboard needed a full dark theme overhaul (from light/purple to dark teal/pink). Many components use inline styles with hardcoded hex colors.

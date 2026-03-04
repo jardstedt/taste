@@ -38,6 +38,12 @@ const envSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_EMAIL: z.string().default('mailto:admin@taste.xyz'),
 
+  // MCP Server (x402 payment gate)
+  MCP_PORT: z.coerce.number().int().min(1).max(65535).default(3002),
+  MCP_WALLET_ADDRESS: z.string().startsWith('0x').optional(),
+  MCP_FACILITATOR_URL: z.string().url().default('https://x402.org/facilitator'),
+  MCP_NETWORK: z.enum(['base', 'base-sepolia']).default('base'),
+
   // Mode
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });

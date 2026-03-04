@@ -17,6 +17,7 @@ import { loadEnv, getEnv } from './config/env.js';
 import { initDb, closeDb, getDb } from './db/database.js';
 import { seedAdminExpert } from './services/experts.js';
 import { initAcp, stopAcp } from './services/acp.js';
+import { initMcp, stopMcp } from './services/mcp.js';
 import { initSocketServer } from './services/socket.js';
 import { createHelmet, createCors } from './middleware/security.js';
 import { globalLimiter, authLimiter } from './middleware/rateLimit.js';
@@ -279,9 +280,18 @@ async function main() {
     console.log('[ACP] Continuing in local-only mode');
   }
 
+  // Initialize MCP server (non-blocking, separate port)
+  try {
+    await initMcp();
+  } catch (err) {
+    console.error('[MCP] Failed to initialize:', err);
+    console.log('[MCP] Continuing without MCP server');
+  }
+
   // Graceful shutdown
   const shutdown = () => {
     console.log('\n[Server] Shutting down...');
+    stopMcp();
     stopAcp();
     closeDb();
     process.exit(0);

@@ -38,8 +38,14 @@ Quick reference for all project documents, scripts, and config files.
 | `vps-setup.sh` | Full one-command VPS setup: nvm, Cloudflare certs, nginx, PM2, backups. |
 | `generate-secrets.sh` | Generate JWT secret, encryption key, and VAPID keys for `.env`. |
 | `backup.sh` | SQLite backup with 14-day retention. |
-| `nginx-taste.conf` | Nginx config template (legacy — setup script generates its own). |
+| `nginx-taste.conf` | Nginx config template with `/mcp/` proxy block for MCP server on port 3002. |
 | `POST_DEPLOY_CHECKLIST.md` | Post-deploy verification: dashboard access, admin password, SSL, firewall, co-located services. |
+
+## Server Services (`server/src/services/`)
+
+| File | Summary |
+|------|---------|
+| `mcp.ts` | MCP server with x402 payment gates. Exposes 3 tools: `list_offerings` (free), `request_evaluation` (paid, $0.01 USDC), `get_result` (free). Runs on port 3002 via StreamableHTTP transport. Payment verified via xpay facilitator. |
 
 ## External Research (`feedback/`)
 
