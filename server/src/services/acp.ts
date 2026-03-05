@@ -1242,6 +1242,7 @@ export interface AcpJobInspection {
     status: string;
     expertId: string | null;
     offeringType: string;
+    createdAt: string;
   } | null;
 }
 
@@ -1282,6 +1283,7 @@ export async function inspectAcpJob(acpJobId: number): Promise<AcpJobInspection 
       status: session.status,
       expertId: session.expertId,
       offeringType: session.offeringType,
+      createdAt: session.createdAt,
     } : null,
   };
 }
@@ -1343,6 +1345,7 @@ export async function listAcpJobs(): Promise<AcpJobInspection[]> {
         status: session.status,
         expertId: session.expertId,
         offeringType: session.offeringType,
+        createdAt: session.createdAt,
       } : null,
     });
   }

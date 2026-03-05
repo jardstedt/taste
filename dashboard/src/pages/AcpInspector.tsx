@@ -30,6 +30,7 @@ interface AcpJobInspection {
     status: string;
     expertId: string | null;
     offeringType: string;
+    createdAt: string;
   } | null;
 }
 
@@ -180,6 +181,24 @@ function JobCard({ job, defaultExpanded }: { job: AcpJobInspection; defaultExpan
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {job.localSession && (
+            <span style={{
+              fontSize: 10, color: '#7A7670', fontFamily: 'monospace',
+            }}>
+              {new Date(job.localSession.createdAt).toLocaleString('sv-SE', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          {job.localSession && (
+            <span style={{
+              background: job.localSession.status === 'completed' ? 'rgba(45, 212, 191, 0.12)' :
+                job.localSession.status === 'cancelled' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(251, 146, 60, 0.12)',
+              color: job.localSession.status === 'completed' ? '#2DD4BF' :
+                job.localSession.status === 'cancelled' ? '#EF4444' : '#FB923C',
+              fontWeight: 600, padding: '2px 6px', borderRadius: 4, fontSize: 10,
+            }}>
+              {job.localSession.status}
+            </span>
+          )}
           {job.price > 0 ? (
             <span style={{ fontSize: 13, fontWeight: 600, color: '#2DD4BF' }}>
               {job.price} USDC
