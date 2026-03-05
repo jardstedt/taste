@@ -1145,7 +1145,12 @@ export function _testValidateJobRequirements(
   }
 
   // Risk/compliance-violating requests
-  const COMPLIANCE_PATTERNS = /\b(hack|exploit|phishing|steal|launder|money.?launder|illegal|child|csam|doxx|attack|ddos|ransomware|hate\s*speech|racist|racism|bigot\w*|discriminat\w*|harass\w*|threaten\w*|threat\w*|terroris\w*|extremis\w*)\b/i;
+  const COMPLIANCE_PATTERNS = /\b(hack|exploit|phishing|steal|launder|money.?launder|illegal|child|csam|doxx|attack|ddos|ransomware|hate\s*speech|racist|racism|bigot\w*|discriminat\w*|harass\w*|threaten\w*|threat\w*|terroris\w*|extremis\w*|gore|torture|self.?harm|suicide)\b/i;
+  // Violent/harmful content — match phrases describing harmful content itself
+  const HARMFUL_CONTENT = /\b(violent\s+(graphic|content|material|description|imagery|video|image|depiction)|harm\s+to\s+others|graphic\s+description\s+of\s+harm)\b/i;
+  if (HARMFUL_CONTENT.test(reqText)) {
+    return 'This request appears to involve prohibited content or activities. Taste cannot process requests related to illegal activities, exploitation, or attacks.';
+  }
   if (COMPLIANCE_PATTERNS.test(reqText)) {
     return 'This request appears to involve prohibited content or activities. Taste cannot process requests related to illegal activities, exploitation, or attacks.';
   }

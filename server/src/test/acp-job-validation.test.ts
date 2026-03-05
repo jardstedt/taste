@@ -158,6 +158,14 @@ describe('job requirement validation', () => {
       );
       expect(reason).toContain('prohibited content');
     });
+
+    it('rejects violent graphic content', () => {
+      const reason = validate(
+        { content: 'Violent graphic description of harm to others...', contentType: 'social_post', targetAudience: 'teens' },
+        'content_quality_gate',
+      );
+      expect(reason).toContain('prohibited content');
+    });
   });
 
   // ── Valid requests pass through ──
