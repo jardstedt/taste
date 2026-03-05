@@ -186,6 +186,10 @@ export function completeSession(id: string, deliverable?: { structuredData?: Rec
   });
 }
 
+export function getAiDraft(sessionId: string) {
+  return request<Record<string, string>>(`/sessions/${sessionId}/ai-draft`, { method: 'POST' });
+}
+
 export async function uploadAttachment(
   sessionId: string,
   file: File,

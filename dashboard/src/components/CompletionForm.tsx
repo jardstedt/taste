@@ -192,6 +192,7 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
   const [attachments, setAttachments] = useState<SessionAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Load existing attachments
@@ -205,6 +206,22 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
 
   const updateField = (key: string, value: string) => {
     setValues(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleAiDraft = async () => {
+    setDrafting(true);
+    setError(null);
+    try {
+      const res = await api.getAiDraft(session.id);
+      if (res.success && res.data) {
+        setValues(res.data as Record<string, string>);
+      } else {
+        setError(res.error ?? 'AI draft failed');
+      }
+    } catch {
+      setError('AI draft request failed');
+    }
+    setDrafting(false);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -287,9 +304,18 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
         </div>
       )}
 
-      {/* Fill with test data */}
-      {TEST_DATA[session.offeringType] && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+      {/* Quick fill buttons */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={handleAiDraft}
+          disabled={drafting}
+          className="btn btn-ghost"
+          style={{ fontSize: 12, color: '#A78BFA' }}
+        >
+          {drafting ? 'Drafting...' : 'AI Draft'}
+        </button>
+        {TEST_DATA[session.offeringType] && (
           <button
             type="button"
             onClick={() => setValues(TEST_DATA[session.offeringType])}
@@ -298,18 +324,18 @@ export function CompletionForm({ session, onComplete, onCancel, inline, onDeclin
           >
             Fill with test data
           </button>
-          {session.followupOf && FOLLOWUP_TEST_DATA[session.offeringType] && (
-            <button
-              type="button"
-              onClick={() => setValues(FOLLOWUP_TEST_DATA[session.offeringType])}
-              className="btn btn-ghost"
-              style={{ fontSize: 12, color: '#5EEAD4' }}
-            >
-              Fill follow-up (issues resolved)
-            </button>
-          )}
-        </div>
-      )}
+        )}
+        {session.followupOf && FOLLOWUP_TEST_DATA[session.offeringType] && (
+          <button
+            type="button"
+            onClick={() => setValues(FOLLOWUP_TEST_DATA[session.offeringType])}
+            className="btn btn-ghost"
+            style={{ fontSize: 12, color: '#5EEAD4' }}
+          >
+            Fill follow-up (issues resolved)
+          </button>
+        )}
+      </div>
 
       {/* Dynamic fields */}
       {fields.map(field => (

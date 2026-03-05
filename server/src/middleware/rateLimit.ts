@@ -52,6 +52,15 @@ export const uploadLimiter = rateLimit({
   message: { success: false, error: 'Too many uploads, please try again later' },
 });
 
+/** AI draft generation: 10 per minute per IP (controls API cost) */
+export const aiDraftLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many AI draft requests, please try again later' },
+});
+
 /** Password attempts: 10 per 15 minutes per IP */
 export const passwordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

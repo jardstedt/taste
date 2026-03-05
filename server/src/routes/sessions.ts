@@ -46,7 +46,7 @@ import {
 import { buildZodSchema } from '../config/deliverable-schemas.js';
 import { emitToSession, notifyExpert } from '../services/socket.js';
 import { sendPushToExpert } from '../services/push.js';
-import { sessionCreateLimiter, messageLimiter, uploadLimiter } from '../middleware/rateLimit.js';
+import { sessionCreateLimiter, messageLimiter, uploadLimiter, aiDraftLimiter } from '../middleware/rateLimit.js';
 import type { AddonType } from '../types/index.js';
 import { GRACE_TURNS } from '../config/constants.js';
 
@@ -210,6 +210,43 @@ router.get('/:id/messages', (req, res) => {
     return;
   }
   res.json({ success: true, data: getMessages(session.id) });
+});
+
+// POST /sessions/:id/ai-draft — generate AI draft for deliverable fields
+router.post('/:id/ai-draft', aiDraftLimiter, async (req, res) => {
+  const session = getSessionById(param(req.params.id));
+  if (!session) {
+    res.status(404).json({ success: false, error: 'Session not found' });
+    return;
+  }
+  if (req.auth!.role !== 'admin' && session.expertId !== req.auth!.expertId) {
+    res.status(403).json({ success: false, error: 'Access denied' });
+    return;
+  }
+
+  // Build chat history context
+  const messages = getMessages(session.id);
+  const chatHistory = messages
+    .filter(m => m.messageType === 'text')
+    .map(m => `[${m.senderType}]: ${m.content}`)
+    .join('\n');
+
+  try {
+    const { generateDraft } = await import('../services/ai-draft.js');
+    const draft = await generateDraft(
+      session.offeringType,
+      session.description ?? '',
+      chatHistory || undefined,
+    );
+    if (!draft) {
+      res.status(503).json({ success: false, error: 'AI drafting unavailable — check ANTHROPIC_API_KEY' });
+      return;
+    }
+    res.json({ success: true, data: draft });
+  } catch (err) {
+    console.error('[AI Draft] Error:', (err as Error).message);
+    res.status(500).json({ success: false, error: 'AI draft generation failed' });
+  }
 });
 
 // POST /sessions/:id/complete — now accepts optional { structuredData, summary }

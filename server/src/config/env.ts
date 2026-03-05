@@ -44,6 +44,9 @@ const envSchema = z.object({
   MCP_FACILITATOR_URL: z.string().url().default('https://x402.org/facilitator'),
   MCP_NETWORK: z.enum(['base', 'base-sepolia']).default('base'),
 
+  // AI (Claude API for expert assist)
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+
   // Mode
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
