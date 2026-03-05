@@ -1394,6 +1394,56 @@ export async function claimAllCompletedJobs(): Promise<{ claimed: number[]; skip
   return result;
 }
 
+// ── Stuck Job Scanner ──
+
+/**
+ * Scan a range of job IDs and process any that are stuck (not in terminal phase).
+ * Used when the SDK's list methods don't return older jobs.
+ */
+export async function scanAndProcessStuckJobs(
+  startId: number,
+  endId: number,
+): Promise<{ processed: number[]; skipped: number[]; failed: Array<{ id: number; error: string }> }> {
+  if (!_acpClient) throw new Error('ACP not connected');
+
+  const result = {
+    processed: [] as number[],
+    skipped: [] as number[],
+    failed: [] as Array<{ id: number; error: string }>,
+  };
+
+  for (let id = startId; id <= endId; id++) {
+    try {
+      const job = await _acpClient.getJobById(id);
+      if (!job) { result.skipped.push(id); continue; }
+
+      // Skip jobs not addressed to us
+      if (job.providerAddress.toLowerCase() !== _acpClient.walletAddress.toLowerCase()) {
+        result.skipped.push(id);
+        continue;
+      }
+
+      // Skip terminal phases
+      if (job.phase === AcpJobPhases.COMPLETED || job.phase === AcpJobPhases.REJECTED) {
+        result.skipped.push(id);
+        continue;
+      }
+
+      console.log(`[ACP] Scan found stuck job ${id} in phase ${PHASE_NAMES[job.phase]}`);
+
+      // Try to process it through the normal handler
+      _processingJobs.delete(id); // Clear dedup lock
+      await handleNewTask(job, job.memos?.find((m: AcpMemo) => String(m.status) === '0')); // status 0 = pending
+      result.processed.push(id);
+    } catch (err) {
+      result.failed.push({ id, error: (err as Error).message?.slice(0, 100) ?? 'unknown' });
+    }
+  }
+
+  console.log(`[ACP] Scan complete: ${result.processed.length} processed, ${result.skipped.length} skipped, ${result.failed.length} failed`);
+  return result;
+}
+
 // ── Cleanup ──
 
 export function stopAcp(): void {
