@@ -21,6 +21,7 @@ import { notifyExpert, emitToSession } from './socket.js';
 import { sendPushToExpert } from './push.js';
 import { validateReferenceCode, redeemReferenceCode } from './referral.js';
 import { getOperatingHours } from './resource.js';
+import { validateRequirementSchema } from '../config/input-schemas.js';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -1147,6 +1148,18 @@ export function _testValidateJobRequirements(
   const COMPLIANCE_PATTERNS = /\b(hack|exploit|phishing|steal|launder|money.?launder|illegal|child|csam|doxx|attack|ddos|ransomware)\b/i;
   if (COMPLIANCE_PATTERNS.test(reqText)) {
     return 'This request appears to involve prohibited content or activities. Taste cannot process requests related to illegal activities, exploitation, or attacks.';
+  }
+
+  // NSFW / inappropriate content filter
+  const NSFW_PATTERNS = /\b(nsfw|nude|nudity|naked|porn\w*|explicit\s+(sexual|content|material|image|video|photo)|adult\s+(film|content|material|video)|sexually\s+explicit|graphic\s+(sexual|violence|nsfw)|xxx|erotic\w*|hentai|sex\s+scene)\b/i;
+  if (NSFW_PATTERNS.test(reqText)) {
+    return 'This request contains NSFW or inappropriate content. Taste cannot process requests involving explicit sexual content, graphic violence, or adult material.';
+  }
+
+  // Validate requirement fields against offering input schema
+  const schemaError = validateRequirementSchema(requirements, offeringType);
+  if (schemaError) {
+    return schemaError;
   }
 
   return null; // Valid — no rejection

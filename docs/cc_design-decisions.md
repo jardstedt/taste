@@ -480,3 +480,13 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 **Decision:** Override CSS variables inside the `.dashboard` scope rather than rewriting the base theme. Created `theme.ts` as a shared token file for inline style references. Updated ~10 component files to use the new palette. Landing/login/apply pages use their own `.auth-page` class scope with the graffiti background.
 
 **Rationale:** Scoping to `.dashboard` means the base design system stays intact for any future public-facing pages that might want different styling. The `theme.ts` file gives TypeScript autocomplete for colors used in inline styles, preventing palette drift.
+
+---
+
+### 2026-03-05: REQUEST-phase input schema validation for ACP jobs
+
+**Context:** The Virtuals graduation agent sends 4 tests per offering: 2 valid, 2 invalid (missing required fields, NSFW content, wrong types). Our server accepted all of them, routing invalid requests to human experts. The graduation evaluator expects invalid requests to be rejected during the REQUEST phase — before payment processing.
+
+**Decision:** Added `server/src/config/input-schemas.ts` defining required/optional fields and type validators per offering. Wired into `_testValidateJobRequirements()` alongside a new NSFW content filter. Jobs with missing required fields, invalid enum values, wrong types, or NSFW content are now rejected at REQUEST phase with descriptive reasons.
+
+**Rationale:** Rejecting at REQUEST phase (before `job.accept()`) means no payment is processed, no expert is matched, and the buyer agent gets immediate feedback about what's wrong. This matches the Virtuals graduation agent's expectations and prevents wasting expert time on malformed requests. The schema definitions are separate from deliverable schemas (which define output form fields) — input schemas validate what buyers send, output schemas validate what experts submit.

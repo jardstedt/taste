@@ -31,7 +31,7 @@ describe('job requirement validation', () => {
     });
 
     it('accepts requirements with sufficient content', () => {
-      const reason = validate({ description: 'Please review this project for trustworthiness' }, 'trust_evaluation');
+      const reason = validate({ projectName: 'ExampleProject', description: 'Please review this project for trustworthiness' }, 'trust_evaluation');
       expect(reason).toBeNull();
     });
   });
@@ -66,7 +66,7 @@ describe('job requirement validation', () => {
 
     it('allows token-related requests that include review language', () => {
       const reason = validate(
-        { request: 'Please review this DeFi strategy: swap USDC to ETH, is it a good idea?' },
+        { projectName: 'DeFi Strategy Review', request: 'Please review this DeFi strategy: swap USDC to ETH, is it a good idea?' },
         'trust_evaluation',
       );
       expect(reason).toBeNull();
@@ -74,7 +74,7 @@ describe('job requirement validation', () => {
 
     it('allows token-related requests with evaluate language', () => {
       const reason = validate(
-        { request: 'Evaluate whether I should transfer my ETH to this staking contract' },
+        { projectName: 'ETH Staking', request: 'Evaluate whether I should transfer my ETH to this staking contract' },
         'trust_evaluation',
       );
       expect(reason).toBeNull();
@@ -82,7 +82,7 @@ describe('job requirement validation', () => {
 
     it('allows token-related requests with assess language', () => {
       const reason = validate(
-        { request: 'Assess the risk of bridging USDC through this protocol' },
+        { projectName: 'Bridge Risk', request: 'Assess the risk of bridging USDC through this protocol' },
         'trust_evaluation',
       );
       expect(reason).toBeNull();
@@ -90,7 +90,7 @@ describe('job requirement validation', () => {
 
     it('allows normal requests that mention tokens in passing', () => {
       const reason = validate(
-        { request: 'Check if this article about ETH staking is factually accurate' },
+        { content: 'Check if this article about ETH staking is factually accurate', contentType: 'article' },
         'fact_check_verification',
       );
       expect(reason).toBeNull();
@@ -141,7 +141,7 @@ describe('job requirement validation', () => {
   describe('valid requests are accepted', () => {
     it('accepts a trust evaluation request', () => {
       const reason = validate(
-        { projectUrl: 'https://example.com', description: 'Evaluate whether this DeFi project is trustworthy' },
+        { projectName: 'ExampleDeFi', tokenAddress: '0x123', description: 'Evaluate whether this DeFi project is trustworthy' },
         'trust_evaluation',
       );
       expect(reason).toBeNull();
@@ -149,7 +149,7 @@ describe('job requirement validation', () => {
 
     it('accepts a content quality gate request', () => {
       const reason = validate(
-        { content: 'My blog post about blockchain technology...', type: 'article' },
+        { content: 'My blog post about blockchain technology...', contentType: 'article', targetAudience: 'developers' },
         'content_quality_gate',
       );
       expect(reason).toBeNull();
@@ -157,7 +157,7 @@ describe('job requirement validation', () => {
 
     it('accepts an audience reaction poll request', () => {
       const reason = validate(
-        { content: 'New brand logo concept', audience: 'crypto native millennials' },
+        { content: 'New brand logo concept', contentType: 'thumbnail', targetAudience: 'crypto native millennials' },
         'audience_reaction_poll',
       );
       expect(reason).toBeNull();
@@ -165,7 +165,7 @@ describe('job requirement validation', () => {
 
     it('accepts a fact check request', () => {
       const reason = validate(
-        { claim: 'Bitcoin was created in 2009 by Satoshi Nakamoto', source: 'whitepaper' },
+        { content: 'Bitcoin was created in 2009 by Satoshi Nakamoto', contentType: 'article' },
         'fact_check_verification',
       );
       expect(reason).toBeNull();
@@ -173,10 +173,197 @@ describe('job requirement validation', () => {
 
     it('accepts a dispute arbitration request', () => {
       const reason = validate(
-        { dispute: 'Two parties disagree about the quality of delivered work', context: 'Freelance contract dispute' },
+        { originalContract: 'Two parties agreed on quality of delivered work', deliverable: 'Freelance contract dispute details here' },
         'dispute_arbitration',
       );
       expect(reason).toBeNull();
+    });
+
+    it('accepts an output quality gate request', () => {
+      const reason = validate(
+        { aiOutput: 'Bitcoin hit $73k in March 2024', outputType: 'analysis', intendedUse: 'blog post' },
+        'output_quality_gate',
+      );
+      expect(reason).toBeNull();
+    });
+
+    it('accepts an option ranking request', () => {
+      const reason = validate(
+        { options: [{ id: '1', description: 'Option A' }, { id: '2', description: 'Option B' }], evaluationCriteria: 'clarity' },
+        'option_ranking',
+      );
+      expect(reason).toBeNull();
+    });
+
+    it('accepts a creative direction check request', () => {
+      const reason = validate(
+        { brief: 'A series of 5 short videos explaining DeFi to beginners.', targetAudience: 'general public' },
+        'creative_direction_check',
+      );
+      expect(reason).toBeNull();
+    });
+  });
+
+  // ── NSFW / inappropriate content ──
+
+  describe('NSFW content filtering', () => {
+    it('rejects explicit NSFW content', () => {
+      const reason = validate(
+        { content: 'An image with extremely graphic NSFW violence.', contentType: 'image', targetAudience: 'crypto Twitter' },
+        'audience_reaction_poll',
+      );
+      expect(reason).toContain('NSFW');
+    });
+
+    it('rejects adult film content', () => {
+      const reason = validate(
+        { brief: 'Highly inappropriate and explicit storyboard for an adult film.', targetAudience: 'adults' },
+        'creative_direction_check',
+      );
+      expect(reason).toContain('NSFW');
+    });
+
+    it('rejects pornographic content', () => {
+      const reason = validate(
+        { content: 'Review this pornographic material', contentType: 'social_post', targetAudience: 'general' },
+        'content_quality_gate',
+      );
+      expect(reason).toContain('NSFW');
+    });
+
+    it('rejects sexually explicit content', () => {
+      const reason = validate(
+        { content: 'This contains sexually explicit imagery', contentType: 'article', targetAudience: 'general' },
+        'content_quality_gate',
+      );
+      expect(reason).toContain('NSFW');
+    });
+
+    it('allows content that mentions NSFW in a review context with different wording', () => {
+      const reason = validate(
+        { projectName: 'SafeContent Filter', specificQuestion: 'Is this content moderation tool reliable?' },
+        'trust_evaluation',
+      );
+      expect(reason).toBeNull();
+    });
+  });
+
+  // ── Input schema validation ──
+
+  describe('input schema validation', () => {
+    it('rejects trust_evaluation missing projectName', () => {
+      const reason = validate(
+        { tokenAddress: '0x1234567890abcdef1234567890abcdef12345678', socialLinks: ['https://example.com'] },
+        'trust_evaluation',
+      );
+      expect(reason).toContain('Missing required field');
+      expect(reason).toContain('projectName');
+    });
+
+    it('rejects output_quality_gate missing intendedUse', () => {
+      const reason = validate(
+        { aiOutput: 'Some text output.', outputType: 'text' },
+        'output_quality_gate',
+      );
+      expect(reason).toContain('Missing required field');
+      expect(reason).toContain('intendedUse');
+    });
+
+    it('rejects output_quality_gate with invalid outputType', () => {
+      const reason = validate(
+        { aiOutput: 'Some text output.', outputType: 'garbage', intendedUse: 'testing' },
+        'output_quality_gate',
+      );
+      expect(reason).toContain('Invalid value');
+      expect(reason).toContain('outputType');
+    });
+
+    it('rejects option_ranking with only 1 option', () => {
+      const reason = validate(
+        { options: [{ id: '1', description: 'Only one option.' }], evaluationCriteria: 'clarity' },
+        'option_ranking',
+      );
+      expect(reason).toContain('at least 2 items');
+    });
+
+    it('rejects option_ranking missing evaluationCriteria', () => {
+      const reason = validate(
+        { options: [{ id: '1', description: 'Option A' }, { id: '2', description: 'Option B' }] },
+        'option_ranking',
+      );
+      expect(reason).toContain('Missing required field');
+      expect(reason).toContain('evaluationCriteria');
+    });
+
+    it('rejects content_quality_gate missing targetAudience', () => {
+      const reason = validate(
+        { content: 'Hello world content.', contentType: 'social_post' },
+        'content_quality_gate',
+      );
+      expect(reason).toContain('Missing required field');
+      expect(reason).toContain('targetAudience');
+    });
+
+    it('rejects audience_reaction_poll missing contentType', () => {
+      const reason = validate(
+        { content: 'A general headline.', targetAudience: 'general consumers' },
+        'audience_reaction_poll',
+      );
+      expect(reason).toContain('Missing required field');
+      expect(reason).toContain('contentType');
+    });
+
+    it('rejects creative_direction_check missing brief', () => {
+      const reason = validate(
+        { targetAudience: 'crypto Twitter' },
+        'creative_direction_check',
+      );
+      expect(reason).toContain('Missing required field');
+      expect(reason).toContain('brief');
+    });
+
+    it('rejects fact_check_verification missing content', () => {
+      const reason = validate(
+        { contentType: 'article' },
+        'fact_check_verification',
+      );
+      expect(reason).toContain('Missing required field');
+      expect(reason).toContain('content');
+    });
+
+    it('rejects fact_check_verification with invalid contentType', () => {
+      const reason = validate(
+        { content: 'Some claims about a project.', contentType: 'tweet' },
+        'fact_check_verification',
+      );
+      expect(reason).toContain('Invalid value');
+      expect(reason).toContain('contentType');
+    });
+
+    it('rejects dispute_arbitration missing originalContract', () => {
+      const reason = validate(
+        { deliverable: 'The work done.' },
+        'dispute_arbitration',
+      );
+      expect(reason).toContain('Missing required field');
+      expect(reason).toContain('originalContract');
+    });
+
+    it('rejects dispute_arbitration missing deliverable', () => {
+      const reason = validate(
+        { originalContract: 'The agreement signed.' },
+        'dispute_arbitration',
+      );
+      expect(reason).toContain('Missing required field');
+      expect(reason).toContain('deliverable');
+    });
+
+    it('rejects trust_evaluation with socialLinks as string instead of array', () => {
+      const reason = validate(
+        { projectName: 'Bitcoin', socialLinks: 'https://bitcoin.org' },
+        'trust_evaluation',
+      );
+      expect(reason).toContain('must be an array');
     });
   });
 
