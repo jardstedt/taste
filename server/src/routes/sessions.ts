@@ -46,6 +46,7 @@ import {
 import { buildZodSchema } from '../config/deliverable-schemas.js';
 import { emitToSession, notifyExpert } from '../services/socket.js';
 import { sendPushToExpert } from '../services/push.js';
+import { generateDraft } from '../services/ai-draft.js';
 import { sessionCreateLimiter, messageLimiter, uploadLimiter, aiDraftLimiter } from '../middleware/rateLimit.js';
 import type { AddonType } from '../types/index.js';
 import { GRACE_TURNS } from '../config/constants.js';
@@ -232,7 +233,6 @@ router.post('/:id/ai-draft', aiDraftLimiter, async (req, res) => {
     .join('\n');
 
   try {
-    const { generateDraft } = await import('../services/ai-draft.js');
     const draft = await generateDraft(
       session.offeringType,
       session.description ?? '',

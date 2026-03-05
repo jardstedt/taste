@@ -142,14 +142,14 @@ export const SESSION_TIERS: SessionTierDefinition[] = [
     id: 'test',
     name: 'Test',
     priceRange: [0.01, 0.01],
-    durationMinutes: [5, 5],
+    durationMinutes: [30, 30],
     maxTurns: 2,
   },
   {
     id: 'quick',
     name: 'Quick Consult',
     priceRange: [0.01, 0.01],
-    durationMinutes: [5, 15],
+    durationMinutes: [15, 30],
     maxTurns: 10,
   },
   {
