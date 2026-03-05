@@ -32,3 +32,14 @@ Before EVERY commit and push, complete ALL of these steps:
 6. **PR-style review** — Re-read the diff (`git diff --staged`) for correctness, missing edge cases, and unintended side effects. If issues are found, fix them before committing.
 
 Do NOT skip steps. Do NOT commit and then review after.
+
+## Pre-Push Plugin Analysis (MANDATORY)
+Before EVERY push, run these plugin-based reviews on the changes being pushed:
+
+1. **`/differential-review`** (Trail of Bits) — Security-focused differential review of all changes vs the base branch
+2. **`/simplify`** — Code reuse, quality, and efficiency review of changed code
+3. **`/code-review`** — General code review (use when pushing to a PR)
+
+Fix any HIGH or MEDIUM severity findings before pushing. LOW findings are at your discretion.
+
+**If any of these plugins are not installed**, STOP and notify the user before proceeding. Do NOT skip plugin analysis — ask the user to install the missing plugins via `/plugin` before continuing with the push.

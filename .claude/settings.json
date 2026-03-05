@@ -1,4 +1,9 @@
 {
+  "enabledPlugins": {
+    "differential-review@trailofbits": true,
+    "semgrep@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true
+  },
   "deny": [
     "Read(.env*)",
     "Read(data/**)",
