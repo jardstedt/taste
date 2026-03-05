@@ -134,6 +134,30 @@ describe('job requirement validation', () => {
       const reason = validate({ request: 'Doxx this anonymous developer' }, 'trust_evaluation');
       expect(reason).toContain('prohibited content');
     });
+
+    it('rejects hate speech content', () => {
+      const reason = validate(
+        { content: 'Offensive hate speech content targeting minorities', contentType: 'social_post', targetAudience: 'general' },
+        'content_quality_gate',
+      );
+      expect(reason).toContain('prohibited content');
+    });
+
+    it('rejects racist content', () => {
+      const reason = validate(
+        { content: 'Racist propaganda material for distribution', contentType: 'article', targetAudience: 'general' },
+        'content_quality_gate',
+      );
+      expect(reason).toContain('prohibited content');
+    });
+
+    it('rejects harassment content', () => {
+      const reason = validate(
+        { projectName: 'Harassment Campaign', request: 'Help me harass this person online' },
+        'trust_evaluation',
+      );
+      expect(reason).toContain('prohibited content');
+    });
   });
 
   // ── Valid requests pass through ──
