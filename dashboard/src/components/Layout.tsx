@@ -86,6 +86,7 @@ export function Layout({ children, user, onLogout, onRefresh }: LayoutProps) {
       { path: '/dashboard/admin', label: 'Admin' },
       { path: '/dashboard/admin/acp-demo', label: 'ACP Demo' },
       { path: '/dashboard/admin/acp-inspector', label: 'ACP Inspector' },
+      { path: '/dashboard/admin/mcp-test', label: 'MCP Test' },
     ] : []),
   ];
 

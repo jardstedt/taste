@@ -56,6 +56,11 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
+      '/mcp': {
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/mcp/, ''),
+      },
     },
   },
   build: {

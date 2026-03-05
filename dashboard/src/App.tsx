@@ -14,6 +14,7 @@ import { ExpertDirectory } from './pages/ExpertDirectory.js';
 import { ExpertProfile } from './pages/ExpertProfile.js';
 import { AcpDemo } from './pages/AcpDemo.js';
 import { AcpInspector } from './pages/AcpInspector.js';
+import { McpTestClient } from './pages/McpTestClient.js';
 import { Landing } from './pages/Landing.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { ApplyPage } from './pages/ApplyPage.js';
@@ -63,6 +64,7 @@ function AppContent() {
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/admin/acp-demo" element={<AcpDemo />} />
             <Route path="/admin/acp-inspector" element={<AcpInspector />} />
+            <Route path="/admin/mcp-test" element={<McpTestClient />} />
           </>
         )}
       </Routes>

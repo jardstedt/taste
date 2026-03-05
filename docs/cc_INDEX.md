@@ -47,6 +47,18 @@ Quick reference for all project documents, scripts, and config files.
 |------|---------|
 | `mcp.ts` | MCP server with x402 payment gates. Exposes 3 tools: `list_offerings` (free), `request_evaluation` (paid, $0.01 USDC), `get_result` (free). Runs on port 3002 via StreamableHTTP transport. Payment verified via xpay facilitator. |
 
+## Dashboard Pages (`dashboard/src/pages/`)
+
+| File | Summary |
+|------|---------|
+| `McpTestClient.tsx` | Admin-only MCP test client page. Two-panel layout: expert ChatView on left, MCP JSON-RPC controls on right (discover tools, list offerings, request evaluation, poll results). Includes request log and 402 payment challenge display. |
+
+## Dashboard API (`dashboard/src/api/`)
+
+| File | Summary |
+|------|---------|
+| `mcp.ts` | JSON-RPC client for the MCP server. Wraps `tools/list`, `list_offerings`, `request_evaluation`, `get_result` calls via `/mcp` proxy. Handles 402 payment responses and SSE streaming. |
+
 ## External Research (`feedback/`)
 
 | File | Summary |
