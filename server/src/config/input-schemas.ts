@@ -52,6 +52,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     fieldValidators: {
       content: { type: 'string', minLength: 1 },
       contentType: { type: 'enum', allowedValues: ['social_post', 'article', 'image', 'video', 'audio', 'meme'] },
+      targetAudience: { type: 'string', minLength: 1 },
     },
   },
   audience_reaction_poll: {
@@ -60,6 +61,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     fieldValidators: {
       content: { type: 'string', minLength: 1 },
       contentType: { type: 'enum', allowedValues: ['thumbnail', 'social_post', 'image', 'video', 'audio', 'meme', 'headline'] },
+      targetAudience: { type: 'string', minLength: 1 },
     },
   },
   creative_direction_check: {
@@ -67,6 +69,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['style', 'medium'],
     fieldValidators: {
       brief: { type: 'string', minLength: 1 },
+      targetAudience: { type: 'string', minLength: 1 },
     },
   },
   fact_check_verification: {

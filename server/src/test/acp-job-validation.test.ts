@@ -354,6 +354,24 @@ describe('job requirement validation', () => {
       expect(reason).toContain('brief');
     });
 
+    it('rejects creative_direction_check with targetAudience as number', () => {
+      const reason = validate(
+        { brief: 'A video series about DeFi basics', targetAudience: 123 },
+        'creative_direction_check',
+      );
+      expect(reason).toContain('must be a string');
+      expect(reason).toContain('targetAudience');
+    });
+
+    it('rejects content_quality_gate with targetAudience as number', () => {
+      const reason = validate(
+        { content: 'Hello world content.', contentType: 'social_post', targetAudience: 456 },
+        'content_quality_gate',
+      );
+      expect(reason).toContain('must be a string');
+      expect(reason).toContain('targetAudience');
+    });
+
     it('rejects fact_check_verification missing content', () => {
       const reason = validate(
         { contentType: 'article' },
