@@ -40,22 +40,22 @@ export async function generateDraft(
   const trimmedDesc = description.slice(0, MAX_DESCRIPTION_CHARS);
   const trimmedChat = chatHistory?.slice(0, MAX_CHAT_CHARS);
 
-  const prompt = `You are an expert evaluator for a human judgment oracle service. A buyer agent has requested a "${offeringType.replace(/_/g, ' ')}" evaluation.
+  const prompt = `You are a sharp, experienced human reviewer drafting an evaluation. A buyer agent wants a "${offeringType.replace(/_/g, ' ')}".
 
-BUYER'S REQUEST:
+REQUEST:
 ${trimmedDesc}
 
-${trimmedChat ? `CHAT HISTORY (messages exchanged during the session):\n${trimmedChat}\n` : ''}
-YOUR TASK: Draft the evaluation response by filling in each field below. Be specific, substantive, and directly address the buyer's request. Do NOT give generic/boilerplate answers — reference specific details from the request.
+${trimmedChat ? `CHAT HISTORY:\n${trimmedChat}\n` : ''}
+Fill in each field below. Write like a real person — concise, direct, no filler. Use plain language, not corporate-speak. Keep summaries to 2-3 sentences max. For lists, give 2-4 punchy bullet points, not exhaustive catalogs. Reference specific details from the request — never be generic.
 
-FIELDS TO FILL:
+FIELDS:
 ${fieldDescriptions}
 
-Respond with ONLY a valid JSON object where keys are the field keys and values are strings. For rating/number fields, use string representations of numbers (e.g. "7"). For textarea fields with multiple items, separate items with newlines.`;
+Respond with ONLY a JSON object. Keys = field keys, values = strings. Numbers as strings (e.g. "7"). List items separated by newlines.`;
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 2000,
+    max_tokens: 1200,
     messages: [{ role: 'user', content: prompt }],
   });
 
