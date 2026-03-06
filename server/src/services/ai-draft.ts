@@ -48,14 +48,21 @@ ${trimmedDesc}
 ${trimmedChat ? `CHAT HISTORY:\n${trimmedChat}\n` : ''}
 Fill in each field below. Write like a real person — concise, direct, no filler. Use plain language, not corporate-speak. Keep summaries to 2-3 sentences max. For lists, give 2-4 punchy bullet points, not exhaustive catalogs. Reference specific details from the request — never be generic.
 
+CRITICAL — FACT-CHECKING RULES:
+- If the request mentions specific claims, news, prices, dates, people, or events, you MUST evaluate whether they are plausible based on what you know. Do NOT blindly repeat the requester's claims as true.
+- If you are unsure whether a claim is true, say so explicitly (e.g. "This claim could not be verified" or "Unable to confirm current accuracy").
+- For price claims, market data, or recent events: state your knowledge cutoff and note that verification is needed.
+- Never fabricate specific numbers, dates, or facts you don't know. Say "unverified" rather than guessing.
+- Your job is to be a critical reviewer, not a rubber stamp. Evaluate the content, don't just summarize it.
+
 FIELDS:
 ${fieldDescriptions}
 
 Respond with ONLY a JSON object. Keys = field keys, values = strings. Numbers as strings (e.g. "7"). List items separated by newlines.`;
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1200,
+    model: 'claude-sonnet-4-6',
+    max_tokens: 2000,
     messages: [{ role: 'user', content: prompt }],
   });
 

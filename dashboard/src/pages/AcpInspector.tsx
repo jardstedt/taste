@@ -330,7 +330,7 @@ function OurSessionsTab() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [agentFilter, setAgentFilter] = useState<string>('all');
   const [offeringFilter, setOfferingFilter] = useState<string>('all');
-  const [chainStatus, setChainStatus] = useState<Record<string, { phase: string; loading: boolean }>>({});
+  const [chainStatus, setChainStatus] = useState<Record<string, { phase: string; evaluator?: string; loading: boolean }>>({});
 
   const load = async () => {
     setLoading(true);
@@ -353,7 +353,7 @@ function OurSessionsTab() {
       const res = await api.getAcpJob(Number(jobId));
       if (res.success && res.data) {
         const job = res.data as AcpJobInspection;
-        setChainStatus(prev => ({ ...prev, [jobId]: { phase: job.phase, loading: false } }));
+        setChainStatus(prev => ({ ...prev, [jobId]: { phase: job.phase, evaluator: job.evaluatorAddress, loading: false } }));
       } else {
         setChainStatus(prev => ({ ...prev, [jobId]: { phase: 'NOT_FOUND', loading: false } }));
       }
@@ -481,6 +481,7 @@ function OurSessionsTab() {
               <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}>OFFERING</th>
               <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}>STATUS</th>
               <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}>ON-CHAIN</th>
+              <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}>EVALUATOR</th>
               <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}>AGENT</th>
               <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}>TIME</th>
               <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}></th>
@@ -526,6 +527,9 @@ function OurSessionsTab() {
                         check
                       </button>
                     )}
+                  </td>
+                  <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: 10, color: '#F472B6' }}>
+                    {cs?.evaluator ? truncateAddress(cs.evaluator) : '—'}
                   </td>
                   <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: 10, color: '#7A7670' }}>
                     {truncateAddress(s.buyerAgent || '')}
