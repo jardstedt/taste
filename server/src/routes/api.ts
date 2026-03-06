@@ -34,7 +34,7 @@ import {
 } from '../services/withdrawals.js';
 import { getExpertReputationScores, getExpertReputationHistory } from '../services/reputation.js';
 import { getDb } from '../db/database.js';
-import { getOfferingDefinitions, inspectAcpJob, inspectSessionAcp, listAcpJobs, claimAllCompletedJobs, scanAndProcessStuckJobs } from '../services/acp.js';
+import { getOfferingDefinitions, inspectAcpJob, inspectSessionAcp, listAcpJobs, claimAllCompletedJobs, scanAndProcessStuckJobs, checkOurJobStatuses } from '../services/acp.js';
 import type { Domain, ExpertCredentials, WalletChain } from '../types/index.js';
 import { withdrawalLimiter, passwordLimiter, uploadLimiter } from '../middleware/rateLimit.js';
 import { saveAvatar, isAllowedAvatarMime, MAX_AVATAR_SIZE } from '../services/storage.js';
@@ -430,11 +430,23 @@ router.post('/acp/claim-all', requireRole('admin'), async (_req, res) => {
   }
 });
 
+// GET /api/acp/our-jobs — check on-chain status for all our DB sessions
+router.get('/acp/our-jobs', requireRole('admin'), async (req, res) => {
+  const since = typeof req.query.since === 'string' ? req.query.since : undefined;
+  try {
+    const result = await checkOurJobStatuses(since);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to check job statuses';
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
 // POST /api/acp/scan-stuck — scan job IDs and process any stuck in non-terminal phases
 router.post('/acp/scan-stuck', requireRole('admin'), async (req, res) => {
   const { startId, endId } = req.body as { startId?: number; endId?: number };
-  if (!startId || !endId || endId < startId || endId - startId > 100) {
-    res.status(400).json({ success: false, error: 'Provide startId and endId (max range 100)' });
+  if (!startId || !endId || endId < startId || endId - startId > 1000) {
+    res.status(400).json({ success: false, error: 'Provide startId and endId (max range 1000)' });
     return;
   }
   try {

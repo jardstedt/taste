@@ -1397,6 +1397,41 @@ export async function claimAllCompletedJobs(): Promise<{ claimed: number[]; skip
 // ── Stuck Job Scanner ──
 
 /**
+ * Check on-chain status for all our DB sessions that have ACP job IDs.
+ * Returns a summary grouped by on-chain phase plus details for each job.
+ */
+export async function checkOurJobStatuses(
+  since?: string,
+): Promise<{ summary: Record<string, number>; jobs: Array<{ jobId: number; phase: string; localStatus: string; offeringType: string; createdAt: string }> }> {
+  if (!_acpClient) throw new Error('ACP not connected');
+
+  const db = (await import('../db/database.js')).getDb();
+  const query = since
+    ? `SELECT acp_job_id, status, offering_type, created_at FROM sessions WHERE acp_job_id IS NOT NULL AND created_at >= ? ORDER BY created_at DESC`
+    : `SELECT acp_job_id, status, offering_type, created_at FROM sessions WHERE acp_job_id IS NOT NULL ORDER BY created_at DESC LIMIT 100`;
+  const rows = (since ? db.prepare(query).all(since) : db.prepare(query).all()) as Array<{
+    acp_job_id: number; status: string; offering_type: string; created_at: string;
+  }>;
+
+  const summary: Record<string, number> = {};
+  const jobs: Array<{ jobId: number; phase: string; localStatus: string; offeringType: string; createdAt: string }> = [];
+
+  for (const row of rows) {
+    try {
+      const job = await _acpClient.getJobById(Number(row.acp_job_id));
+      const phase = job ? (PHASE_NAMES[job.phase] ?? `UNKNOWN(${job.phase})`) : 'NOT_FOUND';
+      summary[phase] = (summary[phase] || 0) + 1;
+      jobs.push({ jobId: row.acp_job_id, phase, localStatus: row.status, offeringType: row.offering_type, createdAt: row.created_at });
+    } catch {
+      summary['ERROR'] = (summary['ERROR'] || 0) + 1;
+      jobs.push({ jobId: row.acp_job_id, phase: 'ERROR', localStatus: row.status, offeringType: row.offering_type, createdAt: row.created_at });
+    }
+  }
+
+  return { summary, jobs };
+}
+
+/**
  * Scan a range of job IDs and process any that are stuck (not in terminal phase).
  * Used when the SDK's list methods don't return older jobs.
  */
