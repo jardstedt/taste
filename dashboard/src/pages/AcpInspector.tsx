@@ -302,13 +302,275 @@ function JobCard({ job, defaultExpanded }: { job: AcpJobInspection; defaultExpan
   );
 }
 
-export function AcpInspector() {
-  const [jobs, setJobs] = useState<AcpJobInspection[]>([]);
+// ── Our Sessions Tab ──
+
+interface OurSession {
+  id: string;
+  acpJobId: string | null;
+  offeringType: string;
+  status: string;
+  buyerAgent: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  cancelReason: string | null;
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  completed: '#2DD4BF',
+  cancelled: '#EF4444',
+  matching: '#F59E0B',
+  active: '#3B82F6',
+  timeout: '#7A7670',
+};
+
+function OurSessionsTab() {
+  const [sessions, setSessions] = useState<OurSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [agentFilter, setAgentFilter] = useState<string>('all');
+  const [offeringFilter, setOfferingFilter] = useState<string>('all');
+  const [chainStatus, setChainStatus] = useState<Record<string, { phase: string; loading: boolean }>>({});
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    const res = await api.getSessions(500);
+    if (res.success && res.data) {
+      const all = (res.data as OurSession[]).filter(s => s.acpJobId);
+      setSessions(all);
+    } else {
+      setError(res.error ?? 'Failed to load sessions');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const checkOnChain = async (jobId: string) => {
+    setChainStatus(prev => ({ ...prev, [jobId]: { phase: '...', loading: true } }));
+    try {
+      const res = await api.getAcpJob(Number(jobId));
+      if (res.success && res.data) {
+        const job = res.data as AcpJobInspection;
+        setChainStatus(prev => ({ ...prev, [jobId]: { phase: job.phase, loading: false } }));
+      } else {
+        setChainStatus(prev => ({ ...prev, [jobId]: { phase: 'NOT_FOUND', loading: false } }));
+      }
+    } catch {
+      setChainStatus(prev => ({ ...prev, [jobId]: { phase: 'ERROR', loading: false } }));
+    }
+  };
+
+  const checkAllOnChain = async () => {
+    for (const s of filtered) {
+      if (s.acpJobId) await checkOnChain(s.acpJobId);
+    }
+  };
+
+  // Unique agents and offerings for filters
+  const agents = [...new Set(sessions.map(s => s.buyerAgent || 'unknown'))];
+  const offerings = [...new Set(sessions.map(s => s.offeringType))].sort();
+
+  const statusCounts = sessions.reduce<Record<string, number>>((acc, s) => {
+    acc[s.status] = (acc[s.status] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const filtered = sessions.filter(s => {
+    if (statusFilter !== 'all' && s.status !== statusFilter) return false;
+    if (agentFilter !== 'all' && (s.buyerAgent || 'unknown') !== agentFilter) return false;
+    if (offeringFilter !== 'all' && s.offeringType !== offeringFilter) return false;
+    return true;
+  });
+
+  // Summary for filtered
+  const filteredByOffering = filtered.reduce<Record<string, number>>((acc, s) => {
+    acc[s.offeringType] = (acc[s.offeringType] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return (
+    <div>
+      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* Status filter */}
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={`btn btn-sm ${statusFilter === 'all' ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ fontSize: 11, padding: '3px 10px', height: 'auto' }}
+          >
+            All ({sessions.length})
+          </button>
+          {Object.entries(statusCounts).sort().map(([status, count]) => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`btn btn-sm ${statusFilter === status ? 'btn-primary' : 'btn-ghost'}`}
+              style={{
+                fontSize: 11, padding: '3px 10px', height: 'auto',
+                color: statusFilter === status ? undefined : STATUS_COLORS[status] ?? '#7A7670',
+              }}
+            >
+              {status} ({count})
+            </button>
+          ))}
+        </div>
+
+        {/* Agent filter */}
+        {agents.length > 1 && (
+          <select
+            value={agentFilter}
+            onChange={e => setAgentFilter(e.target.value)}
+            style={{
+              background: '#1E1E22', border: '1px solid #2A2A2E', borderRadius: 6,
+              color: '#E8E2DA', fontSize: 11, padding: '4px 8px',
+            }}
+          >
+            <option value="all">All agents</option>
+            {agents.map(a => (
+              <option key={a} value={a}>{truncateAddress(a)}</option>
+            ))}
+          </select>
+        )}
+
+        {/* Offering filter */}
+        <select
+          value={offeringFilter}
+          onChange={e => setOfferingFilter(e.target.value)}
+          style={{
+            background: '#1E1E22', border: '1px solid #2A2A2E', borderRadius: 6,
+            color: '#E8E2DA', fontSize: 11, padding: '4px 8px',
+          }}
+        >
+          <option value="all">All offerings</option>
+          {offerings.map(o => (
+            <option key={o} value={o}>{o.replace(/_/g, ' ')}</option>
+          ))}
+        </select>
+
+        <button onClick={load} disabled={loading} className="btn btn-ghost btn-sm" style={{ fontSize: 11 }}>
+          {loading ? 'Loading...' : 'Refresh'}
+        </button>
+        <button onClick={checkAllOnChain} className="btn btn-ghost btn-sm" style={{ fontSize: 11 }}>
+          Check all on-chain
+        </button>
+      </div>
+
+      {/* Summary */}
+      <div style={{
+        background: '#161618', border: '1px solid #2A2A2E', borderRadius: 8,
+        padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#E8E2DA',
+        display: 'flex', gap: 16, flexWrap: 'wrap',
+      }}>
+        <span style={{ fontWeight: 600 }}>Showing: {filtered.length}</span>
+        {Object.entries(filteredByOffering).sort().map(([o, c]) => (
+          <span key={o} style={{ color: '#7A7670' }}>{o.replace(/_/g, ' ')}: {c}</span>
+        ))}
+      </div>
+
+      {/* Table */}
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #2A2A2E', textAlign: 'left' }}>
+              <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}>JOB ID</th>
+              <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}>OFFERING</th>
+              <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}>STATUS</th>
+              <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}>ON-CHAIN</th>
+              <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}>AGENT</th>
+              <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}>TIME</th>
+              <th style={{ padding: '8px 10px', color: '#7A7670', fontWeight: 600, fontSize: 10 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(s => {
+              const cs = s.acpJobId ? chainStatus[s.acpJobId] : undefined;
+              const statusColor = STATUS_COLORS[s.status] ?? '#7A7670';
+              const chainColor = cs ? (PHASE_COLORS[cs.phase] ?? '#7A7670') : undefined;
+              return (
+                <tr key={s.id} style={{ borderBottom: '1px solid #1E1E22' }}>
+                  <td style={{ padding: '6px 10px', fontFamily: 'monospace', color: '#E8E2DA' }}>
+                    {s.acpJobId ?? '-'}
+                  </td>
+                  <td style={{ padding: '6px 10px', color: '#2DD4BF' }}>
+                    {s.offeringType.replace(/_/g, ' ')}
+                  </td>
+                  <td style={{ padding: '6px 10px' }}>
+                    <span style={{
+                      background: statusColor + '20', color: statusColor, fontWeight: 600,
+                      padding: '1px 6px', borderRadius: 4, fontSize: 10,
+                    }}>
+                      {s.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: '6px 10px' }}>
+                    {cs ? (
+                      <span style={{
+                        background: chainColor + '20', color: chainColor, fontWeight: 600,
+                        padding: '1px 6px', borderRadius: 4, fontSize: 10,
+                      }}>
+                        {cs.loading ? '...' : cs.phase}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => s.acpJobId && checkOnChain(s.acpJobId)}
+                        style={{
+                          background: 'none', border: '1px solid #2A2A2E', color: '#7A7670',
+                          borderRadius: 4, fontSize: 10, padding: '1px 6px', cursor: 'pointer',
+                        }}
+                      >
+                        check
+                      </button>
+                    )}
+                  </td>
+                  <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: 10, color: '#7A7670' }}>
+                    {truncateAddress(s.buyerAgent || '')}
+                  </td>
+                  <td style={{ padding: '6px 10px', fontSize: 10, color: '#7A7670', fontFamily: 'monospace' }}>
+                    {new Date(s.createdAt).toLocaleString('sv-SE', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  </td>
+                  <td style={{ padding: '6px 10px' }}>
+                    <a
+                      href={`/dashboard/session/${s.id}`}
+                      style={{ color: '#3B82F6', fontSize: 10, textDecoration: 'none' }}
+                    >
+                      view
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {loading && sessions.length === 0 && (
+        <div className="text-grey" style={{ textAlign: 'center', padding: 40 }}>Loading sessions...</div>
+      )}
+
+      {!loading && filtered.length === 0 && (
+        <div className="text-grey" style={{ textAlign: 'center', padding: 40 }}>
+          No sessions match the current filters.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Component ──
+
+export function AcpInspector() {
+  const [tab, setTab] = useState<'sessions' | 'onchain'>('sessions');
+  const [jobs, setJobs] = useState<AcpJobInspection[]>([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
 
-  const load = async () => {
+  const loadOnChain = async () => {
     setLoading(true);
     setError(null);
     const res = await api.getAcpJobs();
@@ -320,7 +582,7 @@ export function AcpInspector() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (tab === 'onchain') loadOnChain(); }, [tab]);
 
   const filtered = filter === 'all'
     ? jobs
@@ -335,52 +597,83 @@ export function AcpInspector() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <h2 className="page-title" style={{ margin: 0 }}>ACP Inspector</h2>
-        <button onClick={load} disabled={loading} className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}>
-          {loading ? 'Loading...' : 'Refresh'}
-        </button>
       </div>
 
-      {error && (
-        <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>
-      )}
-
-      {/* Phase filter */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid #2A2A2E', paddingBottom: 0 }}>
         <button
-          onClick={() => setFilter('all')}
-          className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-ghost'}`}
-          style={{ fontSize: 11, padding: '3px 10px', height: 'auto' }}
+          onClick={() => setTab('sessions')}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '8px 16px', fontSize: 13, fontWeight: 600,
+            color: tab === 'sessions' ? '#2DD4BF' : '#7A7670',
+            borderBottom: tab === 'sessions' ? '2px solid #2DD4BF' : '2px solid transparent',
+          }}
         >
-          All ({jobs.length})
+          Our Sessions
         </button>
-        {Object.entries(phaseCounts).sort().map(([phase, count]) => (
-          <button
-            key={phase}
-            onClick={() => setFilter(phase)}
-            className={`btn btn-sm ${filter === phase ? 'btn-primary' : 'btn-ghost'}`}
-            style={{
-              fontSize: 11, padding: '3px 10px', height: 'auto',
-              color: filter === phase ? undefined : PHASE_COLORS[phase],
-            }}
-          >
-            {phase} ({count})
-          </button>
-        ))}
+        <button
+          onClick={() => setTab('onchain')}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '8px 16px', fontSize: 13, fontWeight: 600,
+            color: tab === 'onchain' ? '#2DD4BF' : '#7A7670',
+            borderBottom: tab === 'onchain' ? '2px solid #2DD4BF' : '2px solid transparent',
+          }}
+        >
+          On-Chain (latest 20)
+        </button>
       </div>
 
-      {loading && jobs.length === 0 && (
-        <div className="text-grey" style={{ textAlign: 'center', padding: 40 }}>Loading on-chain jobs...</div>
-      )}
+      {tab === 'sessions' && <OurSessionsTab />}
 
-      {!loading && jobs.length === 0 && (
-        <div className="text-grey" style={{ textAlign: 'center', padding: 40 }}>
-          No ACP jobs found. Jobs appear here when agents create tasks through the ACP protocol.
-        </div>
-      )}
+      {tab === 'onchain' && (
+        <>
+          {error && (
+            <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>
+          )}
 
-      {filtered.map(job => (
-        <JobCard key={job.acpJobId} job={job} defaultExpanded={filtered.length === 1} />
-      ))}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              onClick={() => setFilter('all')}
+              className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ fontSize: 11, padding: '3px 10px', height: 'auto' }}
+            >
+              All ({jobs.length})
+            </button>
+            {Object.entries(phaseCounts).sort().map(([phase, count]) => (
+              <button
+                key={phase}
+                onClick={() => setFilter(phase)}
+                className={`btn btn-sm ${filter === phase ? 'btn-primary' : 'btn-ghost'}`}
+                style={{
+                  fontSize: 11, padding: '3px 10px', height: 'auto',
+                  color: filter === phase ? undefined : PHASE_COLORS[phase],
+                }}
+              >
+                {phase} ({count})
+              </button>
+            ))}
+            <button onClick={loadOnChain} disabled={loading} className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}>
+              {loading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+
+          {loading && jobs.length === 0 && (
+            <div className="text-grey" style={{ textAlign: 'center', padding: 40 }}>Loading on-chain jobs...</div>
+          )}
+
+          {!loading && jobs.length === 0 && (
+            <div className="text-grey" style={{ textAlign: 'center', padding: 40 }}>
+              No ACP jobs found. Jobs appear here when agents create tasks through the ACP protocol.
+            </div>
+          )}
+
+          {filtered.map(job => (
+            <JobCard key={job.acpJobId} job={job} defaultExpanded={filtered.length === 1} />
+          ))}
+        </>
+      )}
     </div>
   );
 }

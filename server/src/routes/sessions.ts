@@ -81,7 +81,8 @@ const router = Router();
 // GET /sessions — list sessions
 router.get('/', (req, res) => {
   if (req.auth!.role === 'admin') {
-    res.json({ success: true, data: getAllSessions() });
+    const limit = Math.min(Number(req.query.limit) || 200, 1000);
+    res.json({ success: true, data: getAllSessions(limit) });
   } else {
     res.json({ success: true, data: getSessionsForExpert(req.auth!.expertId) });
   }

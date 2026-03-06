@@ -148,8 +148,9 @@ export function getExpertReputation(expertId: string) {
 
 // ── Sessions (v1.1) ──
 
-export function getSessions() {
-  return request('/sessions');
+export function getSessions(limit?: number) {
+  const qs = limit ? `?limit=${limit}` : '';
+  return request(`/sessions${qs}`);
 }
 
 export function getSession(id: string) {
@@ -286,6 +287,11 @@ export function getAcpJobs() {
 
 export function getAcpJob(jobId: number) {
   return request(`/acp/jobs/${jobId}`);
+}
+
+export function getOurJobStatuses(since?: string) {
+  const qs = since ? `?since=${encodeURIComponent(since)}` : '';
+  return request(`/acp/our-jobs${qs}`);
 }
 
 export function getAcpSessionInspection(sessionId: string) {
