@@ -18,7 +18,7 @@ const OPERATING_HOURS = {
   timezone: 'Europe/Stockholm',
   dailyStart: 9,   // 09:00 local
   dailyEnd: 23,     // 23:00 local
-  description: 'Experts available 09:00–23:00 CET daily. Jobs submitted outside hours are rejected with next-open ETA — resubmit when experts are online.',
+  description: 'Experts available 09:00–23:00 CET daily.',
 };
 
 interface DomainAvailability {
