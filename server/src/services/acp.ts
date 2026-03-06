@@ -1193,6 +1193,7 @@ const PHASE_NAMES: Record<number, string> = {
   [AcpJobPhases.EVALUATION]: 'EVALUATION',
   [AcpJobPhases.COMPLETED]: 'COMPLETED',
   [AcpJobPhases.REJECTED]: 'REJECTED',
+  [AcpJobPhases.EXPIRED]: 'EXPIRED',
 };
 
 const MEMO_TYPE_NAMES: Record<number, string> = {
