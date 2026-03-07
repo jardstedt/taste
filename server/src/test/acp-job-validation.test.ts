@@ -301,13 +301,12 @@ describe('job requirement validation', () => {
       expect(reason).toContain('intendedUse');
     });
 
-    it('rejects output_quality_gate with invalid outputType', () => {
+    it('accepts output_quality_gate with any outputType string', () => {
       const reason = validate(
         { aiOutput: 'Some text output.', outputType: 'garbage', intendedUse: 'testing' },
         'output_quality_gate',
       );
-      expect(reason).toContain('Invalid value');
-      expect(reason).toContain('outputType');
+      expect(reason).toBeNull();
     });
 
     it('rejects option_ranking with only 1 option', () => {
@@ -381,13 +380,12 @@ describe('job requirement validation', () => {
       expect(reason).toContain('content');
     });
 
-    it('rejects fact_check_verification with invalid contentType', () => {
+    it('accepts fact_check_verification with any contentType string', () => {
       const reason = validate(
         { content: 'Some claims about a project.', contentType: 'tweet' },
         'fact_check_verification',
       );
-      expect(reason).toContain('Invalid value');
-      expect(reason).toContain('contentType');
+      expect(reason).toBeNull();
     });
 
     it('rejects dispute_arbitration missing originalContract', () => {

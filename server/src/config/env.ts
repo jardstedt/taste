@@ -47,6 +47,9 @@ const envSchema = z.object({
   // AI (Claude API for expert assist)
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
 
+  // Auto-complete: generate deliverables with AI and auto-complete ACP sessions (for graduation)
+  ACP_AUTO_COMPLETE: z.enum(['true', 'false', '1', '0']).default('false'),
+
   // Mode
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });

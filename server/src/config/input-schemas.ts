@@ -35,7 +35,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['knownConstraints'],
     fieldValidators: {
       aiOutput: { type: 'string', minLength: 1 },
-      outputType: { type: 'enum', allowedValues: ['text', 'analysis', 'recommendation', 'code', 'summary'] },
+      outputType: { type: 'string', minLength: 1 },
     },
   },
   option_ranking: {
@@ -51,7 +51,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['brandGuidelines'],
     fieldValidators: {
       content: { type: 'string', minLength: 1 },
-      contentType: { type: 'enum', allowedValues: ['social_post', 'article', 'image', 'video', 'audio', 'meme'] },
+      contentType: { type: 'string', minLength: 1 },
       targetAudience: { type: 'string', minLength: 1 },
     },
   },
@@ -60,7 +60,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['question'],
     fieldValidators: {
       content: { type: 'string', minLength: 1 },
-      contentType: { type: 'enum', allowedValues: ['thumbnail', 'social_post', 'image', 'video', 'audio', 'meme', 'headline'] },
+      contentType: { type: 'string', minLength: 1 },
       targetAudience: { type: 'string', minLength: 1 },
     },
   },
@@ -77,7 +77,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['focusAreas', 'sourceLinks'],
     fieldValidators: {
       content: { type: 'string', minLength: 1 },
-      contentType: { type: 'enum', allowedValues: ['article', 'research', 'analysis', 'summary', 'report'] },
+      contentType: { type: 'string', minLength: 1 },
     },
   },
   dispute_arbitration: {
