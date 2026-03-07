@@ -36,8 +36,8 @@ function isAutoCompleteEnabled(): boolean {
  * Used during graduation to handle test requests without manual intervention.
  */
 async function autoCompleteSession(sessionId: string, offeringType: string, description: string): Promise<void> {
-  // Random delay 60-180 seconds to look natural
-  const delaySec = 60 + Math.floor(Math.random() * 120);
+  // Random delay 15-45 seconds — fast enough to beat on-chain timeout
+  const delaySec = 15 + Math.floor(Math.random() * 30);
   console.log(`[ACP-Auto] Session ${sessionId} — auto-completing in ${delaySec}s`);
 
   await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
