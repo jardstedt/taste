@@ -14,78 +14,16 @@ import { MEMO_BRIDGE_POLL_MS, MAX_DESCRIPTION_LENGTH, MAX_MEMO_LENGTH, MAX_VERDI
 import {
   createSession, getSessionByAcpId, getSessionById,
   matchSession, notifyEligibleExperts, startSession, formatSessionDeliverable, checkSessionTimeouts,
-  confirmSessionPayout, addMessage, acceptSession, completeSession, saveDeliverable,
+  confirmSessionPayout, addMessage,
   getActiveAcpSessions, markPaymentReceived, cancelSessionFromAcp, getStuckAcpSessions,
 } from './sessions.js';
 import { notifyExpert, emitToSession } from './socket.js';
 import { sendPushToExpert } from './push.js';
 import { validateReferenceCode, redeemReferenceCode } from './referral.js';
 import { validateRequirementSchema } from '../config/input-schemas.js';
-import { getAllExperts } from './experts.js';
-import { generateDraft } from './ai-draft.js';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
-function isAutoCompleteEnabled(): boolean {
-  const val = getEnv().ACP_AUTO_COMPLETE;
-  return val === 'true' || val === '1';
-}
-
-/**
- * Auto-complete a session: accept with first available expert, generate AI deliverable, complete.
- * Used during graduation to handle test requests without manual intervention.
- */
-async function autoCompleteSession(sessionId: string, offeringType: string, description: string): Promise<void> {
-  // Random delay 15-45 seconds — fast enough to beat on-chain timeout
-  const delaySec = 15 + Math.floor(Math.random() * 30);
-  console.log(`[ACP-Auto] Session ${sessionId} — auto-completing in ${delaySec}s`);
-
-  await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
-
-  // Find first active expert to assign
-  const experts = getAllExperts().filter(e => !e.deactivatedAt && e.agreementAcceptedAt);
-  if (experts.length === 0) {
-    console.error('[ACP-Auto] No eligible experts found — cannot auto-complete');
-    return;
-  }
-
-  const expert = experts[0];
-  const accepted = acceptSession(sessionId, expert.id);
-  if (!accepted) {
-    console.error(`[ACP-Auto] Failed to accept session ${sessionId} — may already be accepted/cancelled`);
-    return;
-  }
-  console.log(`[ACP-Auto] Session ${sessionId} accepted by ${expert.name}`);
-
-  // Start the session
-  startSession(sessionId);
-
-  // Generate AI deliverable
-  const draft = await generateDraft(offeringType, description);
-  if (!draft) {
-    console.error(`[ACP-Auto] Failed to generate draft for ${sessionId} — ANTHROPIC_API_KEY may be missing`);
-    return;
-  }
-
-  // Convert string values to appropriate types for the deliverable schema
-  const structuredData: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(draft)) {
-    // Convert numeric strings to numbers for rating/score fields
-    if (/score|rating|checked/i.test(key) && /^\d+$/.test(val)) {
-      structuredData[key] = parseInt(val, 10);
-    } else {
-      structuredData[key] = val;
-    }
-  }
-
-  saveDeliverable(sessionId, offeringType, structuredData, draft.summary ?? '');
-  const completed = completeSession(sessionId);
-  if (completed) {
-    console.log(`[ACP-Auto] Session ${sessionId} completed — ${offeringType}`);
-  } else {
-    console.error(`[ACP-Auto] Failed to complete session ${sessionId}`);
-  }
-}
 
 /** Pattern for off-chain memo content URLs (SDK beta.37+) */
 const MEMO_CONTENT_URL_RE = /api\/memo-contents\/\d+$/;
@@ -519,12 +457,6 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
             notifyEligibleExperts(matched, eligibleExpertIds);
           }
 
-          // Auto-complete if enabled (graduation mode)
-          if (isAutoCompleteEnabled()) {
-            const desc = JSON.stringify(requirements).slice(0, MAX_DESCRIPTION_LENGTH);
-            autoCompleteSession(session.id, offeringType, desc).catch(err =>
-              console.error(`[ACP-Auto] Error auto-completing ${session.id}:`, err));
-          }
         }
       } catch (err) {
         console.error(`[ACP] Failed to create session for job ${job.id}`);
