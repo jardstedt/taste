@@ -43,6 +43,7 @@ const envSchema = z.object({
   MCP_WALLET_ADDRESS: z.string().startsWith('0x').optional(),
   MCP_FACILITATOR_URL: z.string().url().default('https://x402.org/facilitator'),
   MCP_NETWORK: z.enum(['base', 'base-sepolia']).default('base'),
+  MCP_FREE_MODE: z.coerce.boolean().default(false),
 
   // AI (Claude API for expert assist)
   ANTHROPIC_API_KEY: z.string().min(1).optional(),

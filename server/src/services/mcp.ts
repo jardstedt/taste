@@ -413,8 +413,8 @@ async function handleMcpRequest(
 export async function initMcp(): Promise<void> {
   const env = getEnv();
 
-  if (!env.MCP_WALLET_ADDRESS && env.NODE_ENV === 'production') {
-    console.log('[MCP] No MCP_WALLET_ADDRESS configured, skipping MCP server');
+  if (!env.MCP_WALLET_ADDRESS && !env.MCP_FREE_MODE && env.NODE_ENV === 'production') {
+    console.log('[MCP] No MCP_WALLET_ADDRESS configured and MCP_FREE_MODE not enabled, skipping MCP server');
     return;
   }
 
