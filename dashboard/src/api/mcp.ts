@@ -49,7 +49,7 @@ async function mcpRpc<T = unknown>(method: string, params: unknown = {}): Promis
 
   let res: Response;
   try {
-    res = await fetch('/mcp', {
+    res = await fetch('/mcp/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' },
       body: JSON.stringify(body),
