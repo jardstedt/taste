@@ -1469,11 +1469,36 @@ export async function scanAndProcessStuckJobs(
         continue;
       }
 
-      console.log(`[ACP] Scan found stuck job ${id} in phase ${PHASE_NAMES[job.phase]}`);
+      console.log(`[ACP] Scan found stuck job ${id} in phase ${PHASE_NAMES[job.phase]}, memos: ${job.memos?.length ?? 0}`);
 
-      // Try to process it through the normal handler
+      // For TRANSACTION phase: try direct delivery if we have a completed session
+      if (job.phase === AcpJobPhases.TRANSACTION) {
+        const session = getSessionByAcpId(String(id));
+        if (session?.status === 'completed') {
+          const deliverable = formatSessionDeliverable(session.id);
+          await job.deliver(JSON.stringify(deliverable));
+          console.log(`[ACP] Scan: delivered completed session ${session.id} for job ${id}`);
+          await autoConfirmIfNoEvaluator(job, session.id);
+          result.processed.push(id);
+          continue;
+        }
+        // Session exists but not completed — log and skip
+        if (session) {
+          console.log(`[ACP] Scan: job ${id} has session ${session.id} in status ${session.status} — waiting for completion`);
+          result.skipped.push(id);
+          continue;
+        }
+        // No session — fall through to handleNewTask to create one
+        console.log(`[ACP] Scan: job ${id} in TRANSACTION but no local session — creating via handleNewTask`);
+      }
+
+      // Try to process through the normal handler (finds pending memo by status)
       _processingJobs.delete(id); // Clear dedup lock
-      await handleNewTask(job, job.memos?.find((m: AcpMemo) => String(m.status) === '0')); // status 0 = pending
+      const pendingMemo = job.memos?.find((m: AcpMemo) =>
+        String(m.status) === '0' || String(m.status).toUpperCase() === 'PENDING'
+      );
+      console.log(`[ACP] Scan: pending memo for job ${id}: ${pendingMemo ? `id=${pendingMemo.id} nextPhase=${pendingMemo.nextPhase}` : 'none found'}`);
+      await handleNewTask(job, pendingMemo);
       result.processed.push(id);
     } catch (err) {
       result.failed.push({ id, error: (err as Error).message?.slice(0, 100) ?? 'unknown' });
