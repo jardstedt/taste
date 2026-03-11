@@ -21,6 +21,7 @@ import { notifyExpert, emitToSession } from './socket.js';
 import { sendPushToExpert } from './push.js';
 import { validateReferenceCode, redeemReferenceCode } from './referral.js';
 import { validateRequirementSchema } from '../config/input-schemas.js';
+import { aiPrefilterRequest } from './ai-prefilter.js';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -383,6 +384,14 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
       if (rejectionReason) {
         console.log(`[ACP] Job ${job.id} rejected: ${rejectionReason.slice(0, 80)}...`);
         await job.reject(rejectionReason);
+        return;
+      }
+
+      // AI-powered pre-filter: catch garbage/test/spam that slips past regex patterns
+      const aiRejection = await aiPrefilterRequest(requirements, offeringType);
+      if (aiRejection) {
+        console.log(`[ACP] Job ${job.id} AI-rejected: ${aiRejection.slice(0, 80)}...`);
+        await job.reject(aiRejection);
         return;
       }
 
