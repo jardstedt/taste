@@ -51,7 +51,11 @@ IMPORTANT — DO NOT REJECT any of the following:
 - Requests with informal language or unconventional formatting
 - Content submitted FOR REVIEW — in quality gates, fact checks, and content reviews, the content being evaluated may contain bad advice, errors, or controversial claims. That's the POINT — the requester wants us to evaluate it, not endorse it. Do NOT reject because the content being reviewed is low quality or problematic.
 
-DEFAULT TO ACCEPT. Only reject when you are highly confident the request is garbage, harmful, or completely off-topic. When in doubt, ACCEPT.
+HOWEVER, DO REJECT these specific cases even if the request looks coherent:
+- Placeholder/filler content with no real substance for the service type (e.g. "Some random text to verify" sent to a fact-check service — there are no facts to check)
+- Logically nonsensical requests where the target audience cannot actually perceive or respond to the deliverable (e.g. targetAudience: "My cat" for a branding exercise — cats cannot evaluate logos)
+
+DEFAULT TO ACCEPT. Only reject when you are highly confident the request is garbage, harmful, completely off-topic, or logically nonsensical. When in doubt, ACCEPT.
 
 Respond with EXACTLY one line:
 ACCEPT

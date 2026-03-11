@@ -451,17 +451,25 @@ describe('job requirement validation', () => {
       expect(reason).toContain('content');
     });
 
-    it('rejects fact_check_verification with too-short contentType', () => {
+    it('rejects fact_check_verification with invalid contentType', () => {
       const reason = validate(
-        { content: 'Some claims about a project.', contentType: 'ab' },
+        { content: 'Some claims about a project.', contentType: 'personal_message' },
         'fact_check_verification',
       );
-      expect(reason).toContain('at least 3 characters');
+      expect(reason).toContain('Invalid value');
     });
 
-    it('accepts fact_check_verification with any descriptive contentType', () => {
+    it('accepts fact_check_verification with news_report contentType', () => {
       const reason = validate(
         { content: 'Some claims about a project.', contentType: 'news_report' },
+        'fact_check_verification',
+      );
+      expect(reason).toBeNull();
+    });
+
+    it('accepts fact_check_verification with article contentType', () => {
+      const reason = validate(
+        { content: 'Bitcoin was created in 2009 by Satoshi Nakamoto', contentType: 'article' },
         'fact_check_verification',
       );
       expect(reason).toBeNull();
@@ -571,6 +579,62 @@ describe('job requirement validation', () => {
         'fact_check_verification',
       );
       expect(reason).toBeNull();
+    });
+  });
+
+  // ── XSS / injection detection ──
+
+  describe('XSS and injection detection', () => {
+    it('rejects content with script tags', () => {
+      const reason = validate(
+        { content: "<script>alert('xss')</script>", contentType: 'social_post', targetAudience: 'developers' },
+        'content_quality_gate',
+      );
+      expect(reason).toContain('script injection');
+    });
+
+    it('rejects aiOutput with script tags', () => {
+      const reason = validate(
+        { aiOutput: "<script>document.cookie</script> and more text to pass length", outputType: 'code', intendedUse: 'testing' },
+        'output_quality_gate',
+      );
+      expect(reason).toContain('script injection');
+    });
+
+    it('allows content mentioning scripts in text form', () => {
+      const reason = validate(
+        { content: 'The developer used a script tag incorrectly in their HTML output.', contentType: 'article', targetAudience: 'developers' },
+        'content_quality_gate',
+      );
+      expect(reason).toBeNull();
+    });
+  });
+
+  // ── contentType enum validation ──
+
+  describe('contentType enum validation', () => {
+    it('rejects audience_reaction_poll with invalid contentType "movie"', () => {
+      const reason = validate(
+        { content: 'Review of a blockbuster film', contentType: 'movie', targetAudience: 'public' },
+        'audience_reaction_poll',
+      );
+      expect(reason).toContain('Invalid value');
+    });
+
+    it('accepts audience_reaction_poll with valid contentType "thumbnail"', () => {
+      const reason = validate(
+        { content: 'A thumbnail showing a glowing Bitcoin', contentType: 'thumbnail', targetAudience: 'retail investors' },
+        'audience_reaction_poll',
+      );
+      expect(reason).toBeNull();
+    });
+
+    it('rejects content_quality_gate with invalid contentType "movie"', () => {
+      const reason = validate(
+        { content: 'Review of a blockbuster film here', contentType: 'movie', targetAudience: 'general public' },
+        'content_quality_gate',
+      );
+      expect(reason).toContain('Invalid value');
     });
   });
 

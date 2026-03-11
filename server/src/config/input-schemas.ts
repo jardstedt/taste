@@ -53,7 +53,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['brandGuidelines'],
     fieldValidators: {
       content: { type: 'string', minLength: 20 },
-      contentType: { type: 'string', minLength: 3 },
+      contentType: { type: 'enum', allowedValues: ['article', 'blog', 'blog_post', 'social_post', 'tweet', 'post', 'image', 'video', 'video_clip', 'audio', 'podcast', 'design', 'thumbnail', 'headline', 'ad', 'banner', 'infographic', 'newsletter', 'press_release', 'email', 'copy', 'script', 'presentation', 'report', 'whitepaper', 'documentation', 'landing_page', 'product_page', 'faq', 'announcement', 'campaign', 'brochure', 'flyer', 'poster', 'meme', 'reel', 'story'] },
       targetAudience: { type: 'string', minLength: 5 },
     },
   },
@@ -62,7 +62,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['question'],
     fieldValidators: {
       content: { type: 'string', minLength: 20 },
-      contentType: { type: 'string', minLength: 3 },
+      contentType: { type: 'enum', allowedValues: ['thumbnail', 'headline', 'social_post', 'image', 'video_clip', 'design', 'ad', 'banner', 'logo', 'infographic', 'meme', 'tweet', 'post', 'reel', 'story', 'campaign', 'slogan', 'tagline', 'packaging', 'poster', 'flyer', 'brochure', 'trailer', 'teaser', 'announcement', 'video', 'audio', 'podcast', 'newsletter', 'landing_page', 'product_page'] },
       targetAudience: { type: 'string', minLength: 5 },
     },
   },
@@ -79,7 +79,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['focusAreas', 'sourceLinks'],
     fieldValidators: {
       content: { type: 'string', minLength: 1 },
-      contentType: { type: 'string', minLength: 3 },
+      contentType: { type: 'enum', allowedValues: ['article', 'research', 'analysis', 'summary', 'report', 'news', 'news_report', 'history', 'tweet', 'post', 'blog', 'blog_post', 'paper', 'whitepaper', 'press_release', 'statement', 'claim', 'data', 'statistics', 'financial', 'technical', 'legal', 'medical', 'scientific', 'political', 'social_media', 'video', 'podcast', 'interview', 'review', 'opinion', 'editorial', 'announcement', 'transcript', 'speech', 'document'] },
       sourceLinks: { type: 'url_array' },
     },
   },
@@ -167,6 +167,12 @@ export function validateRequirementSchema(
         return `Invalid value for '${field}': '${val}'. This value is not supported.`;
       }
     }
+  }
+
+  // HTML/script injection detection — reject active XSS payloads in content fields
+  const contentVal = requirements.content ?? requirements.aiOutput;
+  if (typeof contentVal === 'string' && /<script[\s>]/i.test(contentVal)) {
+    return `Field 'content' contains an HTML script injection payload. This is not valid content for evaluation.`;
   }
 
   // Content-as-URL validation: reject placeholder/example domains

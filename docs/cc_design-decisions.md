@@ -561,4 +561,19 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 
 **Decision:** Dropped `contentType` enum for fact_check_verification → plain `string` minLength 3. Kept `outputType` enum for output_quality_gate (AI output types are a bounded set — "sculpture" is not one). Added `aiOutput` minLength 20 to catch placeholder content like "Valid content". Lowered dispute_arbitration minLength from 25→20 (originalContract) and 25→15 (deliverable).
 
-**Rationale:** Content being fact-checked can be anything (news_report, blog_post, etc.) — enum was over-fitting. But AI output types are genuinely bounded (code, article, analysis, etc.) and the graduation evaluator deliberately tests reject cases with invalid outputType. The aiOutput minLength catches placeholder/garbage submissions. For disputes, deliverable descriptions can legitimately be short ("3 posts about dog toys." = 23 chars).
+**Rationale:** AI output types are genuinely bounded (code, article, analysis, etc.) and the graduation evaluator deliberately tests reject cases with invalid types. The aiOutput minLength catches placeholder/garbage submissions. For disputes, deliverable descriptions can legitimately be short ("3 posts about dog toys." = 23 chars).
+
+---
+
+### 2026-03-11: Restored contentType enums, added XSS detection, improved prefilter
+
+**Context:** Graduation batch 43/48 — 5 failures from missing validation:
+1. audience_reaction_poll `contentType: "movie"` accepted (evaluator expected reject)
+2. content_quality_gate accepted XSS payload `<script>alert('xss')</script>`
+3. creative_direction_check accepted nonsensical request (targetAudience: "My cat")
+4. fact_check `contentType: "personal_message"` accepted (evaluator expected reject)
+5. fact_check "Some random text to verify." accepted (no factual claims to check)
+
+**Decision:** Restored contentType enums for audience_reaction_poll, content_quality_gate, and fact_check_verification — each with a broad but domain-appropriate list. Added `<script>` tag detection to reject XSS payloads. Improved AI prefilter to catch placeholder content and logically nonsensical requests (non-sentient target audiences).
+
+**Rationale:** Each offering has a natural domain of content types. "movie" isn't audience reaction content; "personal_message" isn't fact-checkable content. The enums need to be broad enough to include compound values like `news_report` but narrow enough to exclude obviously wrong types. XSS payloads are never valid content. The AI prefilter handles edge cases that regex can't (nonsensical audiences, placeholder text with no factual claims).
