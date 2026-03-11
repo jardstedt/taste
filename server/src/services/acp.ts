@@ -395,14 +395,6 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
         return;
       }
 
-      await job.accept('Human expert judgment service ready');
-      await job.createRequirement('Payment required to proceed with human expert evaluation');
-
-      console.log(`[ACP] Job ${job.id} accepted`);
-
-      // Track recurring buyer relationships (non-blocking)
-      trackBuyerAccount(job).catch(err => console.error('[ACP] trackBuyerAccount failed:', err));
-
       // Detect follow-up reference code in requirements
       let followupOf: string | undefined;
       let discountedPrice: number | undefined;
@@ -428,11 +420,15 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
         }
       }
 
-      // Create session and match expert
+      // Create local session BEFORE accepting on-chain — if this fails, reject the job
+      // so it doesn't get stuck in an accepted-but-untracked state
+      let session;
       try {
         const existingSession = getSessionByAcpId(String(job.id));
-        if (!existingSession) {
-          const session = createSession({
+        if (existingSession) {
+          session = existingSession;
+        } else {
+          session = createSession({
             offeringType,
             acpJobId: String(job.id),
             buyerAgent: job.clientAddress ?? String(job.id),
@@ -441,34 +437,44 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
             followupOf,
             priceUsdc: discountedPrice,
           });
-
-          // Redeem the reference code now that the session exists
-          if (detectedRefCode && followupOf) {
-            redeemReferenceCode(detectedRefCode, session.id);
-            addMessage(session.id, 'system', null,
-              'Follow-up review — 50% discount applied via reference code', 'system_notice');
-          }
-
-          // Seed chat with the buyer's requirement as the first message
-          if (Object.keys(requirements).length > 0) {
-            const reqText = Object.entries(requirements)
-              .map(([k, v]) => `**${k}:** ${typeof v === 'string' ? v : formatRequirementValue(v)}`)
-              .join('\n');
-            addMessage(session.id, 'agent', null, reqText);
-          }
-
-          // Record all current memo IDs so the bridge doesn't re-inject them
-          const seenIds = new Set(job.memos.map((m: AcpMemo) => m.id));
-          _seenMemoIds.set(String(job.id), seenIds);
-
-          const { session: matched, eligibleExpertIds } = matchSession(session.id);
-          if (matched && eligibleExpertIds.length > 0) {
-            notifyEligibleExperts(matched, eligibleExpertIds);
-          }
-
         }
       } catch (err) {
         console.error(`[ACP] Failed to create session for job ${job.id}:`, (err as Error).message ?? err);
+        await job.reject('Internal error — please retry. Our service encountered an issue processing this request.');
+        return;
+      }
+
+      // Session created successfully — now accept on-chain
+      await job.accept('Human expert judgment service ready');
+      await job.createRequirement('Payment required to proceed with human expert evaluation');
+
+      console.log(`[ACP] Job ${job.id} accepted, session ${session.id} created`);
+
+      // Track recurring buyer relationships (non-blocking)
+      trackBuyerAccount(job).catch(err => console.error('[ACP] trackBuyerAccount failed:', err));
+
+      // Redeem the reference code now that the session exists
+      if (detectedRefCode && followupOf) {
+        redeemReferenceCode(detectedRefCode, session.id);
+        addMessage(session.id, 'system', null,
+          'Follow-up review — 50% discount applied via reference code', 'system_notice');
+      }
+
+      // Seed chat with the buyer's requirement as the first message
+      if (Object.keys(requirements).length > 0) {
+        const reqText = Object.entries(requirements)
+          .map(([k, v]) => `**${k}:** ${typeof v === 'string' ? v : formatRequirementValue(v)}`)
+          .join('\n');
+        addMessage(session.id, 'agent', null, reqText);
+      }
+
+      // Record all current memo IDs so the bridge doesn't re-inject them
+      const seenIds = new Set(job.memos.map((m: AcpMemo) => m.id));
+      _seenMemoIds.set(String(job.id), seenIds);
+
+      const { session: matched, eligibleExpertIds } = matchSession(session.id);
+      if (matched && eligibleExpertIds.length > 0) {
+        notifyEligibleExperts(matched, eligibleExpertIds);
       }
     }
     // Phase 2: Payment received — check if judgment is ready
@@ -478,10 +484,31 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
     ) {
       console.log(`[ACP] Payment received for job ${job.id}`);
 
-      // Check session status
-      const session = getSessionByAcpId(String(job.id));
+      // Check session status — if no session exists, create one on the fly
+      let session = getSessionByAcpId(String(job.id));
       if (!session) {
-        console.error(`[ACP] Payment received for job ${job.id} but NO local session found — payment memo will not be signed!`);
+        console.warn(`[ACP] Payment received for job ${job.id} but no local session — creating recovery session`);
+        try {
+          const reqContent = job.memos?.find((m: AcpMemo) => m.nextPhase === AcpJobPhases.NEGOTIATION)?.content;
+          let recoveryReqs: Record<string, unknown> = {};
+          if (reqContent) {
+            try {
+              const parsed = JSON.parse(typeof reqContent === 'string' ? reqContent : JSON.stringify(reqContent));
+              recoveryReqs = parsed.requirement ?? parsed;
+            } catch { recoveryReqs = { rawRequest: String(reqContent) }; }
+          }
+          const recoveryType = resolveOfferingType(job.name ?? '') ?? 'trust_evaluation';
+          session = createSession({
+            offeringType: recoveryType,
+            acpJobId: String(job.id),
+            buyerAgent: job.clientAddress ?? String(job.id),
+            buyerAgentDisplay: job.name ?? `Agent ${job.id}`,
+            description: JSON.stringify(recoveryReqs).slice(0, MAX_DESCRIPTION_LENGTH),
+          });
+          console.log(`[ACP] Recovery session ${session.id} created for job ${job.id}`);
+        } catch (err) {
+          console.error(`[ACP] Failed to create recovery session for job ${job.id}:`, (err as Error).message ?? err);
+        }
       }
       if (session) {
         markPaymentReceived(session.id);
