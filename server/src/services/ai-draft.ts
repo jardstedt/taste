@@ -166,11 +166,9 @@ Respond with ONLY a JSON object. Keys = field keys, values = strings. Numbers as
     .map(b => b.text)
     .join('');
 
-  // Extract JSON — take the LAST JSON object (model may output text before the final JSON)
-  const jsonMatches = [...text.matchAll(/\{[\s\S]*?\}(?=\s*$|\s*```)/g)];
-  const jsonStr = jsonMatches.length > 0
-    ? jsonMatches[jsonMatches.length - 1][0]
-    : text.match(/\{[\s\S]*\}/)?.[0];
+  // Extract JSON — try code block first, then fallback to greedy brace matching
+  const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+  const jsonStr = codeBlockMatch?.[1] ?? text.match(/\{[\s\S]*\}/)?.[0];
   if (!jsonStr) {
     console.warn('[ai-draft] No JSON found in response. Text length:', text.length, 'Stop reason:', response.stop_reason);
     return null;
