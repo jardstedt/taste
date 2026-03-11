@@ -26,23 +26,33 @@ export async function aiPrefilterRequest(
   // Skip AI filter for very large requests (they're clearly substantive)
   if (reqText.length > 2000) return null;
 
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
   const prompt = `You are a request quality gate for a human expert evaluation service. An AI agent is requesting a "${offeringType.replace(/_/g, ' ')}" from our service.
+
+TODAY'S DATE: ${today}
 
 REQUEST DATA:
 ${reqText}
 
 Determine if this is a LEGITIMATE request or if it should be REJECTED.
 
-REJECT if ANY of the following are true:
-- Test/dummy data: fields contain placeholder text like "test", "Test content", "sample", "example", "foo", "bar", "lorem ipsum", "asdf"
-- Nonsensical/garbage values: field values that are clearly not real (e.g. contentType="invalid", outputType="unsupported_type", "non_existent_type", "abc123")
-- Harmful/violent/NSFW content: requests involving graphic violence, sexual content, illegal activities, harassment, exploitation
-- Spam or non-substantive: extremely short or vague descriptions that don't describe a real evaluation need
-- Off-topic: requests for token operations, trades, or things unrelated to human judgment/evaluation
+REJECT ONLY if the request is CLEARLY one of these:
+- Pure gibberish or keyboard mash (e.g. "asdf", "aaa", "xxx", random characters)
+- Explicitly labeled as test data by the sender (e.g. "this is a test", fields literally saying "test" with no real content)
+- Harmful/violent/NSFW content: graphic violence, sexual content, illegal activities, harassment, exploitation
+- Off-topic: requests for token operations, trades, or things completely unrelated to human judgment/evaluation
 
-ACCEPT if the request describes a plausible real-world evaluation need, even if brief or informal.
+IMPORTANT — DO NOT REJECT any of the following:
+- Requests mentioning current or recent dates — today is ${today}, so references to ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} are CURRENT, not future/test data
+- Simple or short code snippets — even basic functions like "sum(a, b)" are legitimate code that needs quality review
+- Real URLs from any service (picsum.photos, placeholder.com, etc.) — these are real services, not test placeholders
+- Brief but coherent requests — a short request is fine if it describes a real evaluation need
+- Requests with informal language or unconventional formatting
 
-Respond with EXACTLY one line in this format:
+DEFAULT TO ACCEPT. Only reject when you are highly confident the request is garbage, harmful, or completely off-topic. When in doubt, ACCEPT.
+
+Respond with EXACTLY one line:
 ACCEPT
 or
 REJECT: <short reason>`;
