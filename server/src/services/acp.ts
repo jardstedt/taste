@@ -468,7 +468,7 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
 
         }
       } catch (err) {
-        console.error(`[ACP] Failed to create session for job ${job.id}`);
+        console.error(`[ACP] Failed to create session for job ${job.id}:`, (err as Error).message ?? err);
       }
     }
     // Phase 2: Payment received — check if judgment is ready
@@ -480,6 +480,9 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
 
       // Check session status
       const session = getSessionByAcpId(String(job.id));
+      if (!session) {
+        console.error(`[ACP] Payment received for job ${job.id} but NO local session found — payment memo will not be signed!`);
+      }
       if (session) {
         markPaymentReceived(session.id);
         if (session.status === 'completed') {
