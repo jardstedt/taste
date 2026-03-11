@@ -122,34 +122,57 @@ ${fieldDescriptions}
 
 Respond with ONLY a JSON object. Keys = field keys, values = strings. Numbers as strings (e.g. "7"). List items separated by newlines. Include ALL fields, both required and optional.`;
 
-  const response = await client.messages.create({
-    model: 'claude-opus-4-6',
-    max_tokens: 3000,
-    tools: [
-      { type: 'web_search_20250305', name: 'web_search' },
-      { type: 'web_fetch_20250910', name: 'web_fetch' },
-    ],
-    messages: [{ role: 'user', content: prompt }],
-  });
+  let response: Anthropic.Message;
+  try {
+    response = await client.messages.create({
+      model: 'claude-opus-4-6',
+      max_tokens: 4096,
+      tools: [
+        { type: 'web_search_20250305', name: 'web_search' },
+        { type: 'web_fetch_20250910', name: 'web_fetch' },
+      ],
+      messages: [{ role: 'user', content: prompt }],
+    });
+  } catch (err) {
+    // Fallback: retry without server tools if they're unavailable
+    console.warn('[ai-draft] Server tools failed, retrying without:', (err as Error).message);
+    try {
+      response = await client.messages.create({
+        model: 'claude-opus-4-6',
+        max_tokens: 3000,
+        messages: [{ role: 'user', content: prompt }],
+      });
+    } catch (fallbackErr) {
+      console.error('[ai-draft] Fallback also failed:', (fallbackErr as Error).message);
+      return null;
+    }
+  }
 
+  // Extract text from all text blocks (server tool responses include interleaved blocks)
   const text = response.content
     .filter((b): b is Anthropic.TextBlock => b.type === 'text')
     .map(b => b.text)
     .join('');
 
-  // Extract JSON from the response (handle markdown code blocks)
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
+  // Extract JSON — take the LAST JSON object (model may output text before the final JSON)
+  const jsonMatches = [...text.matchAll(/\{[\s\S]*?\}(?=\s*$|\s*```)/g)];
+  const jsonStr = jsonMatches.length > 0
+    ? jsonMatches[jsonMatches.length - 1][0]
+    : text.match(/\{[\s\S]*\}/)?.[0];
+  if (!jsonStr) {
+    console.warn('[ai-draft] No JSON found in response. Text length:', text.length, 'Stop reason:', response.stop_reason);
+    return null;
+  }
 
   try {
-    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-    // Convert all values to strings
+    const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
     const result: Record<string, string> = {};
     for (const [key, val] of Object.entries(parsed)) {
       result[key] = String(val);
     }
     return result;
   } catch {
+    console.warn('[ai-draft] JSON parse failed. Raw text:', text.slice(-500));
     return null;
   }
 }
