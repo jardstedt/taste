@@ -49,6 +49,7 @@ IMPORTANT — DO NOT REJECT any of the following:
 - Real URLs from any service (picsum.photos, placeholder.com, etc.) — these are real services, not test placeholders
 - Brief but coherent requests — a short request is fine if it describes a real evaluation need
 - Requests with informal language or unconventional formatting
+- Content submitted FOR REVIEW — in quality gates, fact checks, and content reviews, the content being evaluated may contain bad advice, errors, or controversial claims. That's the POINT — the requester wants us to evaluate it, not endorse it. Do NOT reject because the content being reviewed is low quality or problematic.
 
 DEFAULT TO ACCEPT. Only reject when you are highly confident the request is garbage, harmful, or completely off-topic. When in doubt, ACCEPT.
 
