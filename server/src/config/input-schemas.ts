@@ -37,7 +37,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['knownConstraints'],
     fieldValidators: {
       aiOutput: { type: 'string', minLength: 1 },
-      outputType: { type: 'string', minLength: 1, blockedValues: ['unsupported_type', 'invalid_type', 'test', 'unknown'] },
+      outputType: { type: 'enum', allowedValues: ['article', 'analysis', 'summary', 'report', 'code', 'essay', 'email', 'tweet', 'post', 'blog', 'script', 'translation', 'response', 'proposal', 'plan', 'review', 'documentation', 'presentation', 'copy', 'ad', 'headline', 'description', 'instructions', 'tutorial', 'faq', 'newsletter', 'press_release', 'speech', 'letter', 'memo', 'brief', 'outline', 'draft', 'creative', 'technical', 'marketing', 'social_media', 'product', 'financial', 'legal', 'medical', 'academic', 'research', 'data', 'image', 'video', 'audio', 'design'] },
     },
   },
   option_ranking: {
@@ -79,7 +79,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['focusAreas', 'sourceLinks'],
     fieldValidators: {
       content: { type: 'string', minLength: 1 },
-      contentType: { type: 'string', minLength: 1, blockedValues: ['invalid_type', 'unsupported_type', 'test', 'unknown'] },
+      contentType: { type: 'enum', allowedValues: ['article', 'research', 'analysis', 'summary', 'report', 'news', 'history', 'tweet', 'post', 'blog', 'paper', 'whitepaper', 'press_release', 'statement', 'claim', 'data', 'statistics', 'financial', 'technical', 'legal', 'medical', 'scientific', 'political', 'social_media', 'video', 'podcast', 'interview', 'review', 'opinion', 'editorial', 'announcement'] },
       sourceLinks: { type: 'url_array' },
     },
   },

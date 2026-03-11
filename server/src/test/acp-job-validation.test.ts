@@ -317,12 +317,12 @@ describe('job requirement validation', () => {
       expect(reason).toContain('intendedUse');
     });
 
-    it('rejects output_quality_gate with blocked outputType', () => {
+    it('rejects output_quality_gate with invalid outputType', () => {
       const reason = validate(
         { aiOutput: 'Some text output.', outputType: 'unsupported_type', intendedUse: 'testing' },
         'output_quality_gate',
       );
-      expect(reason).toContain('not supported');
+      expect(reason).toContain('Invalid value');
     });
 
     it('accepts output_quality_gate with valid outputType string', () => {
@@ -404,16 +404,24 @@ describe('job requirement validation', () => {
       expect(reason).toContain('content');
     });
 
-    it('rejects fact_check_verification with blocked contentType', () => {
+    it('rejects fact_check_verification with invalid contentType', () => {
       const reason = validate(
         { content: 'Some claims about a project.', contentType: 'invalid_type' },
         'fact_check_verification',
       );
-      expect(reason).toContain('not supported');
+      expect(reason).toContain('Invalid value');
       expect(reason).toContain('contentType');
     });
 
-    it('accepts fact_check_verification with standard contentType', () => {
+    it('rejects fact_check_verification with non_existent_type', () => {
+      const reason = validate(
+        { content: 'Fact check this.', contentType: 'non_existent_type' },
+        'fact_check_verification',
+      );
+      expect(reason).toContain('Invalid value');
+    });
+
+    it('accepts fact_check_verification with article contentType', () => {
       const reason = validate(
         { content: 'Some claims about a project.', contentType: 'article' },
         'fact_check_verification',
