@@ -36,8 +36,8 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     requiredFields: ['aiOutput', 'outputType', 'intendedUse'],
     optionalFields: ['knownConstraints'],
     fieldValidators: {
-      aiOutput: { type: 'string', minLength: 1 },
-      outputType: { type: 'string', minLength: 2 },
+      aiOutput: { type: 'string', minLength: 20 },
+      outputType: { type: 'enum', allowedValues: ['article', 'analysis', 'summary', 'report', 'code', 'essay', 'email', 'tweet', 'post', 'blog', 'script', 'translation', 'response', 'proposal', 'plan', 'review', 'documentation', 'presentation', 'copy', 'ad', 'headline', 'description', 'instructions', 'tutorial', 'faq', 'newsletter', 'press_release', 'speech', 'letter', 'memo', 'brief', 'outline', 'draft', 'creative', 'technical', 'marketing', 'social_media', 'product', 'financial', 'legal', 'medical', 'academic', 'research', 'data', 'image', 'video', 'audio', 'design', 'recommendation', 'text'] },
     },
   },
   option_ranking: {

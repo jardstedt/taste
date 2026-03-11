@@ -229,7 +229,7 @@ describe('job requirement validation', () => {
 
     it('accepts an output quality gate request', () => {
       const reason = validate(
-        { aiOutput: 'Bitcoin hit $73k in March 2024', outputType: 'analysis', intendedUse: 'blog post' },
+        { aiOutput: 'Bitcoin hit $73k in March 2024, setting a new all-time high.', outputType: 'analysis', intendedUse: 'blog post' },
         'output_quality_gate',
       );
       expect(reason).toBeNull();
@@ -356,17 +356,25 @@ describe('job requirement validation', () => {
       expect(reason).toContain('intendedUse');
     });
 
-    it('rejects output_quality_gate with too-short outputType', () => {
+    it('rejects output_quality_gate with invalid outputType', () => {
       const reason = validate(
-        { aiOutput: 'Some text output.', outputType: 'x', intendedUse: 'testing' },
+        { aiOutput: 'A sufficiently long AI output to pass validation.', outputType: 'sculpture', intendedUse: 'testing' },
         'output_quality_gate',
       );
-      expect(reason).toContain('at least 2 characters');
+      expect(reason).toContain('Invalid value');
     });
 
-    it('accepts output_quality_gate with any descriptive outputType', () => {
+    it('rejects output_quality_gate with placeholder aiOutput', () => {
       const reason = validate(
-        { aiOutput: 'Some text output.', outputType: 'market_analysis', intendedUse: 'testing' },
+        { aiOutput: 'Valid content', outputType: 'analysis', intendedUse: 'testing' },
+        'output_quality_gate',
+      );
+      expect(reason).toContain('at least 20 characters');
+    });
+
+    it('accepts output_quality_gate with valid outputType and real content', () => {
+      const reason = validate(
+        { aiOutput: 'Bitcoin hit $73k in March 2024, setting a new all-time high.', outputType: 'analysis', intendedUse: 'blog post' },
         'output_quality_gate',
       );
       expect(reason).toBeNull();
@@ -599,7 +607,7 @@ describe('job requirement validation', () => {
   describe('spam and abuse detection', () => {
     it('rejects output intended for spamming', () => {
       const reason = validate(
-        { aiOutput: 'Buy bitcoin now for 10x gains.', outputType: 'financial_shill', intendedUse: 'spamming groups' },
+        { aiOutput: 'Buy bitcoin now for 10x gains guaranteed, limited time offer.', outputType: 'text', intendedUse: 'spamming groups' },
         'output_quality_gate',
       );
       expect(reason).toContain('prohibited content');
