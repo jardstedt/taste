@@ -520,3 +520,33 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 **Decision:** Relaxed the prefilter prompt: provide `TODAY'S DATE` so Haiku knows what's current, add explicit "DO NOT REJECT" rules for code snippets, real URLs, and current dates, shift overall stance from "reject if any match" to "reject only when highly confident".
 
 **Rationale:** The prefilter's job is to catch obvious garbage (gibberish, harmful content, pure spam) — not to second-guess legitimate but simple requests. False rejections are worse than false accepts because they fail graduation tests and lose real paying customers. The regex-based content filters and schema validation already catch most structured issues; the AI filter is a last-resort semantic check.
+
+---
+
+### 2026-03-11: Remove security research terms from COMPLIANCE_PATTERNS
+
+**Context:** Graduation test sent a dispute_arbitration about a "Pectra upgrade security report with threat model" — rejected because `threat\w*`, `exploit`, and `attack` were in COMPLIANCE_PATTERNS. These are standard security research terminology, not malicious intent.
+
+**Decision:** Removed `exploit`, `attack`, and `threat\w*` from COMPLIANCE_PATTERNS. Kept `threaten\w*` (hostile intent: "threaten", "threatening"). Added `hack(?!athon)` negative lookahead so "hackathon" isn't blocked. Security research terms like "threat model", "attack surface", "exploit analysis" now pass through.
+
+**Rationale:** The HARMFUL_CONTENT and NSFW patterns (phrase-level matching like "graphic violence", "violent content") are the right tool for catching dangerous content. Single security words have too many legitimate uses — especially in dispute_arbitration where contracts routinely reference security audits, threat models, and vulnerability assessments.
+
+---
+
+### 2026-03-11: tokenAddress accepts any format (not just hex)
+
+**Context:** Graduation test sent Hedera address "0.0.x" and placeholder "0x..." — both rejected by hex_prefixed validator. Different blockchains use different address formats; optional fields shouldn't reject legitimate cross-chain requests.
+
+**Decision:** Changed tokenAddress from `hex_prefixed` to `string` with minLength 3. Accepts EVM (0x...), Hedera (0.0.x), Solana (base58), or any other format.
+
+**Rationale:** tokenAddress is optional and informational — it helps the evaluator look up the project, not validate on-chain state. Strict hex validation was over-fitting to EVM when the evaluation service is chain-agnostic.
+
+---
+
+### 2026-03-11: Conditional fact-checking in AI draft (tools vs no-tools)
+
+**Context:** Audience reaction poll asked about a "Bitcoin is $100k" headline. AI draft (Sonnet, no web tools) fabricated that BTC was "well above $100k" — evaluator rejected the deliverable for factual error. The prompt told all offerings "you have web_search tools" even when tools weren't enabled.
+
+**Decision:** Made fact-checking instructions conditional on whether web tools are available. With tools: "USE THEM to verify". Without tools: "Do NOT state specific current prices — acknowledge claims without asserting your own numbers."
+
+**Rationale:** Models without tools will confidently hallucinate current prices when told to be authoritative. Better to instruct them to frame unverifiable claims as "the headline claims X" rather than fabricating "X is currently Y". Only trust_evaluation and fact_check_verification get web tools (latency/cost tradeoff).
