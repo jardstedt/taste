@@ -490,3 +490,33 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 **Decision:** Added `server/src/config/input-schemas.ts` defining required/optional fields and type validators per offering. Wired into `_testValidateJobRequirements()` alongside a new NSFW content filter. Jobs with missing required fields, invalid enum values, wrong types, or NSFW content are now rejected at REQUEST phase with descriptive reasons.
 
 **Rationale:** Rejecting at REQUEST phase (before `job.accept()`) means no payment is processed, no expert is matched, and the buyer agent gets immediate feedback about what's wrong. This matches the Virtuals graduation agent's expectations and prevents wasting expert time on malformed requests. The schema definitions are separate from deliverable schemas (which define output form fields) — input schemas validate what buyers send, output schemas validate what experts submit.
+
+---
+
+### 2026-03-10: Dual-wallet x402 payment in MCP test client
+
+**Context:** The MCP test client page works in free mode (`MCP_FREE_MODE=true`). To test the full 402 challenge → sign → settle payment flow before exposing it to agent networks, we needed wallet-based payment in the GUI. The server already implements x402 verification and settlement.
+
+**Decision:** Added dual wallet support to the dashboard MCP test page: MetaMask/browser wallet (via `window.ethereum`) and private key input. Both produce a viem `WalletClient` with `publicActions` that x402's `createPaymentHeader()` accepts. The payment flow is: initial request → receive 402 with `X-Payment-Requirements` → sign EIP-712 authorization → retry with `X-Payment` header. Private key input is cleared in a `finally` block and errors from `privateKeyToAccount` are sanitized to prevent key material leaking into error messages.
+
+**Rationale:** Browser wallet is the primary path for manual testing. Private key input enables quick scripting/testing without MetaMask. Using `EvmSigner = any` as the type avoids fighting x402's complex generic constraints — acceptable since the signer is created by our own code and immediately consumed by x402. No server changes needed since the server already handles `X-Payment` headers.
+
+---
+
+### 2026-03-11: Create local session BEFORE on-chain acceptance
+
+**Context:** Job 1002895537 got stuck in EVALUATION phase indefinitely. Root cause: the server accepted the job on-chain first, then tried to create a local session — which failed silently. With no local session, payment memos were never signed, and the job could never complete.
+
+**Decision:** Reordered the flow in `acp.ts`: create local session first, then accept on-chain. If session creation fails, reject the job with an error message so the buyer can retry. Also added a recovery path: if a payment memo arrives for a job with no local session, create one on the fly from memo data.
+
+**Rationale:** On-chain acceptance is irreversible — once accepted, we're committed to delivering. Local session creation is a prerequisite for everything downstream (payment signing, expert assignment, delivery). Creating the session first ensures we only accept jobs we can actually handle. The recovery path is defense-in-depth for any edge cases the reorder doesn't catch.
+
+---
+
+### 2026-03-11: AI prefilter default-to-accept with date context
+
+**Context:** Haiku-based AI prefilter caused all 4 remaining graduation failures (29/33 → should be 33/33). False rejections: current dates flagged as "future/test data" (Haiku didn't know today's date), simple code like `sum(a,b)` flagged as "placeholder", picsum.photos URL flagged as "test dummy data".
+
+**Decision:** Relaxed the prefilter prompt: provide `TODAY'S DATE` so Haiku knows what's current, add explicit "DO NOT REJECT" rules for code snippets, real URLs, and current dates, shift overall stance from "reject if any match" to "reject only when highly confident".
+
+**Rationale:** The prefilter's job is to catch obvious garbage (gibberish, harmful content, pure spam) — not to second-guess legitimate but simple requests. False rejections are worse than false accepts because they fail graduation tests and lose real paying customers. The regex-based content filters and schema validation already catch most structured issues; the AI filter is a last-resort semantic check.
