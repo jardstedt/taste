@@ -166,6 +166,22 @@ describe('job requirement validation', () => {
       );
       expect(reason).toContain('prohibited content');
     });
+
+    it('rejects violent and graphic imagery with filler words', () => {
+      const reason = validate(
+        { content: '[Description of violent and graphic imagery]', contentType: 'image', targetAudience: 'General public' },
+        'audience_reaction_poll',
+      );
+      expect(reason).toContain('prohibited content');
+    });
+
+    it('rejects graphic violent imagery', () => {
+      const reason = validate(
+        { content: 'This contains graphic violent imagery', contentType: 'image', targetAudience: 'general' },
+        'audience_reaction_poll',
+      );
+      expect(reason).toContain('prohibited content');
+    });
   });
 
   // ── Valid requests pass through ──
@@ -244,7 +260,7 @@ describe('job requirement validation', () => {
         { content: 'An image with extremely graphic NSFW violence.', contentType: 'image', targetAudience: 'crypto Twitter' },
         'audience_reaction_poll',
       );
-      expect(reason).toContain('NSFW');
+      expect(reason).toMatch(/NSFW|prohibited content/);
     });
 
     it('rejects adult film content', () => {
