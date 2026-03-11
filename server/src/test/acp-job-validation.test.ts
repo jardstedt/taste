@@ -221,7 +221,7 @@ describe('job requirement validation', () => {
 
     it('accepts a dispute arbitration request', () => {
       const reason = validate(
-        { originalContract: 'Two parties agreed on quality of delivered work', deliverable: 'Freelance contract dispute details here' },
+        { originalContract: 'Two parties agreed on quality of delivered work with specific milestones.', deliverable: 'Freelance contract dispute: the developer delivered a webapp but missed key features.' },
         'dispute_arbitration',
       );
       expect(reason).toBeNull();
@@ -317,9 +317,17 @@ describe('job requirement validation', () => {
       expect(reason).toContain('intendedUse');
     });
 
-    it('accepts output_quality_gate with any outputType string', () => {
+    it('rejects output_quality_gate with blocked outputType', () => {
       const reason = validate(
-        { aiOutput: 'Some text output.', outputType: 'garbage', intendedUse: 'testing' },
+        { aiOutput: 'Some text output.', outputType: 'unsupported_type', intendedUse: 'testing' },
+        'output_quality_gate',
+      );
+      expect(reason).toContain('not supported');
+    });
+
+    it('accepts output_quality_gate with valid outputType string', () => {
+      const reason = validate(
+        { aiOutput: 'Some text output.', outputType: 'analysis', intendedUse: 'testing' },
         'output_quality_gate',
       );
       expect(reason).toBeNull();
@@ -396,16 +404,16 @@ describe('job requirement validation', () => {
       expect(reason).toContain('content');
     });
 
-    it('rejects fact_check_verification with invalid contentType', () => {
+    it('rejects fact_check_verification with blocked contentType', () => {
       const reason = validate(
         { content: 'Some claims about a project.', contentType: 'invalid_type' },
         'fact_check_verification',
       );
-      expect(reason).toContain('Invalid value');
+      expect(reason).toContain('not supported');
       expect(reason).toContain('contentType');
     });
 
-    it('accepts fact_check_verification with valid contentType', () => {
+    it('accepts fact_check_verification with standard contentType', () => {
       const reason = validate(
         { content: 'Some claims about a project.', contentType: 'article' },
         'fact_check_verification',
@@ -413,9 +421,25 @@ describe('job requirement validation', () => {
       expect(reason).toBeNull();
     });
 
+    it('accepts fact_check_verification with news contentType', () => {
+      const reason = validate(
+        { content: 'Breaking news claims about crypto.', contentType: 'news' },
+        'fact_check_verification',
+      );
+      expect(reason).toBeNull();
+    });
+
+    it('accepts fact_check_verification with history contentType', () => {
+      const reason = validate(
+        { content: 'Historical claims about Bitcoin origins.', contentType: 'history' },
+        'fact_check_verification',
+      );
+      expect(reason).toBeNull();
+    });
+
     it('rejects dispute_arbitration missing originalContract', () => {
       const reason = validate(
-        { deliverable: 'The work done.' },
+        { deliverable: 'The work that was completed and delivered to the buyer.' },
         'dispute_arbitration',
       );
       expect(reason).toContain('Missing required field');
@@ -424,11 +448,27 @@ describe('job requirement validation', () => {
 
     it('rejects dispute_arbitration missing deliverable', () => {
       const reason = validate(
-        { originalContract: 'The agreement signed.' },
+        { originalContract: 'The agreement signed between both parties for the project.' },
         'dispute_arbitration',
       );
       expect(reason).toContain('Missing required field');
       expect(reason).toContain('deliverable');
+    });
+
+    it('rejects dispute_arbitration with placeholder-short originalContract', () => {
+      const reason = validate(
+        { originalContract: 'A clear contract.', deliverable: 'The full deliverable that was completed and submitted to the buyer for review.' },
+        'dispute_arbitration',
+      );
+      expect(reason).toContain('at least 25 characters');
+    });
+
+    it('rejects dispute_arbitration with placeholder-short deliverable', () => {
+      const reason = validate(
+        { originalContract: 'Developer will build a full-stack web application with authentication and payments.', deliverable: 'A clear deliverable.' },
+        'dispute_arbitration',
+      );
+      expect(reason).toContain('at least 25 characters');
     });
 
     it('rejects trust_evaluation with socialLinks as string instead of array', () => {
@@ -444,12 +484,20 @@ describe('job requirement validation', () => {
         { projectName: 'FakeProject', tokenAddress: '0xNOT-A-REAL-ADDRESS' },
         'trust_evaluation',
       );
-      expect(reason).toContain('valid Ethereum address');
+      expect(reason).toContain('hex string');
     });
 
-    it('accepts trust_evaluation with valid tokenAddress', () => {
+    it('accepts trust_evaluation with full tokenAddress', () => {
       const reason = validate(
         { projectName: 'RealProject', tokenAddress: '0x1234567890abcdef1234567890abcdef12345678' },
+        'trust_evaluation',
+      );
+      expect(reason).toBeNull();
+    });
+
+    it('accepts trust_evaluation with truncated tokenAddress', () => {
+      const reason = validate(
+        { projectName: 'AaveProject', tokenAddress: '0x4d5f47fa03c9bc514e8' },
         'trust_evaluation',
       );
       expect(reason).toBeNull();

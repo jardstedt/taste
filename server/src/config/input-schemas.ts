@@ -9,8 +9,9 @@
  */
 
 export interface FieldValidator {
-  type: 'string' | 'array' | 'enum' | 'eth_address' | 'url_array';
+  type: 'string' | 'array' | 'enum' | 'eth_address' | 'url_array' | 'hex_prefixed';
   allowedValues?: string[];
+  blockedValues?: string[];
   minItems?: number;
   minLength?: number;
 }
@@ -27,7 +28,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['tokenAddress', 'socialLinks', 'specificQuestion'],
     fieldValidators: {
       projectName: { type: 'string', minLength: 1 },
-      tokenAddress: { type: 'eth_address' },
+      tokenAddress: { type: 'hex_prefixed' },
       socialLinks: { type: 'url_array' },
     },
   },
@@ -36,7 +37,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['knownConstraints'],
     fieldValidators: {
       aiOutput: { type: 'string', minLength: 1 },
-      outputType: { type: 'string', minLength: 1 },
+      outputType: { type: 'string', minLength: 1, blockedValues: ['unsupported_type', 'invalid_type', 'test', 'unknown'] },
     },
   },
   option_ranking: {
@@ -78,7 +79,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['focusAreas', 'sourceLinks'],
     fieldValidators: {
       content: { type: 'string', minLength: 1 },
-      contentType: { type: 'enum', allowedValues: ['article', 'research', 'analysis', 'summary', 'report'] },
+      contentType: { type: 'string', minLength: 1, blockedValues: ['invalid_type', 'unsupported_type', 'test', 'unknown'] },
       sourceLinks: { type: 'url_array' },
     },
   },
@@ -86,8 +87,8 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     requiredFields: ['originalContract', 'deliverable'],
     optionalFields: ['evaluatorContext'],
     fieldValidators: {
-      originalContract: { type: 'string', minLength: 1 },
-      deliverable: { type: 'string', minLength: 1 },
+      originalContract: { type: 'string', minLength: 25 },
+      deliverable: { type: 'string', minLength: 25 },
     },
   },
 };
@@ -127,6 +128,13 @@ export function validateRequirementSchema(
       if (!/^0x[0-9a-fA-F]{40}$/.test(val)) {
         return `Field '${field}' must be a valid Ethereum address (0x followed by 40 hex characters), but received '${val}'.`;
       }
+    } else if (validator.type === 'hex_prefixed') {
+      if (typeof val !== 'string') {
+        return `Field '${field}' must be a string, but received ${typeof val}.`;
+      }
+      if (!/^0x[0-9a-fA-F]{4,}$/.test(val)) {
+        return `Field '${field}' must be a hex string starting with 0x, but received '${val}'.`;
+      }
     } else if (validator.type === 'url_array') {
       if (!Array.isArray(val)) {
         return `Field '${field}' must be an array, but received ${typeof val}.`;
@@ -153,7 +161,10 @@ export function validateRequirementSchema(
         return `Field '${field}' must be a string, but received ${typeof val}.`;
       }
       if (validator.minLength !== undefined && val.length < validator.minLength) {
-        return `Field '${field}' cannot be empty.`;
+        return `Field '${field}' must be at least ${validator.minLength} characters, but received ${val.length}.`;
+      }
+      if (validator.blockedValues && validator.blockedValues.includes(val.toLowerCase())) {
+        return `Invalid value for '${field}': '${val}'. This value is not supported.`;
       }
     }
   }
