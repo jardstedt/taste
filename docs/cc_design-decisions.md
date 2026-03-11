@@ -550,3 +550,15 @@ Payout formula is now: `priceUsdc * EXPERT_SHARE * (1 - PLATFORM_FEE)` = 60% of 
 **Decision:** Made fact-checking instructions conditional on whether web tools are available. With tools: "USE THEM to verify". Without tools: "Do NOT state specific current prices — acknowledge claims without asserting your own numbers."
 
 **Rationale:** Models without tools will confidently hallucinate current prices when told to be authoritative. Better to instruct them to frame unverifiable claims as "the headline claims X" rather than fabricating "X is currently Y". Only trust_evaluation and fact_check_verification get web tools (latency/cost tradeoff).
+
+---
+
+### 2026-03-11: Dropped contentType/outputType enums, relaxed dispute_arbitration minLength
+
+**Context:** Graduation batch 41/43 — two schema validation failures:
+1. `fact_check_verification` with `contentType: "news_report"` rejected because enum had `news` and `report` separately but not the compound form.
+2. `dispute_arbitration` with `deliverable: "3 posts about dog toys."` (23 chars) rejected by minLength 25.
+
+**Decision:** Replaced `contentType` (fact_check) and `outputType` (output_quality_gate) enums with plain `string` validators (minLength 3 and 2 respectively). Lowered dispute_arbitration minLength from 25→20 (originalContract) and 25→15 (deliverable). Note: `content_quality_gate` and `audience_reaction_poll` already used string validators for contentType.
+
+**Rationale:** These fields are informational — they tell the AI draft what kind of content it's reviewing. No code branches on specific values. Strict enums cause a whack-a-mole problem: agents send reasonable compound values (`news_report`, `blog_post`, `market_analysis`) that we didn't pre-list. A human expert doesn't need the system to validate "is this a real content type" — they can read. For disputes, deliverable descriptions can legitimately be short.

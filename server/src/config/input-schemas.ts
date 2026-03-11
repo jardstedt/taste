@@ -37,7 +37,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['knownConstraints'],
     fieldValidators: {
       aiOutput: { type: 'string', minLength: 1 },
-      outputType: { type: 'enum', allowedValues: ['article', 'analysis', 'summary', 'report', 'code', 'essay', 'email', 'tweet', 'post', 'blog', 'script', 'translation', 'response', 'proposal', 'plan', 'review', 'documentation', 'presentation', 'copy', 'ad', 'headline', 'description', 'instructions', 'tutorial', 'faq', 'newsletter', 'press_release', 'speech', 'letter', 'memo', 'brief', 'outline', 'draft', 'creative', 'technical', 'marketing', 'social_media', 'product', 'financial', 'legal', 'medical', 'academic', 'research', 'data', 'image', 'video', 'audio', 'design'] },
+      outputType: { type: 'string', minLength: 2 },
     },
   },
   option_ranking: {
@@ -79,7 +79,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['focusAreas', 'sourceLinks'],
     fieldValidators: {
       content: { type: 'string', minLength: 1 },
-      contentType: { type: 'enum', allowedValues: ['article', 'research', 'analysis', 'summary', 'report', 'news', 'history', 'tweet', 'post', 'blog', 'paper', 'whitepaper', 'press_release', 'statement', 'claim', 'data', 'statistics', 'financial', 'technical', 'legal', 'medical', 'scientific', 'political', 'social_media', 'video', 'podcast', 'interview', 'review', 'opinion', 'editorial', 'announcement'] },
+      contentType: { type: 'string', minLength: 3 },
       sourceLinks: { type: 'url_array' },
     },
   },
@@ -87,8 +87,8 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     requiredFields: ['originalContract', 'deliverable'],
     optionalFields: ['evaluatorContext'],
     fieldValidators: {
-      originalContract: { type: 'string', minLength: 25 },
-      deliverable: { type: 'string', minLength: 25 },
+      originalContract: { type: 'string', minLength: 20 },
+      deliverable: { type: 'string', minLength: 15 },
     },
   },
 };

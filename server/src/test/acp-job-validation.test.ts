@@ -356,17 +356,17 @@ describe('job requirement validation', () => {
       expect(reason).toContain('intendedUse');
     });
 
-    it('rejects output_quality_gate with invalid outputType', () => {
+    it('rejects output_quality_gate with too-short outputType', () => {
       const reason = validate(
-        { aiOutput: 'Some text output.', outputType: 'unsupported_type', intendedUse: 'testing' },
+        { aiOutput: 'Some text output.', outputType: 'x', intendedUse: 'testing' },
         'output_quality_gate',
       );
-      expect(reason).toContain('Invalid value');
+      expect(reason).toContain('at least 2 characters');
     });
 
-    it('accepts output_quality_gate with valid outputType string', () => {
+    it('accepts output_quality_gate with any descriptive outputType', () => {
       const reason = validate(
-        { aiOutput: 'Some text output.', outputType: 'analysis', intendedUse: 'testing' },
+        { aiOutput: 'Some text output.', outputType: 'market_analysis', intendedUse: 'testing' },
         'output_quality_gate',
       );
       expect(reason).toBeNull();
@@ -443,43 +443,26 @@ describe('job requirement validation', () => {
       expect(reason).toContain('content');
     });
 
-    it('rejects fact_check_verification with invalid contentType', () => {
+    it('rejects fact_check_verification with too-short contentType', () => {
       const reason = validate(
-        { content: 'Some claims about a project.', contentType: 'invalid_type' },
+        { content: 'Some claims about a project.', contentType: 'ab' },
         'fact_check_verification',
       );
-      expect(reason).toContain('Invalid value');
-      expect(reason).toContain('contentType');
+      expect(reason).toContain('at least 3 characters');
     });
 
-    it('rejects fact_check_verification with non_existent_type', () => {
+    it('accepts fact_check_verification with any descriptive contentType', () => {
       const reason = validate(
-        { content: 'Fact check this.', contentType: 'non_existent_type' },
-        'fact_check_verification',
-      );
-      expect(reason).toContain('Invalid value');
-    });
-
-    it('accepts fact_check_verification with article contentType', () => {
-      const reason = validate(
-        { content: 'Some claims about a project.', contentType: 'article' },
+        { content: 'Some claims about a project.', contentType: 'news_report' },
         'fact_check_verification',
       );
       expect(reason).toBeNull();
     });
 
-    it('accepts fact_check_verification with news contentType', () => {
+    it('accepts dispute_arbitration with short but valid deliverable', () => {
       const reason = validate(
-        { content: 'Breaking news claims about crypto.', contentType: 'news' },
-        'fact_check_verification',
-      );
-      expect(reason).toBeNull();
-    });
-
-    it('accepts fact_check_verification with history contentType', () => {
-      const reason = validate(
-        { content: 'Historical claims about Bitcoin origins.', contentType: 'history' },
-        'fact_check_verification',
+        { originalContract: 'Write 5 social media posts for a pet food brand.', deliverable: '3 posts about dog toys.' },
+        'dispute_arbitration',
       );
       expect(reason).toBeNull();
     });
@@ -507,15 +490,15 @@ describe('job requirement validation', () => {
         { originalContract: 'A clear contract.', deliverable: 'The full deliverable that was completed and submitted to the buyer for review.' },
         'dispute_arbitration',
       );
-      expect(reason).toContain('at least 25 characters');
+      expect(reason).toContain('at least 20 characters');
     });
 
     it('rejects dispute_arbitration with placeholder-short deliverable', () => {
       const reason = validate(
-        { originalContract: 'Developer will build a full-stack web application with authentication and payments.', deliverable: 'A clear deliverable.' },
+        { originalContract: 'Developer will build a full-stack web application with authentication and payments.', deliverable: 'Short deliver.' },
         'dispute_arbitration',
       );
-      expect(reason).toContain('at least 25 characters');
+      expect(reason).toContain('at least 15 characters');
     });
 
     it('rejects trust_evaluation with socialLinks as string instead of array', () => {
