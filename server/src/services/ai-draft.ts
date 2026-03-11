@@ -122,28 +122,40 @@ ${fieldDescriptions}
 
 Respond with ONLY a JSON object. Keys = field keys, values = strings. Numbers as strings (e.g. "7"). List items separated by newlines. Include ALL fields, both required and optional.`;
 
+  // Only use web search/fetch tools for offerings that genuinely need real-time data.
+  // Other offerings work fine with the model's knowledge alone, and tools add latency + cost.
+  const TOOL_OFFERINGS = new Set(['trust_evaluation', 'fact_check_verification']);
+  const useTools = TOOL_OFFERINGS.has(offeringType);
+
   let response: Anthropic.Message;
   try {
     response = await client.messages.create({
-      model: 'claude-opus-4-6',
+      model: 'claude-sonnet-4-6',
       max_tokens: 4096,
-      tools: [
-        { type: 'web_search_20250305', name: 'web_search' },
-        { type: 'web_fetch_20250910', name: 'web_fetch' },
-      ],
+      ...(useTools ? {
+        tools: [
+          { type: 'web_search_20250305' as const, name: 'web_search' },
+          { type: 'web_fetch_20250910' as const, name: 'web_fetch' },
+        ],
+      } : {}),
       messages: [{ role: 'user', content: prompt }],
     });
   } catch (err) {
-    // Fallback: retry without server tools if they're unavailable
-    console.warn('[ai-draft] Server tools failed, retrying without:', (err as Error).message);
-    try {
-      response = await client.messages.create({
-        model: 'claude-opus-4-6',
-        max_tokens: 3000,
-        messages: [{ role: 'user', content: prompt }],
-      });
-    } catch (fallbackErr) {
-      console.error('[ai-draft] Fallback also failed:', (fallbackErr as Error).message);
+    if (useTools) {
+      // Fallback: retry without server tools if they caused the failure
+      console.warn('[ai-draft] Tools request failed, retrying without:', (err as Error).message);
+      try {
+        response = await client.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 4096,
+          messages: [{ role: 'user', content: prompt }],
+        });
+      } catch (fallbackErr) {
+        console.error('[ai-draft] Fallback also failed:', (fallbackErr as Error).message);
+        return null;
+      }
+    } else {
+      console.error('[ai-draft] API call failed:', (err as Error).message);
       return null;
     }
   }
