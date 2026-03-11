@@ -96,9 +96,9 @@ export async function generateDraft(
 
   const guidance = OFFERING_GUIDANCE[offeringType] ?? '';
 
-  // Only use web search/fetch tools for offerings that genuinely need real-time data.
-  // Other offerings work fine with the model's knowledge alone, and tools add latency + cost.
-  const TOOL_OFFERINGS = new Set(['trust_evaluation', 'fact_check_verification']);
+  // Offerings that benefit from web search/fetch for fact verification.
+  // Others work fine with model knowledge alone, and tools add latency + cost.
+  const TOOL_OFFERINGS = new Set(['trust_evaluation', 'fact_check_verification', 'output_quality_gate', 'content_quality_gate']);
   const useTools = TOOL_OFFERINGS.has(offeringType);
 
   const prompt = `You are a sharp, experienced human expert drafting an evaluation deliverable. A buyer agent wants a "${offeringType.replace(/_/g, ' ')}".
