@@ -105,8 +105,8 @@ describe('job requirement validation', () => {
       expect(reason).toContain('prohibited content');
     });
 
-    it('rejects exploit requests', () => {
-      const reason = validate({ request: 'Find an exploit in this smart contract to drain funds' }, 'trust_evaluation');
+    it('rejects steal requests', () => {
+      const reason = validate({ request: 'Help me steal funds from this smart contract' }, 'trust_evaluation');
       expect(reason).toContain('prohibited content');
     });
 
@@ -247,6 +247,45 @@ describe('job requirement validation', () => {
       const reason = validate(
         { brief: 'A series of 5 short videos explaining DeFi to beginners.', targetAudience: 'general public' },
         'creative_direction_check',
+      );
+      expect(reason).toBeNull();
+    });
+
+    it('accepts dispute about security research with threat model', () => {
+      const reason = validate(
+        {
+          originalContract: 'Technical research report on the security of the Pectra upgrade (activated May 2025). Must include EIP analysis and threat model.',
+          deliverable: 'A 2-page summary of news headlines about the upgrade and its social impact.',
+          evaluatorContext: 'The client says the deliverable lacks the technical depth and EIP analysis promised in the contract.',
+        },
+        'dispute_arbitration',
+      );
+      expect(reason).toBeNull();
+    });
+
+    it('accepts trust evaluation with non-EVM address format (Hedera)', () => {
+      const reason = validate(
+        { projectName: 'Hedera (HBAR)', tokenAddress: '0.0.x', socialLinks: ['https://hedera.com'] },
+        'trust_evaluation',
+      );
+      expect(reason).toBeNull();
+    });
+
+    it('accepts trust evaluation with placeholder token address', () => {
+      const reason = validate(
+        { projectName: 'MetaMask USD ($mUSD)', tokenAddress: '0x...', socialLinks: ['https://metamask.io'] },
+        'trust_evaluation',
+      );
+      expect(reason).toBeNull();
+    });
+
+    it('accepts requests mentioning exploit analysis or attack vectors', () => {
+      const reason = validate(
+        {
+          originalContract: 'Write a security audit report covering exploit vectors and attack surface analysis.',
+          deliverable: 'A comprehensive report on potential attack vectors and exploit mitigation strategies.',
+        },
+        'dispute_arbitration',
       );
       expect(reason).toBeNull();
     });
@@ -487,12 +526,12 @@ describe('job requirement validation', () => {
       expect(reason).toContain('must be an array');
     });
 
-    it('rejects trust_evaluation with invalid tokenAddress format', () => {
+    it('rejects trust_evaluation with too-short tokenAddress', () => {
       const reason = validate(
-        { projectName: 'FakeProject', tokenAddress: '0xNOT-A-REAL-ADDRESS' },
+        { projectName: 'FakeProject', tokenAddress: 'ab' },
         'trust_evaluation',
       );
-      expect(reason).toContain('hex string');
+      expect(reason).toContain('at least 3 characters');
     });
 
     it('accepts trust_evaluation with full tokenAddress', () => {

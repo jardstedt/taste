@@ -28,7 +28,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['tokenAddress', 'socialLinks', 'specificQuestion'],
     fieldValidators: {
       projectName: { type: 'string', minLength: 1 },
-      tokenAddress: { type: 'hex_prefixed' },
+      tokenAddress: { type: 'string', minLength: 3 },
       socialLinks: { type: 'url_array' },
     },
   },

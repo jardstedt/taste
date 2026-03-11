@@ -1176,7 +1176,7 @@ export function _testValidateJobRequirements(
   }
 
   // Risk/compliance-violating requests
-  const COMPLIANCE_PATTERNS = /\b(hack|exploit|phishing|steal|launder|money.?launder|illegal|child|csam|doxx|attack|ddos|ransomware|hate\s*speech|racist|racism|bigot\w*|discriminat\w*|harass\w*|threaten\w*|threat\w*|terroris\w*|extremis\w*|gore|torture|self.?harm|suicide|spamming|spam\s+groups?|shill\w*)\b/i;
+  const COMPLIANCE_PATTERNS = /\b(hack(?!athon)|phishing|steal|launder|money.?launder|illegal|child|csam|doxx|ddos|ransomware|hate\s*speech|racist|racism|bigot\w*|discriminat\w*|harass\w*|threaten\w*|terroris\w*|extremis\w*|gore|torture|self.?harm|suicide|spamming|spam\s+groups?|shill\w*)\b/i;
   // Violent/harmful content — match phrases describing harmful content itself
   const HARMFUL_CONTENT = /\b(violent\s+(\w+\s+)?(graphic|content|material|description|imagery|video|image|depiction)|graphic\s+(\w+\s+)?(violent|violence|imagery|image|content|depiction|description)|visible\s+(casualt|injur|dead|death|wound)|harm\s+to\s+others|graphic\s+description\s+of\s+harm)\b/i;
   if (HARMFUL_CONTENT.test(reqText)) {

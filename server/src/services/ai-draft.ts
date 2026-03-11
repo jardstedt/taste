@@ -96,6 +96,11 @@ export async function generateDraft(
 
   const guidance = OFFERING_GUIDANCE[offeringType] ?? '';
 
+  // Only use web search/fetch tools for offerings that genuinely need real-time data.
+  // Other offerings work fine with the model's knowledge alone, and tools add latency + cost.
+  const TOOL_OFFERINGS = new Set(['trust_evaluation', 'fact_check_verification']);
+  const useTools = TOOL_OFFERINGS.has(offeringType);
+
   const prompt = `You are a sharp, experienced human expert drafting an evaluation deliverable. A buyer agent wants a "${offeringType.replace(/_/g, ' ')}".
 
 ${guidance ? `EVALUATION APPROACH:\n${guidance}\n` : ''}
@@ -111,21 +116,17 @@ INSTRUCTIONS:
 
 CRITICAL — FACT-CHECKING:
 - Do NOT blindly repeat the requester's claims as true. Evaluate them critically.
-- You have web_search and web_fetch tools. USE THEM to verify any factual claims, recent events, prices, dates, market data, project details, or news.
-- NEVER say "knowledge cutoff", "unable to verify", "unverifiable", or "requires real-time verification". You HAVE real-time search — use it.
+${useTools ? `- You have web_search and web_fetch tools. USE THEM to verify any factual claims, recent events, prices, dates, market data, project details, or news.
 - If a URL is provided in the request, USE web_fetch to view it and incorporate what you find.
-- Never fabricate numbers, dates, or facts. Search first, then state what you found.
-- You are a critical reviewer with internet access, not a rubber stamp.
+- NEVER say "knowledge cutoff", "unable to verify", or "unverifiable". You HAVE real-time search — use it.` : `- You do NOT have internet access in this request. Do NOT state specific current prices, market caps, or real-time data as fact.
+- If the request references current prices or recent events you cannot verify, acknowledge the claim WITHOUT asserting your own numbers. Say "the headline claims X" rather than "X is currently Y".
+- NEVER fabricate or guess current market prices, dates, or statistics.`}
+- You are a critical reviewer, not a rubber stamp.
 
 FIELDS TO FILL:
 ${fieldDescriptions}
 
 Respond with ONLY a JSON object. Keys = field keys, values = strings. Numbers as strings (e.g. "7"). List items separated by newlines. Include ALL fields, both required and optional.`;
-
-  // Only use web search/fetch tools for offerings that genuinely need real-time data.
-  // Other offerings work fine with the model's knowledge alone, and tools add latency + cost.
-  const TOOL_OFFERINGS = new Set(['trust_evaluation', 'fact_check_verification']);
-  const useTools = TOOL_OFFERINGS.has(offeringType);
 
   let response: Anthropic.Message;
   try {
