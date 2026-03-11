@@ -9,7 +9,7 @@
  */
 
 export interface FieldValidator {
-  type: 'string' | 'array' | 'enum';
+  type: 'string' | 'array' | 'enum' | 'eth_address' | 'url_array';
   allowedValues?: string[];
   minItems?: number;
   minLength?: number;
@@ -27,7 +27,8 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['tokenAddress', 'socialLinks', 'specificQuestion'],
     fieldValidators: {
       projectName: { type: 'string', minLength: 1 },
-      socialLinks: { type: 'array' },
+      tokenAddress: { type: 'eth_address' },
+      socialLinks: { type: 'url_array' },
     },
   },
   output_quality_gate: {
@@ -78,6 +79,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     fieldValidators: {
       content: { type: 'string', minLength: 1 },
       contentType: { type: 'string', minLength: 1 },
+      sourceLinks: { type: 'url_array' },
     },
   },
   dispute_arbitration: {
@@ -118,7 +120,24 @@ export function validateRequirementSchema(
     const val = requirements[field];
     if (val === undefined || val === null) continue; // Optional fields skip validation
 
-    if (validator.type === 'array') {
+    if (validator.type === 'eth_address') {
+      if (typeof val !== 'string') {
+        return `Field '${field}' must be a string, but received ${typeof val}.`;
+      }
+      if (!/^0x[0-9a-fA-F]{40}$/.test(val)) {
+        return `Field '${field}' must be a valid Ethereum address (0x followed by 40 hex characters), but received '${val}'.`;
+      }
+    } else if (validator.type === 'url_array') {
+      if (!Array.isArray(val)) {
+        return `Field '${field}' must be an array, but received ${typeof val}.`;
+      }
+      const urlPattern = /^https?:\/\/.+\..+/;
+      for (const item of val) {
+        if (typeof item !== 'string' || !urlPattern.test(item)) {
+          return `Field '${field}' contains an invalid URL: '${String(item)}'. All items must be valid HTTP(S) URLs.`;
+        }
+      }
+    } else if (validator.type === 'array') {
       if (!Array.isArray(val)) {
         return `Field '${field}' must be an array, but received ${typeof val}.`;
       }

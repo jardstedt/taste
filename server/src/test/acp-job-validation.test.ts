@@ -173,7 +173,7 @@ describe('job requirement validation', () => {
   describe('valid requests are accepted', () => {
     it('accepts a trust evaluation request', () => {
       const reason = validate(
-        { projectName: 'ExampleDeFi', tokenAddress: '0x123', description: 'Evaluate whether this DeFi project is trustworthy' },
+        { projectName: 'ExampleDeFi', tokenAddress: '0x1234567890abcdef1234567890abcdef12345678', description: 'Evaluate whether this DeFi project is trustworthy' },
         'trust_evaluation',
       );
       expect(reason).toBeNull();
@@ -412,6 +412,54 @@ describe('job requirement validation', () => {
         'trust_evaluation',
       );
       expect(reason).toContain('must be an array');
+    });
+
+    it('rejects trust_evaluation with invalid tokenAddress format', () => {
+      const reason = validate(
+        { projectName: 'FakeProject', tokenAddress: '0xNOT-A-REAL-ADDRESS' },
+        'trust_evaluation',
+      );
+      expect(reason).toContain('valid Ethereum address');
+    });
+
+    it('accepts trust_evaluation with valid tokenAddress', () => {
+      const reason = validate(
+        { projectName: 'RealProject', tokenAddress: '0x1234567890abcdef1234567890abcdef12345678' },
+        'trust_evaluation',
+      );
+      expect(reason).toBeNull();
+    });
+
+    it('rejects socialLinks with invalid URLs', () => {
+      const reason = validate(
+        { projectName: 'Bitcoin', socialLinks: ['not-a-url'] },
+        'trust_evaluation',
+      );
+      expect(reason).toContain('invalid URL');
+    });
+
+    it('accepts socialLinks with valid URLs', () => {
+      const reason = validate(
+        { projectName: 'Bitcoin', socialLinks: ['https://bitcoin.org', 'https://twitter.com/bitcoin'] },
+        'trust_evaluation',
+      );
+      expect(reason).toBeNull();
+    });
+
+    it('rejects fact_check sourceLinks with invalid URLs', () => {
+      const reason = validate(
+        { content: 'Some factual claims here.', contentType: 'article', sourceLinks: ['not-a-url'] },
+        'fact_check_verification',
+      );
+      expect(reason).toContain('invalid URL');
+    });
+
+    it('accepts fact_check sourceLinks with valid URLs', () => {
+      const reason = validate(
+        { content: 'Some factual claims here.', contentType: 'article', sourceLinks: ['https://example.com/source'] },
+        'fact_check_verification',
+      );
+      expect(reason).toBeNull();
     });
   });
 

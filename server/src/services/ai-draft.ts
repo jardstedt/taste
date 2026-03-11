@@ -31,13 +31,13 @@ const OFFERING_GUIDANCE: Record<string, string> = {
   trust_evaluation: `You are evaluating whether a project/token/entity is trustworthy.
 - Look for red flags: anonymous teams, unrealistic promises, copied code, fake partnerships, no audit.
 - Look for positive signals: doxxed team, audited contracts, transparent tokenomics, real community.
-- If a URL is provided, evaluate based on what you know about that project. If you don't know it, say so.
+- USE WEB SEARCH to look up the project, its team, recent news, and any red flags. If URLs are provided, USE WEB FETCH to read them.
 - Be skeptical by default. A "legitimate" verdict requires strong evidence.`,
 
   output_quality_gate: `You are reviewing the quality of content or code output.
 - Evaluate: correctness, completeness, clarity, and fitness for purpose.
 - For code: check logic, security, best practices, edge cases.
-- For content: check accuracy, readability, tone, and whether it achieves its stated goal.
+- For content: check accuracy, readability, tone, and whether it achieves its stated goal. USE WEB SEARCH to verify any factual claims in the output.
 - "approved" means ready to ship. "needs_revision" means fixable issues. "rejected" means fundamentally flawed.`,
 
   option_ranking: `You are ranking options and recommending the best choice.
@@ -49,25 +49,28 @@ const OFFERING_GUIDANCE: Record<string, string> = {
 - Check for: offensive language, stereotypes, misinformation, legal risk, tone-deafness.
 - Cultural sensitivity: consider global audience, not just Western norms.
 - Brand safety: would a reputable brand be comfortable associated with this content?
+- If URLs are provided, USE WEB FETCH to view them. If the content mentions specific facts or events, USE WEB SEARCH to verify.
 - "safe" means publish as-is. "needs_changes" means fixable. "do_not_publish" means too risky.`,
 
   audience_reaction_poll: `You are predicting how a target audience would react to content or a proposal.
 - Think from the audience's perspective, not your own.
 - Consider: engagement potential, emotional response, relevance to their interests, clarity of message.
+- If URLs are provided (thumbnails, social media posts, etc.), USE WEB FETCH to view them before evaluating.
 - Criteria scores should cover distinct dimensions (e.g. relevance, clarity, appeal, novelty).
 - Be specific about what works and what doesn't for this particular audience.`,
 
   creative_direction_check: `You are evaluating a creative brief or direction for viability.
 - Consider: originality, market fit, technical feasibility, audience alignment, resource requirements.
+- USE WEB SEARCH for current market conditions, trends, and relevant industry data before evaluating.
 - "proceed" means the direction is sound. "revise" means promising but needs changes. "abandon" means fundamentally flawed.
 - Cultural flags should catch anything that could cause backlash or misunderstanding.
 - Tonal alignment: does the creative direction match what the target audience expects?`,
 
   fact_check_verification: `You are fact-checking claims in content.
 - Identify each specific factual claim and evaluate it independently.
-- For claims you can verify from your training: state whether accurate, inaccurate, or misleading.
-- For claims about recent events, prices, or breaking news: explicitly state these need real-time verification and your knowledge has a cutoff.
-- Count the number of distinct claims you checked. Flag EVERY inaccurate or unverifiable claim.
+- USE WEB SEARCH to verify any claim you are not 100% certain about — especially recent events, prices, dates, acquisitions, and market data.
+- Do NOT dismiss claims as "unverifiable" or cite a "knowledge cutoff" — you have web search. USE IT.
+- Count the number of distinct claims you checked. Flag EVERY inaccurate claim.
 - "high" accuracy = all checkable claims verified. "medium" = some issues. "low" = significant inaccuracies.`,
 
   dispute_arbitration: `You are arbitrating a dispute between a buyer and provider.
@@ -108,9 +111,11 @@ INSTRUCTIONS:
 
 CRITICAL — FACT-CHECKING:
 - Do NOT blindly repeat the requester's claims as true. Evaluate them critically.
-- If you cannot verify a claim (recent events, prices, market data), explicitly say so: "This claim requires real-time verification" or "Unable to confirm — knowledge cutoff applies."
-- Never fabricate numbers, dates, or facts. Say "unverified" rather than guessing.
-- You are a critical reviewer, not a rubber stamp.
+- You have web_search and web_fetch tools. USE THEM to verify any factual claims, recent events, prices, dates, market data, project details, or news.
+- NEVER say "knowledge cutoff", "unable to verify", "unverifiable", or "requires real-time verification". You HAVE real-time search — use it.
+- If a URL is provided in the request, USE web_fetch to view it and incorporate what you find.
+- Never fabricate numbers, dates, or facts. Search first, then state what you found.
+- You are a critical reviewer with internet access, not a rubber stamp.
 
 FIELDS TO FILL:
 ${fieldDescriptions}
@@ -120,6 +125,10 @@ Respond with ONLY a JSON object. Keys = field keys, values = strings. Numbers as
   const response = await client.messages.create({
     model: 'claude-opus-4-6',
     max_tokens: 3000,
+    tools: [
+      { type: 'web_search_20250305', name: 'web_search' },
+      { type: 'web_fetch_20250910', name: 'web_fetch' },
+    ],
     messages: [{ role: 'user', content: prompt }],
   });
 
