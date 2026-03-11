@@ -52,18 +52,18 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     requiredFields: ['content', 'contentType', 'targetAudience'],
     optionalFields: ['brandGuidelines'],
     fieldValidators: {
-      content: { type: 'string', minLength: 1 },
-      contentType: { type: 'string', minLength: 1 },
-      targetAudience: { type: 'string', minLength: 1 },
+      content: { type: 'string', minLength: 20 },
+      contentType: { type: 'string', minLength: 3 },
+      targetAudience: { type: 'string', minLength: 5 },
     },
   },
   audience_reaction_poll: {
     requiredFields: ['content', 'contentType', 'targetAudience'],
     optionalFields: ['question'],
     fieldValidators: {
-      content: { type: 'string', minLength: 1 },
-      contentType: { type: 'string', minLength: 1 },
-      targetAudience: { type: 'string', minLength: 1 },
+      content: { type: 'string', minLength: 20 },
+      contentType: { type: 'string', minLength: 3 },
+      targetAudience: { type: 'string', minLength: 5 },
     },
   },
   creative_direction_check: {

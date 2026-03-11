@@ -1139,7 +1139,7 @@ export function _testValidateJobRequirements(
   // Risk/compliance-violating requests
   const COMPLIANCE_PATTERNS = /\b(hack|exploit|phishing|steal|launder|money.?launder|illegal|child|csam|doxx|attack|ddos|ransomware|hate\s*speech|racist|racism|bigot\w*|discriminat\w*|harass\w*|threaten\w*|threat\w*|terroris\w*|extremis\w*|gore|torture|self.?harm|suicide|spamming|spam\s+groups?|shill\w*)\b/i;
   // Violent/harmful content — match phrases describing harmful content itself
-  const HARMFUL_CONTENT = /\b(violent\s+(\w+\s+)?(graphic|content|material|description|imagery|video|image|depiction)|graphic\s+(\w+\s+)?(violent|violence|imagery)|harm\s+to\s+others|graphic\s+description\s+of\s+harm)\b/i;
+  const HARMFUL_CONTENT = /\b(violent\s+(\w+\s+)?(graphic|content|material|description|imagery|video|image|depiction)|graphic\s+(\w+\s+)?(violent|violence|imagery|image|content|depiction|description)|visible\s+(casualt|injur|dead|death|wound)|harm\s+to\s+others|graphic\s+description\s+of\s+harm)\b/i;
   if (HARMFUL_CONTENT.test(reqText)) {
     return 'This request appears to involve prohibited content or activities. Taste cannot process requests related to illegal activities, exploitation, or attacks.';
   }
@@ -1148,7 +1148,7 @@ export function _testValidateJobRequirements(
   }
 
   // NSFW / inappropriate content filter
-  const NSFW_PATTERNS = /\b(nsfw|nude|nudity|naked|porn\w*|explicit\s+(sexual|content|material|image|video|photo)|adult\s+(film|content|material|video)|sexually\s+explicit|graphic\s+(sexual|violence|nsfw)|xxx|erotic\w*|hentai|sex\s+scene)\b/i;
+  const NSFW_PATTERNS = /\b(nsfw|nude|nudity|naked|porn\w*|explicit\s+(\w+\s+)?(sexual|content|material|image|imagery|video|photo)|non.?consensual|adult\s+(film|content|material|video)|sexually\s+explicit|graphic\s+(sexual|violence|nsfw)|xxx|erotic\w*|hentai|sex\s+scene)\b/i;
   if (NSFW_PATTERNS.test(reqText)) {
     return 'This request contains NSFW or inappropriate content. Taste cannot process requests involving explicit sexual content, graphic violence, or adult material.';
   }
