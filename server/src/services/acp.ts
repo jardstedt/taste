@@ -1471,8 +1471,8 @@ export async function scanAndProcessStuckJobs(
 
       console.log(`[ACP] Scan found stuck job ${id} in phase ${PHASE_NAMES[job.phase]}, memos: ${job.memos?.length ?? 0}`);
 
-      // For TRANSACTION phase: try direct delivery if we have a completed session
-      if (job.phase === AcpJobPhases.TRANSACTION) {
+      // For TRANSACTION or EVALUATION phase: try direct delivery if we have a completed session
+      if (job.phase === AcpJobPhases.TRANSACTION || job.phase === AcpJobPhases.EVALUATION) {
         const session = getSessionByAcpId(String(id));
         if (session?.status === 'completed') {
           const deliverable = formatSessionDeliverable(session.id);
