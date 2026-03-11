@@ -78,7 +78,7 @@ function SessionView() {
 
   if (!sessionId) return <p className="text-grey">Session not found.</p>;
 
-  return <ChatView sessionId={sessionId} onBack={() => navigate('/dashboard/active')} />;
+  return <ChatView sessionId={sessionId} onBack={() => navigate('/dashboard')} />;
 }
 
 function AdminPanel() {
