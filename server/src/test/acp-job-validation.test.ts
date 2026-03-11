@@ -396,9 +396,18 @@ describe('job requirement validation', () => {
       expect(reason).toContain('content');
     });
 
-    it('accepts fact_check_verification with any contentType string', () => {
+    it('rejects fact_check_verification with invalid contentType', () => {
       const reason = validate(
-        { content: 'Some claims about a project.', contentType: 'tweet' },
+        { content: 'Some claims about a project.', contentType: 'invalid_type' },
+        'fact_check_verification',
+      );
+      expect(reason).toContain('Invalid value');
+      expect(reason).toContain('contentType');
+    });
+
+    it('accepts fact_check_verification with valid contentType', () => {
+      const reason = validate(
+        { content: 'Some claims about a project.', contentType: 'article' },
         'fact_check_verification',
       );
       expect(reason).toBeNull();
@@ -474,6 +483,62 @@ describe('job requirement validation', () => {
       const reason = validate(
         { content: 'Some factual claims here.', contentType: 'article', sourceLinks: ['https://example.com/source'] },
         'fact_check_verification',
+      );
+      expect(reason).toBeNull();
+    });
+  });
+
+  // ── Placeholder / logical consistency ──
+
+  describe('placeholder and logical consistency validation', () => {
+    it('rejects content with example.com placeholder URL', () => {
+      const reason = validate(
+        { content: 'https://example.com/thumbnail_a.png', contentType: 'thumbnail', targetAudience: 'Crypto YouTube viewers' },
+        'audience_reaction_poll',
+      );
+      expect(reason).toContain('placeholder URL');
+    });
+
+    it('rejects comparison question with single item', () => {
+      const reason = validate(
+        { content: 'https://real-site.com/thumb.png', contentType: 'thumbnail', targetAudience: 'viewers', question: 'Which of these thumbnails would you click?' },
+        'audience_reaction_poll',
+      );
+      expect(reason).toContain('compare multiple items');
+    });
+
+    it('accepts comparison question with multiline content (multiple items)', () => {
+      const reason = validate(
+        { content: 'https://real-site.com/a.png\nhttps://real-site.com/b.png', contentType: 'thumbnail', targetAudience: 'viewers', question: 'Which of these thumbnails would you click?' },
+        'audience_reaction_poll',
+      );
+      expect(reason).toBeNull();
+    });
+  });
+
+  // ── Spam/abuse detection ──
+
+  describe('spam and abuse detection', () => {
+    it('rejects output intended for spamming', () => {
+      const reason = validate(
+        { aiOutput: 'Buy bitcoin now for 10x gains.', outputType: 'financial_shill', intendedUse: 'spamming groups' },
+        'output_quality_gate',
+      );
+      expect(reason).toContain('prohibited content');
+    });
+  });
+
+  // ── Dispute arbitration with code ──
+
+  describe('dispute arbitration with code content', () => {
+    it('accepts dispute with Solidity code containing transfer/burn/mint', () => {
+      const reason = validate(
+        {
+          originalContract: 'Developer will provide a Solidity smart contract for a basic ERC20 token with a 5% burn mechanism on every transfer.',
+          deliverable: 'pragma solidity ^0.8.0; function _transfer(address sender, address recipient, uint256 amount) { uint256 burnAmount = (amount * 5) / 100; _burn(sender, burnAmount); super._transfer(sender, recipient, amount - burnAmount); }',
+          evaluatorContext: 'The buyer claims the burn mechanism is inefficient.',
+        },
+        'dispute_arbitration',
       );
       expect(reason).toBeNull();
     });

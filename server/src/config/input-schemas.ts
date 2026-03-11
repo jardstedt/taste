@@ -78,7 +78,7 @@ const OFFERING_INPUT_SCHEMAS: Record<string, InputSchema> = {
     optionalFields: ['focusAreas', 'sourceLinks'],
     fieldValidators: {
       content: { type: 'string', minLength: 1 },
-      contentType: { type: 'string', minLength: 1 },
+      contentType: { type: 'enum', allowedValues: ['article', 'research', 'analysis', 'summary', 'report'] },
       sourceLinks: { type: 'url_array' },
     },
   },
@@ -155,6 +155,23 @@ export function validateRequirementSchema(
       if (validator.minLength !== undefined && val.length < validator.minLength) {
         return `Field '${field}' cannot be empty.`;
       }
+    }
+  }
+
+  // Content-as-URL validation: reject placeholder/example domains
+  const content = requirements.content;
+  if (typeof content === 'string' && /^https?:\/\//i.test(content)) {
+    if (/\bexample\.(com|org|net)\b/i.test(content)) {
+      return `Field 'content' contains a placeholder URL (example.com). Please provide a real, accessible URL.`;
+    }
+  }
+
+  // Logical consistency: "which of these" comparison requires multiple items
+  const question = requirements.question;
+  if (typeof question === 'string' && /\b(which|compare|between)\b.*\bthese\b/i.test(question)) {
+    // Check if content is a single URL (not multiple items)
+    if (typeof content === 'string' && /^https?:\/\//i.test(content) && !content.includes('\n')) {
+      return `The question asks to compare multiple items ("${question.slice(0, 60)}..."), but only one item was provided in 'content'. Please provide multiple items for comparison.`;
     }
   }
 

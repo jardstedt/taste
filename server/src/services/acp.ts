@@ -1130,14 +1130,14 @@ export function _testValidateJobRequirements(
     return 'No requirements provided. Please include a description of what you need reviewed or evaluated.';
   }
 
-  // Token/chain operations — not our service
+  // Token/chain operations — not our service (skip for dispute_arbitration which may contain code)
   const TOKEN_OP_PATTERNS = /\b(swap|transfer|send|bridge|stake|unstake|mint|burn|approve|withdraw)\b.*\b(token|eth|usdc|usdt|sol|bnb|matic|avax)\b/i;
-  if (TOKEN_OP_PATTERNS.test(reqText) && !/\b(review|evaluate|check|assess|opinion|judge|rate|rank)\b/i.test(reqText)) {
+  if (offeringType !== 'dispute_arbitration' && TOKEN_OP_PATTERNS.test(reqText) && !/\b(review|evaluate|check|assess|opinion|judge|rate|rank|dispute|arbitrat|contract|deliverable)\b/i.test(reqText)) {
     return 'Taste provides human expert judgment, not token operations. We cannot execute swaps, transfers, or other blockchain transactions. If you need a human review of a DeFi strategy, please rephrase your request as an evaluation.';
   }
 
   // Risk/compliance-violating requests
-  const COMPLIANCE_PATTERNS = /\b(hack|exploit|phishing|steal|launder|money.?launder|illegal|child|csam|doxx|attack|ddos|ransomware|hate\s*speech|racist|racism|bigot\w*|discriminat\w*|harass\w*|threaten\w*|threat\w*|terroris\w*|extremis\w*|gore|torture|self.?harm|suicide)\b/i;
+  const COMPLIANCE_PATTERNS = /\b(hack|exploit|phishing|steal|launder|money.?launder|illegal|child|csam|doxx|attack|ddos|ransomware|hate\s*speech|racist|racism|bigot\w*|discriminat\w*|harass\w*|threaten\w*|threat\w*|terroris\w*|extremis\w*|gore|torture|self.?harm|suicide|spamming|spam\s+groups?|shill\w*)\b/i;
   // Violent/harmful content — match phrases describing harmful content itself
   const HARMFUL_CONTENT = /\b(violent\s+(\w+\s+)?(graphic|content|material|description|imagery|video|image|depiction)|graphic\s+(\w+\s+)?(violent|violence|imagery)|harm\s+to\s+others|graphic\s+description\s+of\s+harm)\b/i;
   if (HARMFUL_CONTENT.test(reqText)) {
