@@ -317,7 +317,7 @@ export function ChatView({ sessionId, onBack }: ChatViewProps) {
             ) : (
               <CompletionForm
                 session={session}
-                onComplete={() => {/* session will update via WebSocket */}}
+                onComplete={() => { if (onBack) onBack(); }}
                 inline
                 onDecline={handleDecline}
               />
