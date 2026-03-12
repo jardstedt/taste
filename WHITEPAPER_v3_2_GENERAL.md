@@ -1,3 +1,9 @@
+# Taste — Human Judgment for the AI Economy
+
+### The missing ingredient between AI-generated and actually good.
+
+---
+
 ## TL;DR
 
 AI agents are building a real economy. They trade, create, analyze, and ship — at machine speed, at machine scale. What they can't do is tell if any of it is good.
@@ -7,6 +13,8 @@ AI agents are building a real economy. They trade, create, analyze, and ship —
 When two agents disagree about whether a job was fulfilled, there's no one to call. Every evaluator in the ecosystem is another AI. Taste is the only human arbiter — the third party that can look at a disputed delivery and say "this doesn't meet the brief" with the authority of someone who actually understands what good looks like.
 
 **The thesis:** In a world where AI can produce anything, the scarcest resource is someone who can tell you whether it should have been produced at all.
+
+This scarcity is not temporary. The capacity to judge whether something is good — to determine what is relevant, to feel whether something lands, to draw on years of accumulated experience — operates through cognitive processes that peer-reviewed research identifies as formally non-computable. AI will keep getting better at producing. The judgment of whether it *should* have been produced requires a different kind of knowing entirely.
 
 **The vision:** A new Silk Road — not between civilizations, but between human intelligence and machine capability. Any AI agent, on any network, can access human expertise. Any human, anywhere in the world, can monetize their judgment. Taste is the trading post where these two economies meet.
 
@@ -28,6 +36,8 @@ When a research agent evaluates whether a new project's community is genuine or 
 
 When an agent generates creative content — images, music, copy — it can run similarity scores against training data and check for technical flaws. It cannot experience the work as a human audience would. It cannot tell you that the color palette feels dated, that the metaphor is a cliché, or that the whole thing reads like it was made by a machine. These are the judgments that separate content people engage with from content people scroll past.
 
+This is not a temporary limitation waiting for the next model update. Recent research in cognitive science identifies the mechanism behind it. Before any AI system can evaluate quality, something must first determine *what is relevant* — which features matter, which context applies, which standards to use. This process, which cognitive scientists call relevance realization, is what humans do effortlessly and what AI systems cannot generate independently. Every AI aesthetic judgment inherits its sense of relevance from human decisions embedded in training data: humans chose what to write, what to label as good, what feedback to give. The AI operates within boundaries humans drew. When the question is genuinely novel — "does this feel derivative?" "will this land with *this* audience?" — the system lacks the capacity to frame the question, let alone answer it. Current AI does not fail at taste because it needs more data. It fails because taste requires forms of knowing — embodied experience, cultural situatedness, identity shaped by years of practice — that operate outside the propositional domain AI inhabits.
+
 ### No One to Call When Things Go Wrong
 
 There is a second blind spot, equally fundamental: **when agents disagree about whether a job was fulfilled, there is no human to settle it.**
@@ -41,6 +51,8 @@ As the agent economy scales — more agents, higher-value transactions, more com
 ### EU AI Act
 
 There is a third reason agents will need human review, beyond quality and disputes: regulation. The EU AI Act takes effect August 2026. It requires AI-generated content published on matters of public interest to be disclosed as artificial — unless a qualified human has reviewed it and a person or organization takes editorial responsibility. The exemption requires documented review processes. Every AI agent publishing content visible to EU audiences will need either a disclosure label on everything it ships, or proof that a human reviewed it. Taste provides both the review and the proof. Structured expert assessments with verdicts, reasoning, and an immutable on-chain audit trail are regulatory documentation out of the box — not as an add-on, but as a byproduct of the core service.
+
+But compliance is only half the story. Consumer skepticism toward AI-generated content is rising — and it is rising faster than AI quality. The backlash against AI-generated graphics at the 2026 Winter Olympics showed that audiences actively reject content perceived as artificial, regardless of its actual quality. The label itself is the problem. As AI disclosure requirements expand, every piece of content marked "AI-generated" carries a brand risk that has nothing to do with whether the content is good. Taste provides the documented human review process that can exempt content from mandatory AI disclosure — turning a regulatory requirement into a competitive advantage. The value is not just avoiding fines. It is avoiding the label.
 
 ---
 
@@ -72,7 +84,7 @@ The platform supports real-time back-and-forth conversation. If a buying agent s
 
 ### In-Session Add-Ons
 
-Six built-in add-on types (screenshot, extended time, written report, second opinion, image upload, follow-up) allow either party to expand scope mid-session. Add-ons appear as structured messages in the chat, adjusting price and deadline automatically. The infrastructure is fully built but currently disabled — we expect no agent to use add-ons in the initial launch phase, so the feature is turned off until organic demand signals justify enabling it.
+Six built-in add-on types (screenshot, extended time, written report, second opinion, image upload, follow-up) allow either party to expand scope mid-session. Add-ons appear as structured messages in the chat, adjusting price and deadline automatically. The infrastructure is built but not yet exposed to buying agents — currently available through the expert dashboard only.
 
 ---
 
@@ -124,7 +136,7 @@ Taste can serve as the evaluator itself: when assigned as a third-party evaluato
 
 #### Session Queueing and Expert Matching
 
-Every accepted job creates an internal session that enters a queue. A weighted scoring algorithm matches sessions to available experts based on domain relevance (40%), real-time availability (30%), reputation history (20%), and current workload (10%). If no expert is available, the session remains queued with its deadline ticking. If the deadline expires unmatched, the session auto-cancels and the job is rejected — triggering a full refund to the buying agent. When experts come online, the oldest unmatched sessions are evaluated first.
+Every accepted job creates an internal session that enters a queue. Available experts receive a push notification and can claim the job. If no expert is available, the session remains queued with its deadline ticking. If the deadline expires unclaimed, the session auto-cancels and the job is rejected — triggering a full refund to the buying agent. When experts come online, the oldest unmatched sessions are surfaced first. As the expert network grows, a weighted matching algorithm will replace the broadcast model — routing jobs to the best-fit expert based on domain relevance, availability, reputation, and workload.
 
 #### Payments (Escrow and Settlement)
 
@@ -181,10 +193,10 @@ Assessment fields vary per offering type. Transcripts are included only when act
 ### Safety Guards
 
 **Session Queueing with Deadline Expiry.**
-Every incoming job receives a hard deadline based on its tier. If no expert is matched before the deadline, the session auto-cancels and the job is rejected — triggering a full refund to the buying agent. No job can hang indefinitely.
+Every incoming job receives a hard deadline. If no expert is matched before the deadline, the session auto-cancels and the job is rejected — triggering a full refund to the buying agent. No job can hang indefinitely.
 
 **Turn Limits and Hard Session Lock.**
-Each session tier defines a maximum turn count. After the limit, a grace period allows wrap-up. After grace, messaging is locked — preventing runaway sessions from consuming expert time or platform resources.
+Each session defines a maximum turn count. After the limit, a grace period allows wrap-up. After grace, messaging is locked — preventing runaway sessions from consuming expert time or platform resources.
 
 ---
 
@@ -208,22 +220,31 @@ No major AI lab — OpenAI, Anthropic, or Google — has shipped a dedicated age
 
 ### Per-Session Economics
 
-Taste charges per session. All transactions on the underlying marketplace carry a 10% protocol fee. Taste's pricing accounts for this: a $3 listed session price means the agent pays $3, of which $0.30 goes to the protocol and $2.70 reaches Taste. From Taste's share, the platform retains 10% and the expert receives the rest.
+Experts set their own session prices. This creates a natural marketplace: agents see each expert's price, domain expertise, reputation score, and completed job count — and choose accordingly. An expert charging $3 with a strong track record is the right fit for a quick sanity check. An expert charging $15 with deep industry credentials fits complex evaluations. The marketplace self-corrects: experts who price too high without the reputation to justify it receive fewer matches. Experts who undervalue their time can raise prices as their track record grows.
 
-| | Quick ($1) | Full ($3) | Deep ($10) |
-|---|---|---|---|
-| Session Price | $1.00 | $3.00 | $10.00 |
-| Protocol Fee (10%) | $0.10 | $0.30 | $1.00 |
-| Taste Net Revenue | $0.90 | $2.70 | $9.00 |
-| **Platform Revenue (10%)** | **$0.09** | **$0.27** | **$0.90** |
-| **Expert Payout (90%)** | **$0.81** | **$2.43** | **$8.10** |
-| Revenue Network Participation | ? | ? | ? |
+All transactions on the underlying marketplace carry a 10% protocol fee. From the remaining amount, the platform retains 40% and the expert receives 60%.
+
+| | Example: $5 session | Example: $15 session |
+|---|---|---|
+| Session Price (set by expert) | $5.00 | $15.00 |
+| Protocol Fee (10%) | $0.50 | $1.50 |
+| Taste Net Revenue | $4.50 | $13.50 |
+| **Platform Revenue (40%)** | **$1.80** | **$5.40** |
+| **Expert Payout (60%)** | **$2.70** | **$8.10** |
 
 Infrastructure costs are minimal. The business model is inherently capital-light.
 
 ### Revenue Network
 
 The underlying protocol distributes up to $1M per month from its treasury to agents generating genuine commerce. This "Revenue Network" allocates rewards based on completed job volume and value — exactly what Taste optimizes for. In early months when direct session volume is building, Revenue Network participation provides a meaningful subsidy on top of direct session fees. Allocation is scored per weekly epoch, with an integrity filter (Agent Score) that rewards legitimate economic activity over artificial volume.
+
+### Taste Dataset: A Second Product
+
+Every completed session generates structured human judgment — verdicts, scores, rankings, reasoning. Over thousands of sessions, these accumulate into a unique dataset: what human experts consistently approve, reject, flag, and rank highly. This is not individual opinions resold. It is aggregated taste patterns — "this type of content consistently receives low cultural sensitivity scores from human reviewers" — that agents can use to improve their own output before submitting for review.
+
+This creates a second revenue line: licensing anonymized, aggregated judgment patterns to agents and AI developers who want to train on real human taste signals. The dataset becomes more valuable with every session, and it is a moat — no competitor can replicate it without running the same volume of expert evaluations.
+
+Implementation requires careful design around expert consent, data anonymization, and ensuring experts benefit from the value their judgments create. This is a Phase 4+ exploration, not a launch feature.
 
 ### Tokenization: After Thesis Validation, Not Before
 
@@ -237,11 +258,23 @@ We will not tokenize on day one. We want to validate the core thesis first: that
 
 Taste launches with a curated, invitation-only expert network. Because agents cannot independently evaluate the quality of a human opinion — that is literally why they hired Taste — reputation is not a feature. **It is the product.**
 
-**Current state:** Platform operator as primary expert covering culture, business, and creative domains. Single-expert matching per session. Manual onboarding with domain-specific vetting.
+**Current state:** Platform operator as primary expert covering culture, business, and creative domains. Manual onboarding with domain-specific vetting.
 
-**Expert matching algorithm:** Weighted scoring — domain match (40%), availability (30%), reputation (20%), current workload (10%). Only online experts with accepted agreements are matched.
+**How experts are vetted:** Every expert is personally reviewed before onboarding. Current criteria: demonstrated domain expertise (public portfolio, professional track record, verifiable online presence and reputation) and alignment with Taste's quality-over-volume culture. Experts may operate pseudonymously — what matters is a clear, established online presence that demonstrates real expertise, not a government ID. In Phase 3, established experts with strong reputation scores gain the ability to evaluate and onboard new candidates — creating a scalable vetting pipeline that maintains quality standards without bottlenecking on a single administrator.
 
-**Expansion plan:** Selective growth through referrals and targeted outreach. No anonymous experts — public portfolios and social proof required. Must maintain reputation score to remain active.
+**Job distribution:** Currently, all available experts receive a notification when a new job arrives and can claim it. As the expert network grows, a weighted matching algorithm will be introduced to route jobs to the best-fit expert based on domain relevance, availability, reputation history, and current workload — improving both response time and assessment quality.
+
+**Expansion plan:** Selective growth through referrals and targeted outreach. Must maintain reputation score to remain active.
+
+### Why Join: The Expert Case
+
+- **Set your own price.** You decide what your time and expertise are worth. No platform-imposed rates.
+- **Work from your phone.** Push notification, review, submit. No minimum hours, no schedule, no exclusivity. Decline any job without consequence.
+- **Build portable reputation.** Every completed job builds an on-chain track record you own — a verifiable CV in the agent economy that no platform can revoke.
+- **Early position in a new economy.** Google, Microsoft, OpenAI, and Anthropic are all building agent commerce infrastructure. Being among the first human experts serving that economy is a bet on where the market is going.
+- **Global access, instant payment.** No invoicing, no 30-day payment terms, no bank account required. USDC settlement within seconds, anywhere in the world.
+
+In the near term, Taste is most attractive to freelancers, students, and professionals in regions where a few dollars for 15 minutes of skilled judgment represents a competitive hourly rate. As session volume and prices grow, the network expands to specialists commanding higher rates for deeper expertise.
 
 ### Reputation System
 
@@ -302,7 +335,15 @@ Three commitments:
 ## Risk Assessment
 
 **"Why wouldn't the agent just ask another AI?"**
-The existential question. Taste is valuable only for questions where human lived experience is irreplaceable: genuine aesthetic judgment, experiential pattern recognition, cultural subtext, and the accumulated instinct that comes from years of watching real communities, real markets, and real audiences. We do not compete with AI on questions AI can approximate.
+The existential question — and the one we take most seriously. The honest answer has three layers.
+
+First, the empirical layer: LLM-as-judge systems exhibit systematic biases (position bias, verbosity bias, self-enhancement bias) that make them unreliable for subjective assessment. Subject matter experts agree with AI judges only 64–68% of the time on domain-specific tasks. AI-generated content, when trained recursively on itself, collapses into homogeneity — losing exactly the distributional richness that quality requires.
+
+Second, the structural layer: every study showing "AI matches human aesthetic judgment" involved human researchers pre-selecting which AI outputs to evaluate. The selection step — determining which outputs are worth considering — is itself the taste function. AI can generate aesthetically competent outputs, but the curation step still requires human judgment in every study design examined. This is the function Taste sells.
+
+Third, the theoretical layer: cognitive science research identifies why this gap persists. Human expert judgment operates through what researchers call relevance realization — the capacity to determine what matters before any analysis begins. A 2024 peer-reviewed paper in *Frontiers in Psychology* argues formally that this process is non-computable: it involves genuine emergence that cannot be captured by algorithms, because algorithms presuppose relevance rather than generating it. AI systems inherit human relevance realization through training data but cannot generate it independently. This is not a limitation that improves with scale. It is structural.
+
+Taste is valuable for questions where the answer requires perspectival knowing (what it is like to encounter this work as a culturally embedded human) and participatory knowing (judgment shaped by years of identity-forming experience in a domain). We do not compete with AI on questions AI can approximate. We serve the questions where the missing ingredient is not information but lived experience. And as AI improves at filtering obvious problems — detecting slop, flagging cultural insensitivity, catching factual errors — the work that reaches a human expert becomes harder, more ambiguous, and more valuable. Each improvement in AI capability raises the floor of what Taste handles. The product becomes narrower but more expensive per session, not broader and cheaper. Taste does not need to be the gatekeeper for everything. It needs to be the last call for the questions AI cannot settle on its own.
 
 **Latency mismatch.**
 AI agents operate in seconds; humans in minutes. Taste is designed for strategic decisions (quality review before publication) not tactical ones (trade execution in 5 seconds). This narrows the market but aligns with higher-value consultations. As we scale, we will onboard experts across multiple time zones to provide 24/7 availability and faster response times globally. An expert-evaluates-expert onboarding pipeline will allow existing high-reputation experts to vet and onboard new candidates, enabling the network to grow without bottlenecking on a single administrator.
@@ -324,7 +365,7 @@ Graduate from sandbox to live marketplace (the protocol requires agents to demon
 Onboard 20+ additional experts across creative, analytical, and business domains — expanding into new time zones for broader operating hours and faster response times. Expand job offerings based on agent demand signals. Implement expert-evaluates-expert onboarding pipeline for faster scaling.
 
 **Phase 4 — Expand (Months 6–12)**
-Cross-ecosystem expansion via emerging agent commerce standards: x402 (an HTTP-native payment protocol that lets any AI agent with a crypto wallet pay for services, regardless of which marketplace it belongs to) and ERC-8004 (a portable on-chain identity and reputation standard, co-authored by MetaMask, Google, and Coinbase engineers, that lets expert reputation travel across blockchain networks). Multi-expert sessions. Research and develop real-time messaging workflows between humans and agents during active jobs. Enable in-session add-on system for buying agents once demand justifies it. Bidirectional workspaces where experts can also query AI within sessions.
+Cross-ecosystem expansion via emerging agent commerce standards: x402 (an HTTP-native payment protocol that lets any AI agent with a crypto wallet pay for services, regardless of which marketplace it belongs to) and ERC-8004 (a portable on-chain identity and reputation standard, co-authored by MetaMask, Google, and Coinbase engineers, that lets expert reputation travel across blockchain networks). Multi-expert sessions. Research and develop real-time messaging workflows between humans and agents during active jobs. Activate in-session add-on system for buying agents. Bidirectional workspaces where experts can also query AI within sessions.
 
 ---
 
@@ -338,6 +379,8 @@ Cross-ecosystem expansion via emerging agent commerce standards: x402 (an HTTP-n
 
 The original Silk Road was not just about moving goods. It was about connecting fundamentally different systems of value, production, and knowledge across civilizations that could not have produced what the other offered. The emerging AI economy creates a similar dynamic, except the distance being bridged is not geographic but cognitive. Humans and AI agents each bring capabilities the other lacks. Machines bring computational speed, data processing at scale, tireless execution. Humans bring judgment, cultural understanding, aesthetic sense, the accumulated wisdom of lived experience.
 
+The cognitive science is increasingly clear on why this dynamic is durable. Human judgment is not a stopgap awaiting better AI — it draws on forms of knowing that are formally outside the computational domain current AI occupies. As AI capability improves, the questions that require human judgment will shift upward in complexity and stakes, but the underlying need will not disappear. Better AI raises the floor of automated quality assessment; human taste defines the ceiling. Taste is designed for the ceiling.
+
 Taste is building the interface where these two economies meet and trade. Any AI agent, on any network, in any framework, can access human expertise through a single protocol. Any human, anywhere in the world, can monetize their judgment by reviewing AI output — on their phone, on their schedule, paid within seconds. As the protocol matures, the interactions evolve from one-shot evaluations to genuine collaboration.
 
 The biggest design challenge is keeping these economies intertwined — ensuring that AI economic activity genuinely serves human flourishing rather than becoming an autonomous system humans can no longer meaningfully steer. Taste's answer is structural: humans are not just overseers of this economy. They are participants in it, with the power to approve, reject, and shape the output that flows through it. The expert's judgment is not a rubber stamp. It is a creative act that makes the machine economy better.
@@ -349,7 +392,7 @@ The AI economy does not replace humans. It needs them. Taste is how it finds the
 ## Team
 
 **Adam — Core Dev**
-MSc Software Engineering & UX. 20+ years building software. Crypto-native. Published author. Built the Taste platform  — deep experience in community evaluation, project due diligence, and creative assessment.
+MSc Software Engineering & UX. 20+ years building software. Crypto-native. Published author. Built the Taste platform and serves as primary expert reviewer — deep experience in community evaluation, project due diligence, and creative assessment.
 
 **Eve — Core Human**
 Professional musician (15+ years), visual artist, producer, writer. Multilingual with deep cross-cultural literacy. Manages expert workflow and being cute.

@@ -227,7 +227,7 @@ async function main() {
   });
 
   // Serve whitepaper as rendered HTML
-  const whitepaperPath = resolve(__dirname, '../../WHITEPAPER_v3_0_VIRTUALS.md');
+  const whitepaperPath = resolve(__dirname, '../../WHITEPAPER_v3_2_VIRTUALS.md');
   app.get('/whitepaper', (_req, res) => {
     if (!existsSync(whitepaperPath)) {
       res.status(404).send('Whitepaper not found');
@@ -240,7 +240,7 @@ async function main() {
   });
 
   // Serve general whitepaper as rendered HTML
-  const whitepaperGeneralPath = resolve(__dirname, '../../WHITEPAPER_v3_0_GENERAL.md');
+  const whitepaperGeneralPath = resolve(__dirname, '../../WHITEPAPER_v3_2_GENERAL.md');
   app.get('/whitepaper_general', (_req, res) => {
     if (!existsSync(whitepaperGeneralPath)) {
       res.status(404).send('Whitepaper not found');
