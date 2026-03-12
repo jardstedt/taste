@@ -16,9 +16,9 @@ import type { Domain } from '../types/index.js';
 /** Operating hours config — all experts are currently in CET timezone */
 const OPERATING_HOURS = {
   timezone: 'Europe/Stockholm',
-  dailyStart: 9,   // 09:00 local
+  dailyStart: 8,   // 08:00 local
   dailyEnd: 23,     // 23:00 local
-  description: 'Experts available 09:00–23:00 CET daily.',
+  description: 'Experts available 08:00–23:00 CET daily.',
 };
 
 interface DomainAvailability {

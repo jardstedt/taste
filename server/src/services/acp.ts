@@ -18,6 +18,7 @@ import {
   getActiveAcpSessions, markPaymentReceived, cancelSessionFromAcp, getStuckAcpSessions,
 } from './sessions.js';
 import { notifyExpert, emitToSession } from './socket.js';
+import { getOperatingHours } from './resource.js';
 import { sendPushToExpert } from './push.js';
 import { validateReferenceCode, redeemReferenceCode } from './referral.js';
 import { validateRequirementSchema } from '../config/input-schemas.js';
@@ -378,6 +379,15 @@ async function handleNewTask(job: AcpJob, memoToSign?: AcpMemo): Promise<void> {
       }
 
       console.log(`[ACP] Offering type: ${offeringType}, requirement keys: ${Object.keys(requirements).join(', ')}`);
+
+      // Operating hours gate — reject jobs when experts are offline
+      const hours = getOperatingHours();
+      if (!hours.currentlyOpen) {
+        const reason = `Our human experts are currently offline. Operating hours: ${hours.schedule} (${hours.timezone}).${hours.nextOpenAt ? ` Next available: ${hours.nextOpenAt}.` : ''} Please resubmit during operating hours.`;
+        console.log(`[ACP] Job ${job.id} rejected: outside operating hours`);
+        await job.reject(reason);
+        return;
+      }
 
       // Validate requirements (disabled offerings, empty input, token ops, compliance)
       const rejectionReason = _testValidateJobRequirements(requirements, offeringType);

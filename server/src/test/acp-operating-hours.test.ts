@@ -25,25 +25,25 @@ describe('operating hours gate', () => {
     vi.useRealTimers();
   });
 
-  it('returns currentlyOpen: true during operating hours (09:00–23:00 CET)', () => {
+  it('returns currentlyOpen: true during operating hours (08:00–23:00 CET)', () => {
     // 2026-03-02 14:00 UTC = 15:00 CET (within operating hours)
     vi.setSystemTime(new Date('2026-03-02T14:00:00Z'));
 
     const hours = getOperatingHours();
     expect(hours.currentlyOpen).toBe(true);
     expect(hours.nextOpenAt).toBeNull();
-    expect(hours.schedule).toContain('09:00');
+    expect(hours.schedule).toContain('08:00');
     expect(hours.schedule).toContain('23:00');
   });
 
   it('returns currentlyOpen: false before opening time', () => {
-    // 2026-03-02 06:00 UTC = 07:00 CET (before 09:00 opening)
+    // 2026-03-02 06:00 UTC = 07:00 CET (before 08:00 opening)
     vi.setSystemTime(new Date('2026-03-02T06:00:00Z'));
 
     const hours = getOperatingHours();
     expect(hours.currentlyOpen).toBe(false);
     expect(hours.nextOpenAt).not.toBeNull();
-    expect(hours.nextOpenAt).toContain('09:00');
+    expect(hours.nextOpenAt).toContain('08:00');
   });
 
   it('returns currentlyOpen: false after closing time', () => {
@@ -53,12 +53,12 @@ describe('operating hours gate', () => {
     const hours = getOperatingHours();
     expect(hours.currentlyOpen).toBe(false);
     expect(hours.nextOpenAt).not.toBeNull();
-    expect(hours.nextOpenAt).toContain('09:00');
+    expect(hours.nextOpenAt).toContain('08:00');
   });
 
-  it('returns currentlyOpen: true at opening boundary (09:00 CET)', () => {
-    // 2026-03-02 08:00 UTC = 09:00 CET (exactly at opening)
-    vi.setSystemTime(new Date('2026-03-02T08:00:00Z'));
+  it('returns currentlyOpen: true at opening boundary (08:00 CET)', () => {
+    // 2026-03-02 07:00 UTC = 08:00 CET (exactly at opening)
+    vi.setSystemTime(new Date('2026-03-02T07:00:00Z'));
 
     const hours = getOperatingHours();
     expect(hours.currentlyOpen).toBe(true);
