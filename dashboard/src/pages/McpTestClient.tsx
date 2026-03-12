@@ -4,7 +4,16 @@ import * as api from '../api/client.js';
 import * as mcp from '../api/mcp.js';
 import type { Session } from '../types/index.js';
 import { formatOffering } from '../utils/format.js';
-import type { RpcResult, McpTool, McpOffering } from '../api/mcp.js';
+import type { RpcResult, McpTool, McpOffering, PaymentStatus } from '../api/mcp.js';
+import {
+  connectBrowserWallet,
+  connectPrivateKey,
+  fetchUsdcBalance,
+  truncateAddress,
+  type WalletNetwork,
+  type EvmSigner,
+  type Address,
+} from '../api/wallet.js';
 
 // ── Sub-components ──
 
@@ -59,7 +68,11 @@ function ToolCard({ tool }: { tool: McpTool }) {
   );
 }
 
-function PaymentChallengeCard({ requirements }: { requirements: mcp.PaymentRequirements }) {
+function PaymentChallengeCard({ requirements, onPayNow, paying }: {
+  requirements: mcp.PaymentRequirements;
+  onPayNow?: () => void;
+  paying?: boolean;
+}) {
   const accept = requirements.accepts[0];
   if (!accept) return null;
   const amountUsdc = parseInt(accept.maxAmountRequired, 10) / 1_000_000;
@@ -68,7 +81,19 @@ function PaymentChallengeCard({ requirements }: { requirements: mcp.PaymentRequi
       background: 'rgba(251, 146, 60, 0.12)', border: '1px solid rgba(251, 146, 60, 0.3)',
       borderRadius: 8, padding: 12, marginTop: 8,
     }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#FB923C', marginBottom: 8 }}>402 — Payment Required</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#FB923C' }}>402 — Payment Required</div>
+        {onPayNow && (
+          <button
+            onClick={onPayNow}
+            disabled={paying}
+            className="btn btn-primary btn-sm"
+            style={{ fontSize: 11 }}
+          >
+            {paying ? 'Paying...' : `Pay $${amountUsdc.toFixed(2)}`}
+          </button>
+        )}
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
         <div><span style={{ color: '#7A7670' }}>Network:</span> <span style={{ color: '#E8E2DA' }}>{accept.network}</span></div>
         <div><span style={{ color: '#7A7670' }}>Amount:</span> <span style={{ color: '#E8E2DA' }}>{amountUsdc} USDC</span></div>
@@ -153,6 +178,16 @@ export function McpTestClient() {
   const [showLog, setShowLog] = useState(true);
   const logIdRef = useRef(0);
 
+  // Wallet
+  const [walletMode, setWalletMode] = useState<'browser' | 'key'>('browser');
+  const [network, setNetwork] = useState<WalletNetwork>('base-sepolia');
+  const [signer, setSigner] = useState<EvmSigner | null>(null);
+  const [walletAddress, setWalletAddress] = useState<Address | null>(null);
+  const [usdcBalance, setUsdcBalance] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [privateKeyInput, setPrivateKeyInput] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('idle');
+
   // Error
   const [error, setError] = useState<string | null>(null);
 
@@ -230,32 +265,124 @@ export function McpTestClient() {
     setLoadingOfferings(false);
   };
 
+  // ── Wallet handlers ──
+
+  const handleConnectWallet = async () => {
+    setConnecting(true);
+    setError(null);
+    try {
+      const result = walletMode === 'browser'
+        ? await connectBrowserWallet(network)
+        : await connectPrivateKey(network, privateKeyInput);
+      setSigner(result.signer);
+      setWalletAddress(result.address);
+      // Fetch balance in background
+      fetchUsdcBalance(network, result.address)
+        .then(setUsdcBalance)
+        .catch(() => setUsdcBalance(null));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Wallet connection failed');
+    } finally {
+      setPrivateKeyInput('');
+    }
+    setConnecting(false);
+  };
+
+  const handleDisconnectWallet = () => {
+    setSigner(null);
+    setWalletAddress(null);
+    setUsdcBalance(null);
+    setPaymentStatus('idle');
+  };
+
   const handleRequestEvaluation = async () => {
     if (!selectedOffering || !description.trim()) return;
     setRequesting(true);
     setError(null);
     setLastPaymentReqs(null);
     setLastSessionId(null);
+    setPaymentStatus('idle');
 
-    const result = await mcp.requestEvaluation(
+    if (signer) {
+      // Paid mode: use requestEvaluationWithPayment
+      const result = await mcp.requestEvaluationWithPayment(
+        selectedOffering,
+        description.trim(),
+        selectedTier || undefined,
+        signer,
+        setPaymentStatus,
+      );
+      appendLog('request_evaluation (paid)', result);
+
+      if (result.data && 'sessionId' in result.data) {
+        setLastSessionId(result.data.sessionId);
+        setPollSessionId(result.data.sessionId);
+        setTimeout(async () => {
+          await loadSessions();
+          setSelectedSessionId(result.data!.sessionId);
+        }, 500);
+        // Refresh balance after payment
+        if (walletAddress) {
+          fetchUsdcBalance(network, walletAddress)
+            .then(setUsdcBalance)
+            .catch(() => {});
+        }
+      } else {
+        setError(result.error ?? 'Payment request failed');
+      }
+    } else {
+      // Free mode
+      const result = await mcp.requestEvaluation(
+        selectedOffering,
+        description.trim(),
+        selectedTier || undefined,
+      );
+      appendLog('request_evaluation', result);
+
+      if (result.httpStatus === 402 && result.paymentRequirements) {
+        setLastPaymentReqs(result.paymentRequirements);
+      } else if (result.data && 'sessionId' in result.data) {
+        setLastSessionId(result.data.sessionId);
+        setPollSessionId(result.data.sessionId);
+        setTimeout(async () => {
+          await loadSessions();
+          setSelectedSessionId(result.data!.sessionId);
+        }, 500);
+      } else {
+        setError(result.error ?? 'Request failed');
+      }
+    }
+    setRequesting(false);
+  };
+
+  const handlePayNow = async () => {
+    if (!signer || !lastPaymentReqs || !selectedOffering || !description.trim()) return;
+    setRequesting(true);
+    setError(null);
+    setPaymentStatus('idle');
+
+    const result = await mcp.requestEvaluationWithPayment(
       selectedOffering,
       description.trim(),
       selectedTier || undefined,
+      signer,
+      setPaymentStatus,
     );
-    appendLog('request_evaluation', result);
+    appendLog('request_evaluation (pay now)', result);
 
-    if (result.httpStatus === 402 && result.paymentRequirements) {
-      setLastPaymentReqs(result.paymentRequirements);
-    } else if (result.data && 'sessionId' in result.data) {
+    if (result.data && 'sessionId' in result.data) {
       setLastSessionId(result.data.sessionId);
+      setLastPaymentReqs(null);
       setPollSessionId(result.data.sessionId);
-      // Delay slightly to let the session appear in the DB, then refresh and auto-select
       setTimeout(async () => {
         await loadSessions();
         setSelectedSessionId(result.data!.sessionId);
       }, 500);
+      if (walletAddress) {
+        fetchUsdcBalance(network, walletAddress).then(setUsdcBalance).catch(() => {});
+      }
     } else {
-      setError(result.error ?? 'Request failed');
+      setError(result.error ?? 'Payment failed');
     }
     setRequesting(false);
   };
@@ -359,6 +486,94 @@ export function McpTestClient() {
             )}
           </div>
 
+          {/* Wallet */}
+          <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 15 }}>Wallet</h3>
+              {walletAddress && (
+                <button onClick={handleDisconnectWallet} className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: '#EF4444' }}>
+                  Disconnect
+                </button>
+              )}
+            </div>
+
+            {walletAddress ? (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <StatusDot ok={true} />
+                  <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: '#E8E2DA' }}>
+                    {truncateAddress(walletAddress)}
+                  </span>
+                  <span style={{ fontSize: 11, color: '#7A7670' }}>({network})</span>
+                </div>
+                {usdcBalance !== null && (
+                  <div style={{ fontSize: 12, color: '#2DD4BF', marginLeft: 20 }}>
+                    {usdcBalance} USDC
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                {/* Network toggle */}
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 12, color: '#7A7670', display: 'block', marginBottom: 4 }}>Network</label>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {(['base-sepolia', 'base'] as const).map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setNetwork(n)}
+                        className={`btn btn-sm ${network === n ? 'btn-secondary' : 'btn-ghost'}`}
+                        style={{ fontSize: 11, flex: 1 }}
+                      >
+                        {n === 'base' ? 'Base' : 'Base Sepolia'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mode tabs */}
+                <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+                  {(['browser', 'key'] as const).map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setWalletMode(m)}
+                      style={{
+                        flex: 1, padding: '4px 8px', fontSize: 11, fontWeight: 600,
+                        background: walletMode === m ? '#2A2A2E' : 'transparent',
+                        color: walletMode === m ? '#E8E2DA' : '#7A7670',
+                        border: '1px solid #2A2A2E', borderRadius: 4, cursor: 'pointer',
+                      }}
+                    >
+                      {m === 'browser' ? 'Browser Wallet' : 'Private Key'}
+                    </button>
+                  ))}
+                </div>
+
+                {walletMode === 'key' && (
+                  <div style={{ marginBottom: 10 }}>
+                    <input
+                      type="password"
+                      value={privateKeyInput}
+                      onChange={e => setPrivateKeyInput(e.target.value)}
+                      placeholder="0x... (hex private key)"
+                      className="input input-full"
+                      style={{ fontSize: 12, fontFamily: 'monospace' }}
+                    />
+                  </div>
+                )}
+
+                <button
+                  onClick={handleConnectWallet}
+                  disabled={connecting || (walletMode === 'key' && !privateKeyInput)}
+                  className="btn btn-secondary"
+                  style={{ width: '100%' }}
+                >
+                  {connecting ? 'Connecting...' : 'Connect'}
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Offerings */}
           <div className="card" style={{ padding: 16, marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -448,10 +663,24 @@ export function McpTestClient() {
               className="btn btn-primary"
               style={{ width: '100%' }}
             >
-              {requesting ? 'Requesting...' : 'Request Evaluation'}
+              {requesting
+                ? (paymentStatus === 'signing' ? 'Signing...'
+                  : paymentStatus === 'submitting' ? 'Submitting...'
+                  : 'Requesting...')
+                : signer
+                  ? `Pay & Request${selectedOffering && offerings.length > 0
+                      ? ` ($${offerings.find(o => o.type === selectedOffering)?.priceUsdc ?? '?'})`
+                      : ''}`
+                  : 'Request Evaluation'}
             </button>
 
-            {lastPaymentReqs && <PaymentChallengeCard requirements={lastPaymentReqs} />}
+            {lastPaymentReqs && (
+              <PaymentChallengeCard
+                requirements={lastPaymentReqs}
+                onPayNow={signer ? handlePayNow : undefined}
+                paying={requesting}
+              />
+            )}
 
             {lastSessionId && (
               <div style={{
